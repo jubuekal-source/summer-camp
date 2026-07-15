@@ -1,1 +1,1 @@
-Küchen Planer App
+Küchen Planer App für Kinder- und Jugendfreizeiten
