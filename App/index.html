@@ -1,0 +1,3246 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#FF6B4A">
+<meta name="color-scheme" content="light dark">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Freizeit App</title>
+<script>
+/* Theme so früh wie möglich setzen (vor dem ersten Rendern), damit es nicht kurz aufblitzt. */
+(function(){
+  try{
+    var raw = localStorage.getItem('fzapp_data');
+    var theme = 'system';
+    if(raw){ var d = JSON.parse(raw); if(d && d.meta && d.meta.theme) theme = d.meta.theme; }
+    var resolved = (theme==='dark'||theme==='light') ? theme :
+      (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+    document.documentElement.setAttribute('data-theme', resolved);
+  }catch(e){}
+})();
+</script>
+<style>
+  /* Theme: dark = Standard, light = optional (Umschalter in Einstellungen).
+     color-scheme explizit gesetzt, damit Handys im System-Dark-Mode die Farben
+     nicht selbst "auto-dark"-verfälschen (z. B. Orange -> dunkles Rot). */
+  :root, [data-theme="dark"]{
+    --bg:#0f1117; --card:#181b24; --card2:#1f2330; --text:#f4f5f7; --muted:#9aa3b2;
+    --line:#2a2f3d; --accent:#FF6B4A; --accent2:#FFB23E; --ok:#34d399;
+    --red:#E5484D; --blue:#3B82F6;
+    --radius:18px; --shadow:0 6px 24px rgba(0,0,0,.35);
+    color-scheme: dark;
+  }
+  [data-theme="light"]{
+    --bg:#f7f4f0; --card:#ffffff; --card2:#f1ece4; --text:#211a12; --muted:#726a5e;
+    --line:#e4dcd0; --accent:#FF6B4A; --accent2:#F59E0B; --ok:#059669;
+    --red:#DC2626; --blue:#2563EB;
+    --radius:18px; --shadow:0 6px 20px rgba(0,0,0,.08);
+    color-scheme: light;
+  }
+  [data-theme="light"] .tile.info-tile{background:linear-gradient(160deg,#f1ece4,#fdeee0);border-color:#e8d9c4}
+  [data-theme="light"] .note{background:#fdecec;border-color:#f3c9c9;color:#7a1f1f}
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:var(--bg); color:var(--text); line-height:1.5;
+    padding-bottom:env(safe-area-inset-bottom);
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:760px;margin:0 auto;padding:0 16px 48px}
+
+  header.top{
+    position:relative; overflow:hidden;
+    background:linear-gradient(135deg,#FF6B4A 0%,#FF8A3D 45%,#FFB23E 100%);
+    padding:22px 20px 26px; border-radius:18px; box-shadow:var(--shadow);
+  }
+  header.top .sun{position:absolute;right:-30px;top:-30px;width:140px;height:140px;border-radius:50%;
+    background:rgba(255,255,255,.18);filter:blur(2px)}
+  header.top h1{margin:0;font-size:1.5rem;font-weight:800;color:#1a1205;letter-spacing:-.3px;padding-right:44px}
+  header.top p{margin:4px 0 0;color:#4a2f10;font-weight:600;font-size:.92rem}
+
+  .gear{position:absolute;top:16px;right:16px;width:38px;height:38px;border-radius:50%;
+    background:rgba(255,255,255,.28);border:none;color:#1a1205;font-size:1.05rem;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;z-index:2}
+  .gear:active{transform:scale(.92)}
+
+  .searchbar{background:var(--bg);padding:10px 0}
+  .searchbar input{
+    width:100%;padding:14px 16px;border-radius:14px;border:1px solid var(--line);
+    background:var(--card);color:var(--text);font-size:1rem;outline:none;
+  }
+  .searchbar input:focus{border-color:var(--accent)}
+
+  .hint{background:var(--card2);border:1px solid var(--line);border-radius:14px;
+    padding:12px 14px;margin:8px 0 4px;font-size:.85rem;color:var(--muted);display:flex;gap:10px;align-items:flex-start}
+  .hint b{color:var(--text)}
+  .hint .x{margin-left:auto;color:var(--muted);background:none;border:none;font-size:1.1rem;cursor:pointer}
+
+  .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:12px}
+  @media(min-width:560px){.grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+  .tile{
+    background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+    padding:16px 14px;cursor:pointer;position:relative;min-height:118px;min-width:0;
+    display:flex;flex-direction:column;gap:8px;transition:transform .08s ease,border-color .15s;
+    text-align:left;color:inherit;font:inherit;
+  }
+  .tile:active{transform:scale(.97)}
+  .tile .emoji{font-size:1.7rem;line-height:1}
+  .tile .t{font-weight:700;font-size:.98rem;letter-spacing:-.2px;display:flex;align-items:center;flex-wrap:wrap;overflow-wrap:break-word;min-width:0}
+  .tile .bar{height:4px;width:34px;border-radius:4px;margin-top:auto}
+  .tile.info-tile{background:linear-gradient(160deg,#1f2330,#241c16);border-color:#3a2f22}
+
+  .tile-sub{font-size:.76rem;color:var(--muted);margin-top:-4px}
+  .tile-badge{margin-left:6px;font-size:.68rem;background:var(--card2);border:1px solid var(--line);
+    padding:1px 7px;border-radius:10px;color:var(--muted);font-weight:600}
+  .tile-badge:empty{display:none}
+
+  .daychips{display:flex;gap:6px;flex-wrap:wrap;margin-top:2px}
+  .daychip{background:var(--card2);border:1px solid var(--line);border-radius:8px;
+    padding:4px 9px;font-size:.76rem;color:var(--muted);font-weight:700}
+
+  .placeholder-card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+    padding:30px 20px;text-align:center;margin-top:16px}
+  .placeholder-card .ph-emoji{font-size:2.2rem;margin-bottom:8px}
+  .placeholder-card .ph-title{font-weight:800;font-size:1.05rem;margin-bottom:6px}
+  .placeholder-card .ph-text{color:var(--muted);font-size:.9rem;max-width:420px;margin:0 auto}
+
+  .settings-block{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+    padding:16px;margin-top:16px;display:flex;flex-direction:column;gap:14px}
+  .settings-block label{font-size:.82rem;color:var(--muted);font-weight:600}
+  .settings-block input, .settings-block select{margin-top:6px;width:100%;padding:12px;border-radius:12px;
+    border:1px solid var(--line);background:var(--card2);color:var(--text);font:inherit;font-size:.95rem;outline:none}
+  .settings-block input:focus, .settings-block select:focus{border-color:var(--accent)}
+  .settings-hint{color:var(--muted);font-size:.82rem;text-align:center;margin-top:14px}
+
+  .detail{display:none}
+  .detail.active{display:block;animation:fade .18s ease}
+  @keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  .backbar{background:var(--bg);padding:12px 0 6px;display:flex;align-items:center;gap:10px}
+  .back{background:var(--card);border:1px solid var(--line);color:var(--text);border-radius:12px;
+    padding:9px 14px;font-size:.95rem;cursor:pointer;font-weight:600;
+    min-height:44px;min-width:44px;display:inline-flex;align-items:center}
+  .back:active{transform:scale(.96)}
+  .dhead{display:flex;gap:12px;align-items:center;margin:8px 0 6px}
+  .dhead .emoji{font-size:2.1rem}
+  .dhead h2{margin:0;font-size:1.35rem;font-weight:800;letter-spacing:-.3px}
+  .who{display:inline-block;margin:2px 0 14px;font-size:.8rem;color:var(--muted);
+    background:var(--card2);border:1px solid var(--line);padding:4px 10px;border-radius:20px}
+  .who.open{color:var(--accent2);border-color:#5a4422}
+  .who:empty{display:none;margin:0;padding:0;border:none}
+
+  .intro{background:var(--card2);border:1px solid var(--line);border-left:4px solid var(--accent);
+    border-radius:12px;padding:12px 14px;margin-bottom:16px;font-size:.92rem;color:var(--text)}
+
+  .sec-h{font-size:.78rem;text-transform:uppercase;letter-spacing:1px;color:var(--muted);
+    font-weight:700;margin:18px 0 8px}
+  .group-h{font-weight:700;margin:14px 0 6px;font-size:.98rem;color:var(--accent2)}
+
+  ul.checks{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+  ul.checks li{
+    background:var(--card);border:1px solid var(--line);border-radius:12px;padding:11px 12px;
+    display:flex;gap:11px;align-items:flex-start;font-size:.93rem
+  }
+  ul.checks li .box{flex:0 0 22px;width:22px;height:22px;border-radius:7px;border:2px solid var(--line);
+    margin-top:1px;display:flex;align-items:center;justify-content:center;font-size:.8rem;transition:.12s}
+  ul.checks li.done .box{background:var(--ok);border-color:var(--ok);color:#06301f}
+  ul.checks li.done span{color:var(--muted);text-decoration:line-through}
+
+  details.det{background:var(--card);border:1px solid var(--line);border-radius:12px;margin-top:8px;overflow:hidden}
+  details.det summary{padding:12px 14px;cursor:pointer;font-weight:600;font-size:.92rem;list-style:none;display:flex;align-items:center;gap:8px}
+  details.det summary::-webkit-details-marker{display:none}
+  details.det summary::before{content:"▸";color:var(--accent2);transition:.15s}
+  details.det[open] summary::before{transform:rotate(90deg)}
+  details.det .body{padding:0 14px 14px}
+  details.det .body ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:7px;font-size:.9rem;color:var(--text)}
+
+  .notes{margin-top:20px}
+  .notes label{font-size:.82rem;color:var(--muted);font-weight:600;display:flex;align-items:center;gap:6px}
+  .notes textarea{width:100%;margin-top:8px;min-height:96px;resize:vertical;padding:12px;border-radius:12px;
+    border:1px solid var(--line);background:var(--card);color:var(--text);font:inherit;font-size:.92rem;outline:none}
+  .notes textarea:focus{border-color:var(--accent)}
+  .saved{font-size:.74rem;color:var(--ok);opacity:0;transition:.3s;margin-left:6px}
+  .saved.show{opacity:1}
+
+  footer{text-align:center;color:var(--muted);font-size:.75rem;margin-top:30px}
+  .noresult{text-align:center;color:var(--muted);padding:30px 0}
+
+  .view{display:none}
+  .view.active{display:block}
+
+  /* NOTFALL */
+  .nf-head{background:linear-gradient(135deg,#E5484D,#B4232A);border-radius:18px;padding:22px 20px;margin:4px 0 0}
+  .nf-head h1{margin:0;font-size:1.5rem;font-weight:800;color:#fff}
+  .nf-head p{margin:6px 0 0;color:#ffe3e3;font-weight:600;font-size:.95rem}
+  .calls{display:flex;gap:10px;margin:14px 0}
+  .call{flex:1;text-decoration:none;text-align:center;border-radius:16px;padding:16px 10px;font-weight:800;
+    display:flex;flex-direction:column;gap:4px;align-items:center;background:var(--card)}
+  .call:active{transform:scale(.98)}
+  .call .num{display:flex;align-items:center;gap:10px;color:var(--text);line-height:1}
+  .call .ico{font-size:1.5rem}
+  .call.big{border:2.5px solid var(--red)}
+  .call.big .num{font-size:1.7rem}
+  .call.sec{flex:0 0 40%;border:2.5px solid var(--blue)}
+  .call.sec .num{font-size:1.5rem}
+  .call small{font-weight:600;font-size:.74rem;color:var(--muted)}
+  .nfcard{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:14px}
+  .nfcard h3{margin:0 0 10px;font-size:.78rem;text-transform:uppercase;letter-spacing:1px;color:var(--muted)}
+  .contact{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line)}
+  .contact:last-child{border-bottom:none}
+  .contact .role{font-size:.95rem;font-weight:600}
+  .contact a{color:var(--accent2);font-weight:700;text-decoration:none;font-size:.95rem;white-space:nowrap}
+  ol.steps{list-style:none;margin:0;padding:0;counter-reset:s;display:flex;flex-direction:column;gap:10px}
+  ol.steps li{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px 12px 46px;position:relative;font-size:.92rem}
+  ol.steps li::before{counter-increment:s;content:counter(s);position:absolute;left:12px;top:12px;width:24px;height:24px;
+    border-radius:50%;background:var(--red);color:#fff;font-weight:800;font-size:.85rem;display:flex;align-items:center;justify-content:center}
+  ol.steps li b{color:var(--text)}
+  .ww{background:var(--card2);border:1px solid var(--line);border-left:4px solid var(--red);border-radius:12px;padding:12px 14px;margin:14px 0}
+  .ww .q{font-weight:700;font-size:.95rem}
+  .ww .sub{color:var(--muted);font-size:.85rem;margin-top:4px}
+  .acc{background:var(--card);border:1px solid var(--line);border-radius:14px;margin-bottom:12px;overflow:hidden}
+  .acc summary{padding:14px;cursor:pointer;font-weight:700;font-size:.95rem;list-style:none;display:flex;align-items:center;gap:8px}
+  .acc summary::-webkit-details-marker{display:none}
+  .acc summary::before{content:"▸";color:var(--red);transition:.15s}
+  .acc[open] summary::before{transform:rotate(90deg)}
+  .acc .body{padding:0 14px 14px;font-size:.9rem;color:var(--text)}
+  .acc .body ul{margin:8px 0 0;padding-left:18px;display:flex;flex-direction:column;gap:8px}
+  .note{background:#221016;border:1px solid #3a1f25;border-radius:10px;padding:10px 12px;font-size:.82rem;color:#f0c9cf;margin-top:8px}
+  .eh-link{display:inline-block;margin-top:10px;color:var(--accent2);font-weight:700;text-decoration:none;font-size:.85rem}
+  .eh-link::before{content:"➜ "}
+
+  /* Hervorgehobener Link-Button, aktuell nur für "Küchenplaner öffnen" (Feedback 17.07.2026) */
+  .kueche-link-btn{display:inline-block;margin-top:10px;padding:10px 18px;border-radius:12px;
+    background:var(--accent);color:#1a1205;font-weight:800;text-decoration:none;font-size:.9rem}
+  .kueche-link-btn:active{transform:scale(.97)}
+
+  /* ZUSTÄNDIGKEITEN */
+  .zust-head{background:linear-gradient(135deg,#FF6B4A,#FF8A3D);border-radius:18px;padding:22px 20px;margin:4px 0 0}
+  .zust-head h1{margin:0;font-size:1.35rem;font-weight:800;color:#1a1205}
+  .zust-head p{margin:6px 0 0;color:#4a2f10;font-weight:600;font-size:.92rem}
+
+  /* ---- MITARBEITENDE / PERSONEN-CHIPS (Stufe 2) ---- */
+  .staff-block{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+    padding:16px;margin-top:16px}
+  .staff-block h3{margin:0 0 12px;font-size:1rem;font-weight:800}
+  .staff-add{display:flex;gap:8px;margin-bottom:14px}
+  .staff-add input{flex:1;padding:12px;border-radius:12px;border:1px solid var(--line);
+    background:var(--card2);color:var(--text);font:inherit;font-size:.95rem;outline:none}
+  .staff-add input:focus{border-color:var(--accent)}
+  .staff-add-btn{flex:0 0 44px;border:none;border-radius:12px;background:var(--accent);
+    color:#1a1205;font-size:1.2rem;font-weight:800;cursor:pointer}
+  .staff-add-btn:active{transform:scale(.94)}
+  .staff-list{display:flex;flex-direction:column;gap:10px}
+  .staff-empty{color:var(--muted);font-size:.9rem}
+
+  /* ---- MA-Karten (Stufe 4) ---- */
+  .ma-swim-btn{border:1px solid var(--line);background:var(--card2);color:var(--muted);
+    border-radius:12px;padding:3px 9px;font:inherit;font-size:.85rem;font-weight:700;cursor:pointer}
+  .ma-swim-btn:active{transform:scale(.94)}
+  .ma-swim-btn.state-ja{color:var(--ok);border-color:var(--ok)}
+  .ma-swim-btn.state-nein{color:var(--red);border-color:var(--red)}
+
+  .schip{display:inline-flex;align-items:center;gap:6px;padding:7px 10px 7px 8px;border-radius:20px;
+    border:1px solid var(--c,var(--line));background:var(--card2);font:inherit;font-size:.88rem;
+    font-weight:600;color:var(--text);cursor:default}
+  button.schip{cursor:pointer}
+  button.schip:active{transform:scale(.96)}
+  .schip-dot{width:10px;height:10px;border-radius:50%;background:var(--c,var(--accent));flex:0 0 10px}
+  .schip-x{margin-left:2px;color:var(--muted);font-size:.78rem}
+  .schip-add{display:inline-flex;align-items:center;padding:7px 12px;border-radius:20px;
+    border:1px dashed var(--line);background:none;color:var(--muted);font:inherit;font-size:.85rem;
+    font-weight:600;cursor:pointer}
+  .schip-add:active{transform:scale(.96)}
+
+  .zust-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:0 0 14px}
+  .zust-label{font-size:.8rem;color:var(--muted);font-weight:700;margin-right:2px}
+
+  /* ---- Zimmer-Karten (Stufe 14, spec/12) ---- */
+  .room-card summary{flex-wrap:wrap}
+  .room-summary-label{font-weight:700}
+  .room-summary-belegt{font-size:.76rem;color:var(--muted);background:var(--card2);
+    padding:2px 8px;border-radius:10px;white-space:nowrap}
+  .room-summary-chips{display:flex;flex-wrap:wrap;gap:4px;flex:1 1 100%;min-width:0}
+  /* Feedback 17.07.2026: bei geöffneter Karte stehen die zuständigen Teamer sonst doppelt da
+     (einmal statisch hier in der Summary, einmal editierbar mit X im Body) — Summary-Chips beim
+     Öffnen ausblenden, die editierbare Chip-Zeile im Body reicht dann. */
+  .room-card[open] .room-summary-chips{display:none}
+  .room-betten-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:12px}
+  .room-betten-row label{font-size:.82rem;color:var(--muted);font-weight:600}
+  .room-betten-row input{width:64px;padding:8px;border-radius:10px;border:1px solid var(--line);
+    background:var(--card2);color:var(--text);font:inherit;font-size:.92rem;outline:none}
+  .room-betten-row input:focus{border-color:var(--accent)}
+  .room-belegt{font-size:.82rem;color:var(--muted)}
+  .room-tn-list{margin-top:8px}
+  .room-card-actions{display:flex;gap:8px;margin-top:14px}
+  .room-card-actions button{flex:1;padding:9px;border-radius:10px;border:1px dashed var(--line);
+    background:none;color:var(--muted);font:inherit;font-weight:600;font-size:.82rem;cursor:pointer}
+  .room-card-actions button:active{transform:scale(.97)}
+
+  .tile-people{display:flex;flex-wrap:wrap;gap:4px 6px;margin-top:-2px}
+  .tile-person{display:inline-flex;align-items:center;gap:4px;font-size:.74rem;color:var(--muted);font-weight:700;
+    max-width:100%;overflow-wrap:break-word}
+  .tile-person .d{width:8px;height:8px;border-radius:50%;flex:0 0 8px}
+
+  /* ---- Sheet / Bottom-Modal (generisch) ---- */
+  .sheet-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:flex-end;
+    justify-content:center;z-index:80;opacity:0;pointer-events:none;transition:opacity .18s}
+  .sheet-overlay.active{opacity:1;pointer-events:auto}
+  .sheet{background:var(--card);width:100%;max-width:520px;border-radius:20px 20px 0 0;
+    padding:18px 16px calc(18px + env(safe-area-inset-bottom));max-height:82vh;overflow:auto;
+    transform:translateY(16px);transition:transform .18s;box-shadow:var(--shadow)}
+  .sheet-overlay.active .sheet{transform:translateY(0)}
+  .sheet-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+  .sheet-head h3{margin:0;font-size:1.05rem;font-weight:800}
+  .sheet-x{border:none;background:var(--card2);color:var(--text);width:32px;height:32px;
+    border-radius:50%;font-size:.95rem;cursor:pointer}
+
+  .menu-list{display:flex;flex-direction:column;gap:8px}
+  .menu-item{text-align:left;padding:13px 14px;border-radius:12px;border:1px solid var(--line);
+    background:var(--card2);color:var(--text);font:inherit;font-size:.95rem;font-weight:600;cursor:pointer}
+  .menu-item.danger{color:var(--red);border-color:var(--red)}
+  .menu-item:active{transform:scale(.98)}
+
+  .picker-list{display:flex;flex-direction:column;gap:6px}
+  .picker-row{display:flex;align-items:center;gap:10px;width:100%;padding:12px;border-radius:12px;
+    border:1px solid var(--line);background:var(--card2);color:var(--text);font:inherit;
+    font-size:.95rem;cursor:pointer;text-align:left}
+  .picker-row.on{border-color:var(--accent);background:rgba(255,107,74,.12)}
+  .picker-row .dot{width:12px;height:12px;border-radius:50%;flex:0 0 12px}
+  .picker-row .pname{flex:1}
+  .picker-row .chk{color:var(--accent);font-weight:800}
+
+  .rename-box{display:flex;gap:8px}
+  .rename-box input{flex:1;padding:12px;border-radius:12px;border:1px solid var(--line);
+    background:var(--card2);color:var(--text);font:inherit;font-size:.95rem;outline:none}
+  .rename-box input:focus{border-color:var(--accent)}
+
+  .color-swatches{display:flex;flex-wrap:wrap;gap:10px}
+  .swatch{width:38px;height:38px;border-radius:50%;border:2px solid var(--line);cursor:pointer}
+  .swatch:active{transform:scale(.9)}
+
+  .confirm-box p{margin:0 0 16px;font-size:.92rem;line-height:1.5}
+  .confirm-actions{display:flex;gap:10px}
+  .staff-cancel{flex:1;padding:12px;border-radius:12px;border:1px solid var(--line);
+    background:var(--card2);color:var(--text);font:inherit;font-weight:700;cursor:pointer}
+  .staff-danger{flex:1;padding:12px;border-radius:12px;border:1px solid var(--red);
+    background:var(--red);color:#fff;font:inherit;font-weight:700;cursor:pointer}
+  .staff-danger:active{transform:scale(.98)}
+
+  /* ---- TN-INFOS (Stufe 3, Layout-Überarbeitung Stufe 13/spec 11) ---- */
+  .tn-head h1{font-size:1.7rem;letter-spacing:-.4px}
+  .tn-counters{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:0;flex:1;min-width:0}
+  @media(min-width:420px){.tn-counters{grid-template-columns:repeat(4,minmax(0,1fr))}}
+  .tn-counter{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
+    padding:10px 6px;min-height:52px;border-radius:14px;
+    border:1px solid var(--line);background:var(--card);color:var(--muted);font:inherit;font-size:.85rem;
+    font-weight:700;cursor:pointer}
+  .tn-counter .n{font-size:.95rem}
+  .tn-counter.has{color:var(--text);border-color:#5a4422;background:var(--card2)}
+  .tn-counter.active{border-color:var(--accent);background:rgba(255,107,74,.16);color:var(--text)}
+  .tn-counter:active{transform:scale(.96)}
+  .tn-info-btn{flex:0 0 38px;height:38px;border:1px solid var(--line);background:var(--card);
+    color:var(--muted);border-radius:50%;font-size:.95rem;cursor:pointer}
+  .tn-info-btn:active{transform:scale(.92)}
+
+  /* Zone B (Ansprechpersonen) — bewusst heller abgesetzt gegen Zone A/C (spec 11 §1) */
+  .tn-zone-b{background:var(--card2);border:1px solid var(--line);border-radius:var(--radius);
+    padding:4px 14px 10px;margin:14px 0 0}
+  .tn-zone-b .sec-h{margin:14px 0 4px}
+  .tn-ansprech{display:flex;flex-direction:column}
+  .tn-ansprech-cat{padding:10px 0}
+  .tn-ansprech-cat + .tn-ansprech-cat{border-top:1px solid var(--line)}
+  .tn-ansprech-cat-h{font-size:.88rem;font-weight:700;margin-bottom:8px;display:flex;align-items:center;gap:6px}
+  .tn-ansprech-cat-list{display:flex;flex-direction:column;align-items:flex-start;gap:6px;margin-bottom:8px}
+  .tn-ansprech-empty{font-size:.82rem;color:var(--muted)}
+
+  .tn-add-btn{width:100%;padding:12px;border-radius:12px;border:1px dashed var(--line);background:none;
+    color:var(--accent2);font:inherit;font-weight:700;cursor:pointer;margin-top:8px}
+  .tn-add-btn:active{transform:scale(.98)}
+
+  .tn-card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px;
+    margin-bottom:10px;cursor:pointer}
+  .tn-card:active{transform:scale(.99)}
+  .tn-card .name{font-weight:800;font-size:.98rem;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .tn-card .flags{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
+  .tn-card .details{color:var(--muted);font-size:.84rem;margin-top:6px}
+  .tn-badge{font-size:.72rem;background:var(--card2);border:1px solid var(--line);color:var(--muted);
+    padding:2px 8px;border-radius:10px;font-weight:700}
+  .tn-badge.warn{color:var(--accent2);border-color:#5a4422}
+  .tn-empty, .medi-empty{color:var(--muted);font-size:.9rem;padding:14px 0;text-align:center}
+
+  .medi-card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px;
+    margin-bottom:8px;cursor:pointer;display:flex;gap:10px;align-items:center}
+  .medi-card .time{font-weight:800;color:var(--accent2);font-size:.95rem;flex:0 0 50px}
+  .medi-card .mid{flex:1;min-width:0}
+  .medi-card .mname{font-weight:700;font-size:.92rem}
+  .medi-card .msub{color:var(--muted);font-size:.8rem;margin-top:2px}
+
+  .toggle-chips{display:flex;flex-wrap:wrap;gap:8px}
+  .toggle-chip{display:inline-flex;align-items:center;gap:6px;padding:8px 12px;border-radius:16px;
+    border:1px solid var(--line);background:var(--card2);color:var(--muted);font:inherit;font-size:.85rem;
+    font-weight:700;cursor:pointer}
+  .toggle-chip.on{border-color:var(--accent);background:rgba(255,107,74,.14);color:var(--text)}
+  .toggle-chip:active{transform:scale(.96)}
+
+  .form-field{margin-top:14px}
+  .form-field label{font-size:.82rem;color:var(--muted);font-weight:700;display:block;margin-bottom:6px}
+  .form-field input, .form-field select, .form-field textarea{width:100%;padding:12px;border-radius:12px;
+    border:1px solid var(--line);background:var(--card2);color:var(--text);font:inherit;font-size:.95rem;outline:none}
+  .form-field textarea{min-height:70px;resize:vertical}
+  .form-field input:focus, .form-field select:focus, .form-field textarea:focus{border-color:var(--accent)}
+  .form-actions{display:flex;gap:10px;margin-top:18px}
+  .form-save{flex:1;padding:13px;border-radius:12px;border:none;background:var(--accent);color:#1a1205;
+    font:inherit;font-weight:800;cursor:pointer;font-size:.95rem}
+  .form-save:active{transform:scale(.98)}
+
+  .legend-list{display:flex;flex-direction:column;gap:12px}
+  .legend-item{display:flex;gap:10px;align-items:flex-start;font-size:.88rem}
+  .legend-item .ic{font-size:1.1rem;flex:0 0 auto}
+
+  /* TEAM */
+  .team-head{background:linear-gradient(135deg,#FFB23E,#F59E0B);border-radius:18px;padding:22px 20px;margin:4px 0 0}
+  .team-head h1{margin:0;font-size:1.3rem;font-weight:800;color:#3a2600}
+  .team-head p{margin:6px 0 0;color:#5a3d05;font-weight:600;font-size:.9rem}
+  .aside{background:var(--card2);border:1px solid var(--line);border-left:4px solid var(--accent2);border-radius:12px;
+    padding:12px 14px;margin:14px 0;font-size:.9rem;color:var(--text)}
+  .valblock{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin-bottom:12px}
+  .valblock h3{margin:0 0 8px;font-size:1.02rem;font-weight:800;color:var(--accent2)}
+  .valblock ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:8px;font-size:.93rem;color:var(--text)}
+  /* Stufe 8: Team editierbar (spec/08_team.md) */
+  .team-edit-toggle{margin-left:auto;background:var(--card);border:1px solid var(--line);color:var(--text);
+    border-radius:12px;padding:9px 14px;font-size:.9rem;cursor:pointer;font-weight:600}
+  .team-edit-toggle:active{transform:scale(.96)}
+  .valblock-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}
+  .valblock-head h3{margin:0}
+  .valblock-actions{display:flex;gap:6px;flex:0 0 auto}
+  .team-icon-btn{background:var(--card2);border:1px solid var(--line);border-radius:8px;width:30px;height:30px;
+    font-size:.85rem;cursor:pointer;display:flex;align-items:center;justify-content:center;flex:0 0 auto}
+  .team-icon-btn:active{transform:scale(.9)}
+  .team-icon-btn.sm{width:26px;height:26px;font-size:.75rem}
+  .team-item-row{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
+  .team-item-text{flex:1}
+  .team-item-actions{display:flex;gap:6px;flex:0 0 auto}
+  .team-add-point{width:100%;margin-top:6px;padding:9px;border-radius:10px;border:1px dashed var(--line);
+    background:transparent;color:var(--accent2);font-weight:700;cursor:pointer;font-size:.85rem}
+  .team-add-point:active{transform:scale(.98)}
+  .team-add-block{width:100%;margin:6px 0 12px;padding:12px;border-radius:12px;border:1px dashed var(--accent2);
+    background:transparent;color:var(--accent2);font-weight:700;cursor:pointer}
+  .team-add-block:active{transform:scale(.98)}
+  .team-textarea-box{align-items:stretch}
+  .team-textarea-box textarea{flex:1;padding:12px;border-radius:12px;border:1px solid var(--line);
+    background:var(--card2);color:var(--text);font-family:inherit;font-size:.95rem;resize:vertical}
+
+  /* ---- WOCHENPLAN (Stufe 6) ---- */
+  button.daychip{cursor:pointer;font:inherit;-webkit-tap-highlight-color:transparent}
+  button.daychip:active{transform:scale(.94)}
+  button.daychip.active{border-color:var(--accent);background:rgba(255,107,74,.16);color:var(--text)}
+  .wp-editor{width:100%;min-height:140px;margin-top:8px;padding:12px;border-radius:12px;
+    border:1px solid var(--line);background:var(--card);color:var(--text);font:inherit;font-size:.92rem;
+    outline:none;white-space:pre-wrap;overflow-wrap:break-word}
+  .wp-editor:focus{border-color:var(--accent)}
+  .wp-editor:empty:before{content:attr(data-placeholder);color:var(--muted)}
+  .wp-editor p{margin:0 0 8px}
+  .wp-editor ul,.wp-editor ol{margin:0 0 8px;padding-left:20px}
+  .wp-images{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+  .wp-thumb{width:84px;height:84px;border-radius:12px;overflow:hidden;border:1px solid var(--line);
+    background:var(--card2);cursor:pointer;position:relative}
+  .wp-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+  .wp-thumb-del{position:absolute;top:3px;right:3px;width:24px;height:24px;border-radius:50%;
+    background:rgba(20,20,20,.72);border:none;color:#fff;font-size:.78rem;cursor:pointer;z-index:2;
+    display:flex;align-items:center;justify-content:center}
+  .wp-thumb-del:active{transform:scale(.9)}
+  .wp-img-overlay{position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:90;
+    opacity:0;pointer-events:none;transition:opacity .18s}
+  .wp-img-overlay.active{opacity:1;pointer-events:auto}
+  .wp-img-overlay .wp-zoom-wrap{width:100%;height:100%;overflow:auto;display:flex;
+    align-items:center;justify-content:center;touch-action:pinch-zoom}
+  .wp-img-overlay img{max-width:none;width:100%;touch-action:pinch-zoom}
+  .wp-img-close{position:fixed;top:calc(16px + env(safe-area-inset-top));right:16px;width:40px;height:40px;
+    border-radius:50%;background:rgba(255,255,255,.16);border:none;color:#fff;font-size:1.1rem;cursor:pointer;z-index:2}
+  .wp-img-del{position:fixed;top:calc(16px + env(safe-area-inset-top));left:16px;padding:8px 14px;border-radius:20px;
+    background:rgba(229,72,77,.85);border:none;color:#fff;font-size:.85rem;font-weight:700;cursor:pointer;z-index:2}
+
+  /* PLATZHALTER-VIEWS: generischer Header */
+  .ph-head{border-radius:18px;padding:22px 20px;margin:4px 0 0}
+  .ph-head h1{margin:0;font-size:1.35rem;font-weight:800;color:#fff}
+  .ph-head p{margin:6px 0 0;color:rgba(255,255,255,.85);font-weight:600;font-size:.9rem}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- VIEW: DASHBOARD (Home) -->
+  <div class="view active" id="view-dashboard">
+    <header class="top"><div class="sun"></div>
+      <button class="gear" onclick="location.hash='einstellungen'" aria-label="Einstellungen">⚙️</button>
+      <h1 id="dashTitle">☀️ Freizeit App</h1>
+      <p id="dashSubtitle" style="display:none"></p>
+    </header>
+
+    <div class="hint" id="hint">
+      <span>💡</span>
+      <span><b>Tipp:</b> Über das Browser-Menü „Zum Startbildschirm hinzufügen" wird daraus eine App. Eure Haken &amp; Notizen bleiben <b>privat &amp; offline</b> nur auf diesem Gerät gespeichert.</span>
+      <button class="x" onclick="document.getElementById('hint').style.display='none'">×</button>
+    </div>
+
+    <div class="grid" id="dashGrid"></div>
+
+    <footer id="dashFooter">Stand: –</footer>
+  </div><!-- /view-dashboard -->
+
+  <!-- VIEW: NOTFALL -->
+  <div class="view" id="view-notfall">
+    <div class="backbar"><button class="back" onclick="location.hash=''">‹ Dashboard</button></div>
+    <header class="nf-head">
+      <h1>🆘 Notfall</h1>
+      <p>Erst sichern → Notruf 112 → melden. Leben geht vor allem anderen.</p>
+    </header>
+
+    <div class="calls">
+      <a class="call big" href="tel:112"><span class="num"><span class="ico">🚑</span>112<span class="ico">🚒</span></span><small>Notruf · Rettung · Feuerwehr</small></a>
+      <a class="call sec" href="tel:110"><span class="num"><span class="ico">🚓</span>110</span><small>Polizei</small></a>
+    </div>
+
+    <div class="nfcard">
+      <h3>☎️ Erreichbarkeit – Leitung</h3>
+      <div class="contact"><span class="role">Marco</span><a href="tel:+4917697318191">📞 0176 9731 8191</a></div>
+      <div class="contact"><span class="role">Simone</span><a href="tel:+4915208967567">📞 01520 89 67 567</a></div>
+    </div>
+
+    <div class="sec-h" style="padding-left:2px">Sofort: die ersten Schritte</div>
+    <ol class="steps">
+      <li><b>Ruhe bewahren.</b> Atme durch, verschaffe dir einen Überblick. Panik überträgt sich auf die Gruppe.</li>
+      <li><b>Gefahrenstelle sichern.</b> Bring dich, die Teilnehmenden und Umstehende aus der Gefahrenzone. Lass dir von anderen Teamern helfen.</li>
+      <li><b>Notruf 112 absetzen – im Zweifel sofort.</b> Früh absetzen oder von einer benannten Person absetzen lassen. Lieber einmal zu viel anrufen. Die Leitstelle entscheidet mit dir, was nötig ist.</li>
+      <li><b>Erste Hilfe leisten</b> – parallel zum Notruf – durch dich oder eine geeignete Person, bis professionelle Hilfe eintrifft. Die verletzte Person nie allein lassen.</li>
+      <li><b>Restgruppe betreuen.</b> Eine andere Teamkraft übernimmt die übrigen Teilnehmenden und bringt sie vom Unfallort weg. Niemand bleibt unbeaufsichtigt.</li>
+      <li><b>Freizeitleitung informieren,</b> sobald die betroffene Person versorgt ist. Die Leitung übernimmt ab jetzt die Kommunikation nach außen (Eltern, Träger, ggf. Presse).</li>
+      <li><b>Mit der Einsatzleitung in Kontakt bleiben.</b> Such die Einsatzkraft des Rettungsdienstes am Ort und bleib ansprechbar – dort laufen alle Infos zusammen.</li>
+    </ol>
+
+    <div class="ww">
+      <div class="q">📞 Notruf richtig absetzen – die 5 W</div>
+      <div class="sub">Was ist passiert? · Wo ist es passiert? · Wie viele Verletzte? · Welche Verletzungen? · Wer meldet?<br>→ Dann auf Rückfragen warten – nicht zuerst auflegen.</div>
+    </div>
+
+    <details class="acc">
+      <summary>🤐 Medien, Fotos &amp; Eltern</summary>
+      <div class="body"><ul>
+        <li>Keine Auskünfte zum Hergang an Presse oder Schaulustige. Freundlich an die Leitung verweisen: „Ich werde gerade an anderer Stelle gebraucht – wenden Sie sich bitte an unsere Leitung.“</li>
+        <li>Privatsphäre der Kinder &amp; des Teams schützen. Darauf achten, dass niemand Fotos oder Videos von Betroffenen macht oder postet.</li>
+        <li>Handys der Teilnehmenden möglichst stummschalten/ausschalten, damit keine ungesicherten Infos nach außen gelangen. Verlässliche Infos kommen ausschließlich über die Leitung.</li>
+        <li>Leitsatz für Elterngespräche (über die Leitung): „Wir haben die Lage im Griff und informieren Sie, sobald wir gesicherte Neuigkeiten haben.“</li>
+        <li>Sehr schlimme Nachrichten (z. B. Todesfall) werden immer durch die Polizei überbracht – niemals durch das Team.</li>
+      </ul></div>
+    </details>
+
+    <details class="acc">
+      <summary>📝 Dokumentation – nachdem alle versorgt sind</summary>
+      <div class="body">Halte den Hergang zeitnah, sachlich und neutral fest (Notizen mit Uhrzeit; Fotos nur von der Unfallstelle/Gefahrenquelle, nicht von verletzten Personen):
+        <ul>
+          <li>Was ist passiert, wie hast du eingegriffen?</li>
+          <li>Wo hast du dich beim Unfall aufgehalten?</li>
+          <li>Welche Sicherheitsvorkehrungen/Anweisungen gab es vorher (z. B. Gefahrenhinweise, Sperrzone)? Wer war dabei und kann das bestätigen?</li>
+        </ul>
+        <div class="note">→ Wichtig für Versicherung &amp; Aufsichtspflicht-Nachweis. Die Freizeitleitung erstellt daraus mit dir ein Unfallprotokoll und nimmt gemeinsam Kontakt zur Versicherung auf.</div>
+      </div>
+    </details>
+    <footer>Im Ernstfall zählt Ruhe. Du bist nicht allein – die Leitung unterstützt dich.</footer>
+  </div><!-- /view-notfall -->
+
+  <!-- VIEW: ZUSTÄNDIGKEITEN -->
+  <div class="view" id="view-zust">
+    <div id="home">
+      <div class="backbar"><button class="back" onclick="location.hash=''">‹ Dashboard</button></div>
+      <header class="zust-head">
+        <h1>📋 Zuständigkeiten</h1>
+        <p>Tippe auf deine Rolle</p>
+      </header>
+
+      <div class="searchbar"><input id="search" type="search" placeholder="🔍 Rolle oder Stichwort suchen …" autocomplete="off"></div>
+
+      <div class="grid" id="grid"></div>
+      <div class="noresult" id="noresult" style="display:none">Nichts gefunden – probier ein anderes Stichwort.</div>
+      <footer>Inhalte werden in Notion gepflegt</footer>
+    </div>
+
+    <div class="detail" id="detail">
+      <div class="backbar"><button class="back" onclick="location.hash=roleBackHash">‹ Zurück</button></div>
+      <div id="detailBody"></div>
+      <footer>Haken &amp; Notizen werden automatisch auf deinem Gerät gespeichert.</footer>
+    </div>
+  </div><!-- /view-zust -->
+
+  <!-- VIEW: TN-INFOS (Stufe 3, Layout Stufe 13/spec 11) -->
+  <div class="view" id="view-tn">
+    <div class="backbar"><button class="back" onclick="location.hash=''">‹ Dashboard</button></div>
+    <header class="ph-head tn-head" style="background:linear-gradient(135deg,#FFB23E,#F59E0B)">
+      <h1>⚠️ TN-Infos &amp; Besonderheiten</h1>
+      <p>Gesundheits- &amp; Sicherheitshinweise zu den Teilnehmenden</p>
+    </header>
+
+    <!-- Zone A: Mini-Dashboard -->
+    <div style="display:flex;align-items:flex-start;gap:8px;margin-top:16px">
+      <div class="tn-counters" id="tnCounters"></div>
+      <button type="button" class="tn-info-btn" onclick="openTnLegend()" aria-label="Legende">ℹ️</button>
+    </div>
+
+    <!-- Suche + TN hinzufügen (spec/10 Punkt 5, hier laut spec/11 §5 direkt nach dem Dashboard) -->
+    <div class="searchbar" style="margin-top:14px"><input id="tnSearch" type="search" placeholder="🔍 Name suchen …" autocomplete="off" oninput="onTnSearch(this.value)"></div>
+    <button type="button" class="tn-add-btn" onclick="openTnSheet()">+ TN hinzufügen</button>
+
+    <!-- Zone B (Ansprechpersonen Zecken/Wunden) entfernt (Feedback 17.07.2026): jeder im Team ist
+         zuständig, eigene Ansprechperson dafür war überflüssig und unübersichtlich. -->
+
+    <!-- Zone C: TN-Liste -->
+    <div class="sec-h">Teilnehmende</div>
+    <div id="tnList"></div>
+
+    <!-- Medi-Plan als Akkordeon, Default zu (spec/11 §4) -->
+    <details class="det" style="margin-top:18px">
+      <summary id="mediSummary">💊 Medikamenten-Plan</summary>
+      <div class="body">
+        <div id="mediList"></div>
+        <button type="button" class="tn-add-btn" onclick="openMediSheet()">+ Medikamenten-Eintrag</button>
+      </div>
+    </details>
+
+    <div class="aside" style="margin-top:22px">🔒 Daten bleiben nur auf diesem Gerät. Details im TN-Ordner.</div>
+  </div><!-- /view-tn -->
+
+  <!-- VIEW: MA-INFOS (Personen-Verwaltung Stufe 2, Badges/Handyregel Stufe 4) -->
+  <div class="view" id="view-ma">
+    <div class="backbar"><button class="back" onclick="location.hash=''">‹ Dashboard</button></div>
+    <header class="ph-head" style="background:linear-gradient(135deg,#F97316,#EA580C)">
+      <h1>🧡 MA-Infos</h1>
+      <p>Rettungsschwimmer, Handyregeln &amp; Personen-Verwaltung</p>
+    </header>
+
+    <div class="tn-counters" id="maCounters" style="margin-top:16px"></div>
+
+    <div class="staff-block" style="margin-top:16px">
+      <h3>👥 Unser Team</h3>
+      <div class="staff-add">
+        <input id="staffNameInput" type="text" placeholder="Name eingeben …" autocomplete="off">
+        <button type="button" class="staff-add-btn" onclick="addStaff()" aria-label="Person hinzufügen">+</button>
+      </div>
+      <div class="staff-list" id="staffList"></div>
+    </div>
+
+    <div class="aside" style="margin-top:22px">🔒 MA-Gesundheitsdaten bleiben nur auf diesem Gerät.</div>
+  </div><!-- /view-ma -->
+
+  <!-- VIEW: ERSTE HILFE (Stufe 7, spec/07) -->
+  <div class="view" id="view-ersthilfe">
+    <div class="backbar"><button class="back" onclick="location.hash=''">‹ Dashboard</button></div>
+    <header class="ph-head" style="background:linear-gradient(135deg,#22D3EE,#0891B2)">
+      <h1>🩹 Erste Hilfe</h1>
+      <p>Wundversorgung &amp; Zecken — Kurz-Nachschlagewerk</p>
+    </header>
+
+    <div class="hint">
+      <span>⚠️</span>
+      <span>Vor JEDER Maßnahme: Einverständnis-Status in <a class="eh-link" style="margin:0" href="#tn">⚠️ TN-Infos</a> prüfen! (🚫🩸 = keine Wundversorgung erlaubt, 🚫🕷️ = Zecken nicht selbst entfernen)</span>
+    </div>
+
+    <div id="ehList"></div>
+
+    <footer>Kein medizinischer Rat, sondern Team-Leitfaden. Im Zweifel: 112 / ärztliche Hilfe &amp; Freizeitleitung + Eltern informieren.</footer>
+  </div><!-- /view-ersthilfe -->
+
+  <!-- VIEW: WOCHENPLAN (Stufe 6) -->
+  <div class="view" id="view-wochenplan">
+    <div class="backbar"><button class="back" onclick="location.hash=''">‹ Dashboard</button></div>
+    <header class="ph-head" style="background:linear-gradient(135deg,#A78BFA,#7C3AED)">
+      <h1>🗓️ Wochenplan</h1>
+      <p>Programm der Woche, direkt aus Notion eingefügt</p>
+    </header>
+
+    <div class="daychips" id="wpDayChips" style="margin-top:16px"></div>
+
+    <div class="hint" style="margin-top:10px">
+      <span>💡</span>
+      <span><b>Tipp:</b> Tagesplan am besten direkt aus Notion kopieren und hier einfügen — Fett &amp; Emojis bleiben erhalten.
+      Aus WhatsApp geht's auch (Sternchen für *fett* werden erkannt), aber Notion ist der bessere Weg.</span>
+    </div>
+
+    <div class="form-field">
+      <label for="wpMotto">📅 Datum / Motto (optional)</label>
+      <input id="wpMotto" type="text" placeholder="z. B. 12.08. – Wasserschlacht-Tag" autocomplete="off">
+    </div>
+
+    <div class="notes" style="margin-top:16px">
+      <label>📋 Tagesplan <span class="saved" id="wpSaved">gespeichert ✓</span></label>
+      <div id="wpEditor" class="wp-editor" contenteditable="true" data-placeholder="Text aus Notion hier einfügen …"></div>
+    </div>
+
+    <div class="wp-images" id="wpImages"></div>
+    <button type="button" class="tn-add-btn" onclick="document.getElementById('wpImageInput').click()">📷 Bild hinzufügen</button>
+    <input type="file" id="wpImageInput" accept="image/*" style="display:none" onchange="wpHandleImageFile(event)">
+
+    <div class="notes" style="margin-top:20px">
+      <label>📝 Notiz für diesen Tag <span class="saved" id="wpNoteSaved">gespeichert ✓</span></label>
+      <textarea id="wpDayNote" placeholder="Private Notiz für diesen Tag …"></textarea>
+    </div>
+  </div><!-- /view-wochenplan -->
+
+  <!-- VIEW: NOTIZEN (privat, sofort nutzbar) -->
+  <div class="view" id="view-notizen">
+    <div class="backbar"><button class="back" onclick="location.hash=''">‹ Dashboard</button></div>
+    <header class="ph-head" style="background:linear-gradient(135deg,#34d399,#0ea5e9)">
+      <h1>📝 Notizen</h1>
+      <p>Privat, nur auf diesem Gerät gespeichert</p>
+    </header>
+    <div class="notes">
+      <label>📌 Allgemein <span class="saved" id="notizenSaved">gespeichert ✓</span></label>
+      <textarea id="notizen_allgemein" placeholder="Allgemeine Notizen, nur auf diesem Gerät, offline &amp; privat …"></textarea>
+    </div>
+    <div class="sec-h" style="margin-top:22px">🗓️ Je Tag (auch für den Wochenplan)</div>
+    <div id="notizenDays"></div>
+  </div><!-- /view-notizen -->
+
+  <!-- VIEW: EINSTELLUNGEN -->
+  <div class="view" id="view-einstellungen">
+    <div class="backbar"><button class="back" onclick="location.hash=''">‹ Dashboard</button></div>
+    <header class="ph-head" style="background:linear-gradient(135deg,#60A5FA,#3B82F6)">
+      <h1>⚙️ Einstellungen</h1>
+      <p>Titel, Zeitraum &amp; Stand anpassen</p>
+    </header>
+    <div class="settings-block">
+      <div>
+        <label for="setTheme">Darstellung</label>
+        <select id="setTheme">
+          <option value="system">Automatisch (Systemeinstellung)</option>
+          <option value="dark">Dunkel</option>
+          <option value="light">Hell</option>
+        </select>
+      </div>
+      <div class="settings-hint" style="text-align:left;margin:0">
+        📱 Falls die Farben trotzdem komisch aussehen (z. B. Orange wird zu dunklem Rot): Manche Samsung-Handys
+        erzwingen einen eigenen Dunkelmodus für Webseiten. Abhilfe: Samsung-Internet-Browser → Menü (☰ unten rechts)
+        → Einstellungen → „Dunkler Modus" → „Dunklen Modus für Web-Inhalte erzwingen" ausschalten.
+      </div>
+      <div>
+        <label for="setTitelZusatz">Titelzusatz (optional)</label>
+        <input id="setTitelZusatz" type="text" placeholder="z. B. Herbstfreizeit">
+      </div>
+      <div>
+        <label for="setZeitraum">Zeitraum</label>
+        <input id="setZeitraum" type="text" placeholder="z. B. 11.–17. August">
+      </div>
+      <div>
+        <label for="setStand">Stand</label>
+        <input id="setStand" type="text" placeholder="z. B. Juli">
+      </div>
+    </div>
+    <div class="settings-block">
+      <div>
+        <label>🛏️ Zimmer verwalten</label>
+        <div class="settings-hint" style="text-align:left;margin:6px 0 10px">
+          Räume, die im TN-Formular auswählbar sind und in Zuständigkeiten (🛏️ Zimmerzuständigkeit)
+          mit Teamern belegt werden können.
+        </div>
+        <div id="raeumeList"></div>
+        <button type="button" class="team-add-point" onclick="raeumeAddRoom()">+ Zimmer</button>
+      </div>
+    </div>
+    <div class="settings-block">
+      <div>
+        <label>🔐 Export</label>
+        <div class="settings-hint" style="text-align:left;margin:6px 0 0">
+          Exportiert alle Daten (Mitarbeitende, TN-Infos, Medikamenten-Plan, Zuständigkeiten, Wochenplan, Team) als Datei.
+        </div>
+        <button type="button" class="form-save" style="width:100%;margin-top:10px" onclick="openExportSheet()">🔒 Verschlüsselt exportieren</button>
+        <button type="button" class="staff-cancel" style="width:100%;margin-top:8px" onclick="openUnencryptedExportConfirm()">Unverschlüsselt exportieren (nur eigenes Backup)</button>
+      </div>
+    </div>
+    <div class="settings-block">
+      <div>
+        <label>📥 Import</label>
+        <div class="settings-hint" style="text-align:left;margin:6px 0 0">
+          Ersetzt den kompletten aktuellen Datenbestand durch die importierte Datei.
+        </div>
+        <button type="button" class="form-save" style="width:100%;margin-top:10px" onclick="document.getElementById('importFileInput').click()">📄 Datei wählen</button>
+        <input type="file" id="importFileInput" accept=".fzx,.json" style="display:none" onchange="handleImportFile(event)">
+        <button type="button" class="staff-cancel" style="width:100%;margin-top:8px" onclick="openImportPasteSheet()">Inhalt einfügen</button>
+      </div>
+    </div>
+    <div class="settings-block">
+      <div>
+        <label>Mitarbeitende</label>
+        <button type="button" class="staff-danger" style="width:100%;margin-top:6px" onclick="confirmDeleteAllStaff()">🗑️ Alle Mitarbeitenden löschen</button>
+      </div>
+    </div>
+    <div class="settings-block">
+      <div>
+        <label>⚠️ Alle Daten</label>
+        <button type="button" class="staff-danger" style="width:100%;margin-top:6px" onclick="confirmResetAll()">🗑️ Gesamten App-Inhalt zurücksetzen</button>
+      </div>
+    </div>
+  </div><!-- /view-einstellungen -->
+
+  <!-- VIEW: TEAM (Stufe 8: editierbar, siehe spec/08_team.md) -->
+  <div class="view" id="view-team">
+    <div class="backbar">
+      <button class="back" onclick="location.hash=''">‹ Dashboard</button>
+      <button type="button" class="team-edit-toggle" id="teamEditToggle" onclick="toggleTeamEdit()">✏️ Bearbeiten</button>
+    </div>
+    <header class="team-head">
+      <h1>🏆 Unsere Wünsche &amp; Erwartungen an uns</h1>
+      <p>Wie wir als Team miteinander arbeiten wollen.</p>
+    </header>
+
+    <div class="aside">💁🏽‍♂️ Diese Liste ist ein Anfang – ergänzt sie gerne und schreibt eure Hinweise für alle ins Kommentar-Feld (in Notion)!</div>
+
+    <div id="teamBlocks"></div>
+
+    <footer>Gemeinsam machen wir die Freizeit stark. 💪</footer>
+  </div><!-- /view-team -->
+
+</div>
+
+<script>
+/* ============ Datenmodell (spec/01_architektur.md) ============ */
+const LS_PREFIX = 'fzapp_';
+const LS_OLD_PREFIX = 'sf2026_';
+const DATA_KEY = LS_PREFIX + 'data';
+
+function uid(){ return 'id_' + Date.now().toString(36) + Math.random().toString(36).slice(2,8); }
+
+// Stufe 8 (spec/08_team.md): Ausgangsinhalte der alten statischen Team-Seite, als Erst-Start-Seed
+// fürs neue `team`-Datenmodell. Wird sowohl für defaultData() (ganz neue Installation) als auch
+// als Fallback in normalizeData() genutzt (Bestandsnutzer, deren `team` noch leer/unbenutzt ist).
+function teamDefaultSeed(){
+  return [
+    { id: uid(), titel: '🏆 Wir sind ein Team und halten zusammen', items: [
+      { id: uid(), text: 'Wir ziehen an einem Strang und unterstützen uns gegenseitig, wo wir können – auch bei Aufgaben, die weniger Spaß machen.' },
+      { id: uid(), text: 'Wir stärken Autoritäten den Rücken, statt sie zu untergraben.' }
+    ]},
+    { id: uid(), titel: '🏆 Wir nehmen unsere Vorbildrolle ernst', items: [
+      { id: uid(), text: 'Wir halten uns an die eigenen Regeln: Wenn die Tagesleitung spricht, sind wir leise und sorgen mit dafür, dass alle zuhören.' },
+      { id: uid(), text: 'Wir leben einen wertschätzenden Umgang vor – im Team und mit den Teilnehmenden.' }
+    ]},
+    { id: uid(), titel: '🏆 Wir geben Vollgas', items: [
+      { id: uid(), text: 'In Planungs- und Vorbereitungstreffen sind wir konzentriert und zielstrebig.' },
+      { id: uid(), text: 'Wir kommen vorbereitet und erledigen unsere Aufgaben zuverlässig und fristgerecht.' }
+    ]},
+    { id: uid(), titel: '🏆 Wir sind ehrlich und offen', items: [
+      { id: uid(), text: 'Wir geben uns gegenseitig ehrliches, direktes und konstruktives Feedback.' },
+      { id: uid(), text: 'Konflikte sprechen wir so früh wie möglich persönlich und wertschätzend mit der betroffenen Person an – nur was das ganze Team betrifft, kommt in die Teamer-Runde (niemand wird bloßgestellt).' },
+      { id: uid(), text: 'Wir reden nie schlecht über jemanden hinter dessen Rücken.' }
+    ]}
+  ];
+}
+
+function defaultData(){
+  return {
+    schemaVersion: 1,
+    meta: { titelZusatz:"", zeitraum:"", stand:"", theme:"system", handyregelTeam:"", raeume:[], betten:{} },
+    staff: [],
+    tn: [],
+    medis: [],
+    zust: {},
+    ansprech: { zecken:[], wunden:[] },
+    wochenplan: {
+      mo:{html:"",imgIds:[],datum:""}, di:{html:"",imgIds:[],datum:""}, mi:{html:"",imgIds:[],datum:""}, do:{html:"",imgIds:[],datum:""},
+      fr:{html:"",imgIds:[],datum:""}, sa:{html:"",imgIds:[],datum:""}, so:{html:"",imgIds:[],datum:""}
+    },
+    team: teamDefaultSeed()
+  };
+}
+
+// Fehlende Felder auffüllen + Migrationen anwenden (Datenmodell kann sich zwischen Stufen erweitern).
+// Wird sowohl von getData() (localStorage) als auch vom Import (Stufe 5) verwendet, damit beide
+// Wege exakt dieselbe Migrationslogik durchlaufen.
+function normalizeData(raw){
+  const def = defaultData();
+  const merged = Object.assign({}, def, raw, { meta: Object.assign({}, def.meta, raw.meta||{}) });
+  // Migration (Stufe 11): Zimmer-Liste muss immer ein Array sein (Bestandsdaten hatten das Feld noch nicht).
+  if(!Array.isArray(merged.meta.raeume)) merged.meta.raeume = [];
+  // Migration (Stufe 14, spec/12): Bettenzahl je Zimmer als paralleles Map-Objekt { label: n }.
+  // Fehlender Eintrag = Default (siehe raumBetten()), kein Zwang zur Migration alter Bestände nötig.
+  if(!merged.meta.betten || typeof merged.meta.betten !== 'object' || Array.isArray(merged.meta.betten)) merged.meta.betten = {};
+  // Migration (nachträgliche Vereinfachung nach Stufe 3): Ansprechperson Zecken/Wunden von
+  // Einzel-ID auf Mehrfachauswahl (Array) umgestellt; Mitfahrt/TN-Infos gesamt entfallen.
+  // Migration (Stufe 11): Ansprechperson Medikamenten-Plan (`ansprech.medis`) entfällt ersatzlos —
+  // ersetzt durch die automatische Zimmerzuständigen-Anzeige im Medi-Plan (siehe spec/09).
+  const a = Object.assign({}, def.ansprech, raw.ansprech||{});
+  ['zecken','wunden'].forEach(k=>{
+    if(a[k] && !Array.isArray(a[k])) a[k] = [a[k]];
+    if(!Array.isArray(a[k])) a[k] = [];
+  });
+  delete a.mitfahrt;
+  delete a.tn_infos;
+  delete a.medis;
+  merged.ansprech = a;
+  // Migration (Stufe 6): jeder Wochentag bekommt garantiert html/imgIds/datum, auch bei
+  // Alt-Daten aus Stufe 1-5 (dort existierte wochenplan schon leer, aber ohne "datum").
+  const wp = Object.assign({}, def.wochenplan, raw.wochenplan||{});
+  ['mo','di','mi','do','fr','sa','so'].forEach(k=>{
+    const day = wp[k] || {};
+    wp[k] = { html: day.html || "", imgIds: Array.isArray(day.imgIds) ? day.imgIds : [], datum: day.datum || "" };
+  });
+  merged.wochenplan = wp;
+  // Migration (Stufe 8): Bestandsnutzer hatten `team` bislang nur als leeres Platzhalter-Array
+  // (die Team-Seite war statisches HTML). Ist `team` leer/nicht vorhanden, einmalig mit den alten
+  // statischen Inhalten befüllen (spec/08 "Bestehende Inhalte beim ersten Start EINMALIG übernehmen").
+  // Bekannte Einschränkung (bewusst, siehe STAND.md "Offene Punkte"): löscht ein Team später ALLE
+  // Blöcke bis auf null, würde ein künftiger Reload die Standard-Inhalte erneut einsetzen — akzeptiert,
+  // da laut spec/08 "bewusst simpel" und das Löschen aller vier Blöcke ein sehr unwahrscheinlicher Fall ist.
+  if(!Array.isArray(merged.team) || merged.team.length === 0){
+    merged.team = teamDefaultSeed();
+  }
+  // Migration (Feedback 17.07.2026): TN-Flag "handy_abgabe" (nur ein Zeitpunkt) durch zwei
+  // Optionen ersetzt (zur Bettruhe / 1h später) — Bestandsflag konservativ auf die frühere
+  // Variante gemappt, damit keine Info verloren geht.
+  if(Array.isArray(merged.tn)){
+    merged.tn.forEach(t=>{
+      if(Array.isArray(t.flags) && t.flags.includes('handy_abgabe')){
+        t.flags = t.flags.filter(f=>f!=='handy_abgabe');
+        if(!t.flags.includes('handy_2200')) t.flags.push('handy_2200');
+      }
+    });
+  }
+  return merged;
+}
+function getData(){
+  const raw = localStorage.getItem(DATA_KEY);
+  if(!raw){
+    const d = defaultData();
+    localStorage.setItem(DATA_KEY, JSON.stringify(d));
+    return d;
+  }
+  try{
+    return normalizeData(JSON.parse(raw));
+  }catch(e){
+    return defaultData();
+  }
+}
+function saveData(d){ localStorage.setItem(DATA_KEY, JSON.stringify(d)); }
+
+/* ============ Bilder-Speicher (IndexedDB, Stufe 6, spec/01: DB "fzapp_img") ============ */
+/* Ablage als Base64-DataURL (nicht Blob) - einfacher wiederzuverwenden für einen künftigen
+   Bilder-Export (siehe STAND.md "Offene Punkte"), auf Kosten von etwas mehr Speicherplatz. */
+const IMG_DB_NAME = 'fzapp_img';
+const IMG_STORE = 'images';
+let _imgDbPromise = null;
+function openImgDb(){
+  if(_imgDbPromise) return _imgDbPromise;
+  _imgDbPromise = new Promise((resolve, reject)=>{
+    const req = indexedDB.open(IMG_DB_NAME, 1);
+    req.onupgradeneeded = ()=>{
+      const db = req.result;
+      if(!db.objectStoreNames.contains(IMG_STORE)) db.createObjectStore(IMG_STORE, {keyPath:'id'});
+    };
+    req.onsuccess = ()=>resolve(req.result);
+    req.onerror = ()=>reject(req.error);
+  });
+  return _imgDbPromise;
+}
+function imgPut(id, dataUrl){
+  return openImgDb().then(db=>new Promise((resolve,reject)=>{
+    const tx = db.transaction(IMG_STORE,'readwrite');
+    tx.objectStore(IMG_STORE).put({id, dataUrl});
+    tx.oncomplete = ()=>resolve();
+    tx.onerror = ()=>reject(tx.error);
+  }));
+}
+function imgGet(id){
+  return openImgDb().then(db=>new Promise((resolve,reject)=>{
+    const tx = db.transaction(IMG_STORE,'readonly');
+    const req = tx.objectStore(IMG_STORE).get(id);
+    req.onsuccess = ()=>resolve(req.result ? req.result.dataUrl : null);
+    req.onerror = ()=>reject(req.error);
+  }));
+}
+function imgDelete(id){
+  return openImgDb().then(db=>new Promise((resolve,reject)=>{
+    const tx = db.transaction(IMG_STORE,'readwrite');
+    tx.objectStore(IMG_STORE).delete(id);
+    tx.oncomplete = ()=>resolve();
+    tx.onerror = ()=>reject(tx.error);
+  }));
+}
+/* Kompletten Bilder-Speicher leeren (Stufe 9: wird beim "Alle Daten löschen" mit aufgerufen,
+   sonst blieben Wochenplan-Bilder als Datenleiche in der IndexedDB liegen — Datenschutz-relevant,
+   da darunter auch Fotos mit Kindern sein können). */
+function imgClearAll(){
+  return openImgDb().then(db=>new Promise((resolve,reject)=>{
+    const tx = db.transaction(IMG_STORE,'readwrite');
+    tx.objectStore(IMG_STORE).clear();
+    tx.oncomplete = ()=>resolve();
+    tx.onerror = ()=>reject(tx.error);
+  }));
+}
+/* Alle im Wochenplan referenzierten Bilder für den Export einsammeln (Stufe 9,
+   siehe STAND.md "Offene Punkte" → { imgId: dataUrl, ... } ). */
+async function collectWochenplanImages(){
+  const d = getData();
+  const ids = new Set();
+  Object.values(d.wochenplan || {}).forEach(day=>{
+    (day.imgIds || []).forEach(id=>ids.add(id));
+  });
+  const images = {};
+  for(const id of ids){
+    const dataUrl = await imgGet(id);
+    if(dataUrl) images[id] = dataUrl;
+  }
+  return images;
+}
+/* Bild komprimieren (spec/06: max. 1400px, JPEG ~0.8) und in IndexedDB ablegen. */
+function compressAndStoreImage(file){
+  return new Promise((resolve, reject)=>{
+    const reader = new FileReader();
+    reader.onerror = ()=>reject(reader.error);
+    reader.onload = ()=>{
+      const img = new Image();
+      img.onerror = ()=>reject(new Error('Bild konnte nicht gelesen werden'));
+      img.onload = ()=>{
+        const maxDim = 1400;
+        let w = img.naturalWidth, h = img.naturalHeight;
+        if(w > maxDim || h > maxDim){
+          if(w >= h){ h = Math.round(h * (maxDim/w)); w = maxDim; }
+          else { w = Math.round(w * (maxDim/h)); h = maxDim; }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+        const id = uid();
+        imgPut(id, dataUrl).then(()=>resolve(id)).catch(reject);
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function migrateOldKeys(){
+  const flag = LS_PREFIX + 'migrated';
+  if(localStorage.getItem(flag)) return;
+  try{
+    Object.keys(localStorage).forEach(k=>{
+      if(k.indexOf(LS_OLD_PREFIX)===0){
+        const newKey = LS_PREFIX + k.slice(LS_OLD_PREFIX.length);
+        if(localStorage.getItem(newKey)===null){
+          localStorage.setItem(newKey, localStorage.getItem(k));
+        }
+      }
+    });
+  }catch(e){ /* best effort */ }
+  localStorage.setItem(flag, '1');
+}
+
+/* ============ Zuständigkeiten (Rollen) — unverändert aus Alt-App ============ */
+const ROLES = [
+  {
+    id:"tagesleitung", icon:"📣", title:"Tagesleitung", who:"alle, abwechselnd", color:"#FF6B4A",
+    /* Stufe 12 (spec/10 §6): reine Gliederung in Unterblöcke mit Überschriften, Text
+       unverändert. Überschriften sind ein Vorschlag — von Marco jederzeit anpassbar. */
+    core:[
+      {h:"📢 Ansagen bei den Mahlzeiten", items:[
+        "Ansagen vor & nach jedem Essen: Tagesplan vorstellen; sagen, was die Kids einpacken/anziehen sollen (Sonnenschutz, Trinken, Schuhe, Taschengeld, Rucksack …); Shop-Öffnungszeiten verkünden (falls Shop offen).",
+        "Essen offiziell beenden (alle bleiben sitzen) → Geschirr auf den Geschirrwagen sortieren, Abfall in den Eimer daneben (wie die Küche es vorbereitet), Küchendienst erinnern."
+      ]},
+      {h:"🗂️ Tag koordinieren", items:[
+        "Tag koordinieren: Abläufe mit dem Team besprechen, Aufsicht klären, bei spontanen Änderungen Zuständige zuteilen, helfen wo nötig.",
+        "Anwesenheit bei Programm & Ausflügen prüfen (z. B. über die Zimmerzuständigen — kann delegiert werden)."
+      ]},
+      {h:"🌙 Abendabschluss", items:[
+        "Abendliche Reflexionsrunde moderieren (zügig & effektiv) → danach an die Tagesleitung des Folgetags übergeben."
+      ]}
+    ],
+    details:[{items:[
+      "Meist haben die zwei Tagesleitungen das meiste Programm des Tages — sie kennen es am besten.",
+      "Essensausgabe an diesem Tag (kann delegiert werden). Vor warmen Mahlzeiten wird gebetet — du kannst jemanden fragen, der das übernimmt.",
+      "Infos zu Programm & Abläufen immer erst NACH dem Essen ansagen (sonst wird's vergessen!). Aktuelle Themen nur bei Bedarf."
+    ]}]
+  },
+  {
+    id:"planung", icon:"🗓️", title:"Tagesleitung Folgetag — Planung", who:"alle, abwechselnd", color:"#FF8A3D",
+    core:[{items:[
+      "Im Laufe des Tages den Folgetag mit allen Beteiligten planen (idealerweise gemeinsame Sitzung am Vortag).",
+      "Wochenplan ausfüllen: Aktivität mit Uhrzeit im Namen (z. B. „20:00–22:00 Kennenlernspiele“) + „Notes fürs Team“.",
+      "Programmpunkte-Datenbank ausfüllen — so klar, dass es in den Folgejahren direkt wiederverwendbar ist.",
+      "Tagesplan für die Kinder gestalten und am Morgen VOR dem Frühstück im Speisesaal aufhängen.",
+      "Nach der Reflexionsrunde die Teambesprechung moderieren, Planung vorstellen, Team einteilen & involvieren."
+    ]}],
+    details:[{items:[
+      "Ziel: die abendliche Planungsrunde auf wenige Minuten Übergabe verkürzen — der Plan steht bereits, es fließen nur noch Infos ans Team.",
+      "Aufsichtslücken im Programm aktiv klären und im Wochenplan festhalten.",
+      "Offene Punkte in der abendlichen Teambesprechung klären und festhalten.",
+      "Bist du nicht selbst fürs Programm zuständig: die Zuständigen rechtzeitig erinnern.",
+      "Tagesplan ansprechend & neugierig machend gestalten, aber nicht zu viel verraten.",
+      "→ in Notion: Wochenplan & Programmpunkte-Datenbank."
+    ]}]
+  },
+  {
+    id:"programm", icon:"🎯", title:"Programm-Verantwortliche", who:"alle, das ein oder andere Mal", color:"#FFB23E",
+    core:[{h:"1. verantwortliche Person", items:[
+      "Plane deinen Programmpunkt vollständig: Material besorgen, Team-Kommunikation, Auf-/Abbau bzw. örtliche Vorbereitung, Durchführung.",
+      "Moderiere/erkläre den Programmpunkt für die Gruppe (wenn nicht anders abgesprochen).",
+      "Sorge für die Aufsicht — selbst oder klar eingeteilt und kontrolliert.",
+      "Räum hinterher auf: Ort sauber & müllfrei, Material ordentlich zurück in den Teamer-Raum. Kann delegiert werden."
+    ]}],
+    details:[{items:[
+      "„Verantwortlich“ heißt nicht „alles allein machen“: teile Aufgaben mit der 2. Person — aber klar absprechen und vereinbaren.",
+      "2. verantwortliche Person: unterstützt bei allen Punkten und übernimmt in gemeinsamer Absprache Verantwortung."
+    ]}]
+  },
+  {
+    id:"zimmer", icon:"🛏️", title:"Zimmer­zuständigkeit", who:"wird möglichst am 1. Abend festgelegt", color:"#F472B6",
+    core:[{items:[
+      "Kenne die Besonderheiten deiner Kids (Medikamente, Nichtschwimmer …) — kann übertragen werden.",
+      "Achte auf richtige Betreuung beim Baden & Einhaltung der Medikamenteneinnahme. Kann auch eine Medi-zuständige Person für alle übernehmen — am 1. Abend absprechen!",
+      "Erinnere deine Kids an Hygiene (Duschen, Aufräumen) und an die Nachtruhe.",
+      "Sei Ansprechperson bei Problemen (oder die Person aus dem Team mit dem besten Bezug)."
+    ]}],
+    details:[{items:[
+      "Eigene Notizen zu deinen Kids (z. B. „braucht Asthmaspray bei Ausflügen“) kannst du unten ins private Notizfeld schreiben — bleibt nur auf deinem Gerät."
+    ]}]
+  },
+  {
+    id:"kueche", icon:"🧑‍🍳", title:"Küchenleitung & Verantwortliche", who:"noch offen", color:"#34d399",
+    /* Stufe 12 (spec/10 §4): bewusst inhaltsleer — alle Aufgaben/Details leben ausschließlich
+       in der separaten Küchenplaner-App, um Doppelpflege & Redundanz zu vermeiden.
+       Siehe Sonderfall-Block in openRole() für den Link-Hinweis. */
+    core:[]
+  },
+  {
+    id:"shop", icon:"🛒", title:"Shop & Wertsachen", who:"noch offen", color:"#60A5FA",
+    intro:"Keine Bank mehr — zu viel Aufwand. Wir verwahren auf Wunsch nur den Geldbeutel der Kids sicher in einem abschließbaren Raum. Im Shop gibt es, was die Küche gekauft hat. Es geht um Symbolik, nicht um Einnahmen: fair bleiben, höchstens die Ausgaben decken.",
+    core:[{items:[
+      "Geldbeutel/Wertsachen der Kids auf Wunsch sicher im abschließbaren Raum verwahren.",
+      "Shop nach jeder warmen Mahlzeit öffnen (oder wie sinnvoll) — Öffnungszeiten IMMER der Tagesleitung mitteilen.",
+      "Preise selbst festlegen: entweder vom Küchenteam holen (Foto des Kassenzettels → auf den nächsten passenden Betrag aufrunden) oder vernünftig schätzen.",
+      "Fair bleiben: keine Einnahmen maximieren, höchstens die Ausgaben decken — nicht die Kinder abzocken.",
+      "Separaten Shop-Kassenzettel vom Küchenteam aufbewahren; verkaufte Artikel direkt streichen.",
+      "Am vorletzten Tag Einnahmen + Kassenzettel ans Küchenteam/Gesamtleitung zur Abrechnung geben.",
+      "Reste am letzten Abend dem Team zur Verfügung stellen."
+    ]}],
+    details:[{items:[
+      "Seit 2025 keine Wunschmöglichkeit mehr — es gibt nur, was da ist.",
+      "Details zur Verbuchung siehe 💰 Kassen-1×1 und Rolle „Küche“."
+    ]}]
+  },
+  {
+    id:"ausflug", icon:"🚌", title:"Ausflugs- & Reiseverantwortliche", who:"noch offen", color:"#A78BFA",
+    core:[{items:[
+      "Bei Ausflügen sicherstellen: jemand hat den TN-Ordner (Versicherungskarten, Impfpässe …) UND das Erste-Hilfe-Set dabei.",
+      "Reiseverbindungen checken (An- & Abreise sowie Ausflug: Bus / Bahn / Fußweg).",
+      "Fahrkarten vorab organisieren, falls nötig.",
+      "Ausflugskasse verwalten & Eintritte / Zugfahrten bezahlen.",
+      "Belege sammeln & einzeln ins Kassenbuch kleben (siehe 💰 Kassen-1×1).",
+      "Am Ende Belege + Restbetrag an die Freizeitleitung übergeben — vorher Kasse prüfen!"
+    ]}],
+    details:[{items:[
+      "Bei größeren Gruppen die Buslinien vorab informieren.",
+      "Beim Check-In: sobald alle da sind, vom Check-In-Team melden lassen, wie viele VVS-Gruppenkarten noch zu kaufen sind."
+    ]}]
+  },
+  {
+    id:"hygiene", icon:"🧹", title:"Hygiene-Beauftragte", who:"noch offen", color:"#22D3EE",
+    core:[{items:[
+      "In den ersten Tagen einen Reinigungsplan erstellen (Toiletten, Badmülleimer, Eingangsbereich … wo sinnvoll) und Kids einteilen.",
+      "Umsetzung sicherstellen: Kids zur vereinbarten Zeit schicken und kontrollieren.",
+      "Dafür sorgen, dass Kids & Teamer ihren Dreck wieder wegmachen.",
+      "Badmülleimer regelmäßig leeren (kann delegiert werden); Papier-Handtücher & Seife bei Bedarf auffüllen.",
+      "Hygieneartikel-Bedarf (Handseife, Putzmittel …) ans Einkaufsteam melden.",
+      "Reinigungsplan (nach Hausordnung) für den Abreisetag erstellen und die Umsetzung managen."
+    ]}],
+    details:[{h:"Optional", items:[
+      "Zimmer-Sauberkeits-Wettbewerb organisieren.",
+      "Witzige Sanktionen bei Verstößen gegen die Hygiene-Regeln."
+    ]}]
+  },
+  {
+    id:"video", icon:"🎬", title:"Video-Team", who:"noch offen", color:"#FB7185",
+    intro:"Kein klassisches Marketing dieses Jahr. Ziel: ein toller Erinnerungsfilm (ca. 2 × 20 Min — Diashow + zusammengeschnittene Videos). Eine ansprechende 1–2-minütige Kurzversion für die Werbung im Folgejahr wäre ein super Bonus.",
+    core:[{items:[
+      "Genug schöne Fotos & Videos von Aktivitäten und Erlebnissen sammeln (alle MA helfen mit).",
+      "⚠️ Nur Bilder/Videos von TN verwenden, von denen ALLE Fotorechte vorliegen. Vor Verwendung Bild UND Hintergrund prüfen — niemand in dämlicher Position, keine beleidigenden Gesten.",
+      "Alle MA packen ihre Bilder & Videos per Link in die dafür vorgesehene Notion-Datenbank im gemeinsamen Workspace.",
+      "Das Video-Team zieht sich die Daten dort und erstellt nach der Freizeit den Film."
+    ]}],
+    details:[{items:[
+      "Infos & Tipps bei Bedarf bei Marco holen.",
+      "1–2-Min-Kurzversion für die Werbung nächstes Jahr wäre ein super Bonus.",
+      "→ in Notion: Video-Bibliothek & Linkplattform fürs Nachtreffen."
+    ]}]
+  },
+  {
+    id:"checkin", icon:"📥", title:"Check-In-Team", who:"noch offen · 6 Personen", color:"#FACC15",
+    intro:"Aufteilung: Check-In (2) · Check-In Medis (2) · Koffer verladen (2).",
+    core:[{h:"📥 Check-In (2 Personen)", items:[
+      "Kinder/Jugendliche herzlich begrüßen & auf der TN-Liste abhaken.",
+      "VVS-Fahrkarte da? Nein → Haken für Fahrkartenkauf setzen. Ja → daran erinnern, sie im Zug griffbereit zu haben.",
+      "Kopien (Impfpass, Versicherungskarte, Ausweis) einheften & in der TN-Liste abhaken.",
+      "Wichtige Eltern-Infos in der TN-Liste ergänzen (Medikamente, Krankheit …).",
+      "Kind zum Verlade-Team (beim Anhänger) schicken — Tagesrucksack behalten!",
+      "Wenn alle eingecheckt sind: den Ausflugsbeauftragten melden, wie viele VVS-Gruppenkarten noch zu kaufen sind.",
+      "Während der Zugfahrt: Kids auf die Zimmer verteilen (im Zimmerplan festhalten)."
+    ]}],
+    details:[{items:[
+      "Dieses Jahr ist das Haus sehr voll → bei der Zimmerverteilung bleibt vermutlich wenig Wahl; das Prinzip gilt aber.",
+      "Check-In Medis (2 Personen) und Koffer verladen (2 Personen): die genauen Aufgaben klären wir kurz vor dem eigentlichen Check-In.",
+      "→ in Notion: An- & Abreise + TN-Daten für Check-In."
+    ]}]
+  },
+  {
+    id:"kasse", icon:"💰", title:"Kassen-1×1", who:"gilt für Küche · Ausflug · Shop", color:"#F59E0B", info:true,
+    intro:"Die gemeinsamen Regeln für alle Kassen. So bleibt die Buchhaltung übersichtlich und korrekt.",
+    core:[{items:[
+      "Belege einzeln (mit Klebestift!) aufkleben: Ein Beleg pro Seite/Kassenformular. Alle Kassenzettel und Fahrkarten/Zugtickets unbedingt aufheben — ohne Beleg/Ticket bekommen wir das Geld nicht zurück!",
+      "Ausnahme Fahrten: mehrere Gruppentickets vom selben Tag dürfen zusammen — Gesamtsumme extra aufführen.",
+      "Kasse prüfen: erhaltener Betrag − Ausgaben (eingeklebte Belege) = Restbetrag im Geldbeutel.",
+      "Am Ende: gesammelte Belege + Restbetrag an die Freizeit-/Gesamtleitung übergeben."
+    ]}]
+  }
+];
+
+/* ============ Mitarbeitende / Personen (Stufe 2, spec/03) ============ */
+/* Farbpalette = dieselben Farben wie die Zuständigkeits-Rollen der Alt-App */
+const STAFF_COLORS = ["#FF6B4A","#FF8A3D","#FFB23E","#F472B6","#34d399","#60A5FA","#A78BFA","#22D3EE","#FB7185","#FACC15","#F59E0B"];
+
+/* ============ MA-Infos: Mini-Dashboard & Flags (Stufe 4, spec/05) ============ */
+/* Gleicher Mechanismus wie TN_COUNTERS/Toggle-Chips, bewusst reduziert auf MA-relevante Flags. */
+const MA_FLAGS = [
+  {id:'kritisch', icon:'🆘', label:'Kritisch'},
+  {id:'medis', icon:'💊', label:'Medis'}
+];
+const MA_COUNTERS = [
+  {id:'rettung', icon:'🏊✅', label:'Rettungsschwimmer', desc:'Traut sich Badeaufsicht IM Wasser zu (Team-Einschätzung).',
+    match:p=>p.rettung_see===true},
+  {id:'flags', icon:'⚠️', label:'Besonderheiten', desc:'MA mit eigenen Besonderheiten/Flags (siehe Kartendetails).',
+    match:p=>(p.flags||[]).length>0}
+];
+let maFilter = null;
+
+function renderMaCounters(){
+  const el = document.getElementById('maCounters');
+  if(!el) return;
+  const d = getData();
+  el.innerHTML = MA_COUNTERS.map(c=>{
+    const n = d.staff.filter(c.match).length;
+    const cls = ['tn-counter'];
+    if(n>0) cls.push('has');
+    if(maFilter===c.id) cls.push('active');
+    return `<button type="button" class="${cls.join(' ')}" onclick="toggleMaFilter('${c.id}')">${c.icon} <span class="n">${n}</span></button>`;
+  }).join('');
+}
+function toggleMaFilter(id){
+  maFilter = (maFilter===id) ? null : id;
+  renderMaCounters();
+  renderStaffList();
+}
+
+/* ---- Generisches Bottom-Sheet (wird auch von späteren Stufen wiederverwendet) ---- */
+function sheetOverlay(){
+  let ov = document.getElementById('sheetOverlay');
+  if(!ov){
+    ov = document.createElement('div');
+    ov.id = 'sheetOverlay';
+    ov.className = 'sheet-overlay';
+    ov.innerHTML = `<div class="sheet" onclick="event.stopPropagation()">
+      <div class="sheet-head"><h3 id="sheetTitle"></h3><button type="button" class="sheet-x" onclick="closeSheet()" aria-label="Schließen">✕</button></div>
+      <div id="sheetBody"></div>
+    </div>`;
+    ov.onclick = closeSheet;
+    document.body.appendChild(ov);
+  }
+  return ov;
+}
+function openSheet(title, bodyHtml){
+  const ov = sheetOverlay();
+  document.getElementById('sheetTitle').textContent = title;
+  document.getElementById('sheetBody').innerHTML = bodyHtml;
+  ov.classList.add('active');
+}
+function setSheetBody(bodyHtml){
+  const el = document.getElementById('sheetBody');
+  if(el) el.innerHTML = bodyHtml;
+}
+function closeSheet(){
+  const ov = document.getElementById('sheetOverlay');
+  if(ov) ov.classList.remove('active');
+}
+
+/* ---- Generische Personen-Chip- & Auswahl-Komponenten (spec/03 „Wiederverwendung") ---- */
+function staffChip(id, opts={}){
+  const d = getData();
+  const p = d.staff.find(s=>s.id===id);
+  if(!p) return '';
+  const clickable = !!opts.onClick;
+  const tag = clickable ? 'button' : 'span';
+  const clickAttr = clickable ? ` type="button" onclick="${opts.onClick}"` : '';
+  const xIcon = opts.showX ? `<span class="schip-x">✕</span>` : '';
+  return `<${tag} class="schip"${clickAttr} style="--c:${p.farbe}"><span class="schip-dot"></span>${esc(p.name)}${xIcon}</${tag}>`;
+}
+function staffPicker(selectedIds, opts={}){
+  const d = getData();
+  if(!d.staff.length){
+    return `<div class="staff-empty">Noch keine Mitarbeitenden angelegt.<br>Leg sie zuerst unter 🧡 MA-Infos an.</div>`;
+  }
+  return `<div class="picker-list">` + d.staff.map(p=>{
+    const on = selectedIds.includes(p.id);
+    const call = opts.onToggle ? opts.onToggle.replace('{id}', p.id) : '';
+    return `<button type="button" class="picker-row${on?' on':''}" onclick="${call}">
+      <span class="dot" style="background:${p.farbe}"></span><span class="pname">${esc(p.name)}</span><span class="chk">${on?'✓':''}</span>
+    </button>`;
+  }).join('') + `</div>`;
+}
+
+/* ---- Personen-Verwaltung (MA-Infos-View, Abschnitt "Unser Team") ---- */
+function nextStaffColor(){
+  const d = getData();
+  return STAFF_COLORS[d.staff.length % STAFF_COLORS.length];
+}
+function rettungBadgeHTML(p){
+  const state = p.rettung_see===true ? 'ja' : p.rettung_see===false ? 'nein' : 'unbekannt';
+  const icon = state==='ja' ? '✅' : state==='nein' ? '🚫' : '❔';
+  const label = state==='ja' ? 'Rettungsschwimmer: Ja (tippen für Nein)'
+    : state==='nein' ? 'Rettungsschwimmer: Nein (tippen für unbekannt)'
+    : 'Rettungsschwimmer: unbekannt (tippen für Ja)';
+  return `<button type="button" class="ma-swim-btn state-${state}" onclick="event.stopPropagation();cycleRettung('${p.id}')" aria-label="${label}">🏊${icon}</button>`;
+}
+function maFlagBadgesHTML(p){
+  return (p.flags||[]).map(f=>{
+    const def = MA_FLAGS.find(x=>x.id===f);
+    return def ? `<span class="tn-badge warn">${def.icon} ${esc(def.label)}</span>` : '';
+  }).join('');
+}
+function cycleRettung(id){
+  const d = getData();
+  const p = d.staff.find(s=>s.id===id); if(!p) return;
+  // Reihenfolge: unbekannt -> ja -> nein -> unbekannt (spec/05)
+  p.rettung_see = (p.rettung_see===null || p.rettung_see===undefined) ? true : (p.rettung_see===true ? false : null);
+  saveData(d);
+  renderMaCounters();
+  renderStaffList();
+  renderDashGrid();
+}
+function renderStaffList(){
+  const el = document.getElementById('staffList');
+  if(!el) return;
+  const d = getData();
+  if(!d.staff.length){
+    el.innerHTML = `<div class="staff-empty">Noch keine Mitarbeitenden angelegt. Leg sie oben an.</div>`;
+    return;
+  }
+  let list = d.staff;
+  if(maFilter){
+    const c = MA_COUNTERS.find(x=>x.id===maFilter);
+    if(c) list = list.filter(c.match);
+  }
+  if(!list.length){ el.innerHTML = `<div class="staff-empty">Keine Treffer für diesen Filter.</div>`; return; }
+  el.innerHTML = list.map(p=>`
+    <div class="tn-card" onclick="openStaffMenu('${p.id}')">
+      <div class="name">${staffChip(p.id)}${rettungBadgeHTML(p)}</div>
+      <div class="flags">${maFlagBadgesHTML(p)}</div>
+      ${p.details?`<div class="details">${esc(p.details)}</div>`:''}
+    </div>`).join('');
+}
+function addStaff(){
+  const input = document.getElementById('staffNameInput');
+  const name = input.value.trim();
+  if(!name) return;
+  const d = getData();
+  d.staff.push({ id:uid(), name, farbe:nextStaffColor(), rettung_see:null, handyregel:"", details:"", flags:[] });
+  saveData(d);
+  input.value = "";
+  renderStaffList();
+}
+function bindMaInputs(){
+  const input = document.getElementById('staffNameInput');
+  if(!input) return;
+  input.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); addStaff(); } });
+}
+
+function refreshGridIfVisible(){
+  const s = document.getElementById('search');
+  if(s) renderGrid(s.value);
+}
+function refreshOpenRoleZustRow(){
+  if(detail() && detail().classList.contains('active') && currentRoleId){
+    renderZustRow(currentRoleId);
+  }
+}
+
+function openStaffMenu(id){
+  const d = getData();
+  const p = d.staff.find(s=>s.id===id); if(!p) return;
+  openSheet(p.name, `<div class="menu-list">
+    <button type="button" class="menu-item" onclick="openStaffDetailSheet('${id}')">🏥 Besonderheiten &amp; Notizen</button>
+    <button type="button" class="menu-item" onclick="staffMenuRename('${id}')">✏️ Umbenennen</button>
+    <button type="button" class="menu-item" onclick="staffMenuColor('${id}')">🎨 Farbe wechseln</button>
+    <button type="button" class="menu-item danger" onclick="staffMenuDelete('${id}')">🗑️ Löschen</button>
+  </div>`);
+}
+
+/* ---- Besonderheiten/Flags/Details/Handynotiz je MA (Stufe 4, spec/05) ---- */
+function maFlagChipsHTML(activeFlags){
+  return `<div class="toggle-chips">` + MA_FLAGS.map(c=>{
+    const on = activeFlags.includes(c.id);
+    return `<label class="toggle-chip${on?' on':''}">
+      <input type="checkbox" value="${c.id}" ${on?'checked':''} style="display:none"
+        onchange="this.parentElement.classList.toggle('on', this.checked)">${c.icon} ${esc(c.label)}</label>`;
+  }).join('') + `</div>`;
+}
+function openStaffDetailSheet(id){
+  const d = getData();
+  const p = d.staff.find(s=>s.id===id); if(!p) return;
+  const flags = p.flags || [];
+  const rVal = p.rettung_see===true ? 'ja' : p.rettung_see===false ? 'nein' : '';
+  const body = `
+    <div class="form-field"><label>🏊 Traut sich Badeaufsicht im Wasser zu</label>
+      <select id="mfRettung">
+        <option value=""${rVal===''?' selected':''}>– unbekannt –</option>
+        <option value="ja"${rVal==='ja'?' selected':''}>Ja</option>
+        <option value="nein"${rVal==='nein'?' selected':''}>Nein</option>
+      </select></div>
+    <div class="form-field"><label>Flags</label>${maFlagChipsHTML(flags)}</div>
+    <div class="form-field"><label>Details</label>
+      <textarea id="mfDetails" placeholder="z. B. Allergie, Details siehe Personalunterlagen …">${esc(p.details||'')}</textarea></div>
+    <div class="form-field"><label>📵 Handyregelung</label>
+      <label class="toggle-chip${p.handyregel===true?' on':''}">
+        <input type="checkbox" id="mfHandyNacht" ${p.handyregel===true?'checked':''} style="display:none"
+          onchange="this.parentElement.classList.toggle('on', this.checked)">📱➡️ Eltern verlangen Abgabe in der Nacht</label></div>
+    <div class="form-actions">
+      <button type="button" class="form-save" onclick="saveStaffDetail('${id}')">Speichern</button>
+    </div>`;
+  openSheet(p.name + ' — Details', body);
+}
+function saveStaffDetail(id){
+  const d = getData();
+  const p = d.staff.find(s=>s.id===id); if(!p) return;
+  const rVal = document.getElementById('mfRettung').value;
+  p.rettung_see = rVal==='ja' ? true : rVal==='nein' ? false : null;
+  p.flags = Array.from(document.querySelectorAll('#sheetBody .toggle-chip input:checked')).map(i=>i.value);
+  p.details = document.getElementById('mfDetails').value.trim();
+  p.handyregel = document.getElementById('mfHandyNacht').checked;
+  saveData(d);
+  closeSheet();
+  renderMaCounters();
+  renderStaffList();
+  renderDashGrid();
+}
+
+/* ---- View-Init (bei Aufruf über Routing, analog renderTnView) ---- */
+function renderMaView(){
+  maFilter = null;
+  renderMaCounters();
+  renderStaffList();
+}
+function staffMenuRename(id){
+  const d = getData();
+  const p = d.staff.find(s=>s.id===id); if(!p) return;
+  setSheetBody(`<div class="rename-box">
+    <input id="renameInput" type="text" autocomplete="off">
+    <button type="button" class="staff-add-btn" onclick="staffMenuRenameSave('${id}')" aria-label="Speichern">✓</button>
+  </div>`);
+  const inp = document.getElementById('renameInput');
+  inp.value = p.name; // per JS gesetzt (nicht als HTML-Attribut), damit Namen mit Anführungszeichen sicher sind
+  inp.focus(); inp.select();
+  inp.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); staffMenuRenameSave(id); } });
+}
+function staffMenuRenameSave(id){
+  const inp = document.getElementById('renameInput');
+  const name = inp.value.trim();
+  if(!name) return;
+  const d = getData();
+  const p = d.staff.find(s=>s.id===id); if(!p) return;
+  p.name = name;
+  saveData(d);
+  closeSheet();
+  renderStaffList();
+  refreshOpenRoleZustRow();
+}
+function staffMenuColor(id){
+  setSheetBody(`<div class="color-swatches">` + STAFF_COLORS.map(c=>
+    `<button type="button" class="swatch" style="background:${c}" onclick="staffMenuColorSave('${id}','${c}')" aria-label="Farbe ${c}"></button>`
+  ).join('') + `</div>`);
+}
+function staffMenuColorSave(id, color){
+  const d = getData();
+  const p = d.staff.find(s=>s.id===id); if(!p) return;
+  p.farbe = color;
+  saveData(d);
+  closeSheet();
+  renderStaffList();
+  refreshOpenRoleZustRow();
+  refreshGridIfVisible();
+}
+function staffMenuDelete(id){
+  const d = getData();
+  const p = d.staff.find(s=>s.id===id); if(!p) return;
+  setSheetBody(`<div class="confirm-box">
+    <p>„${esc(p.name)}" wirklich löschen? Die Person wird auch aus allen Zuständigkeiten entfernt.</p>
+    <div class="confirm-actions">
+      <button type="button" class="staff-cancel" onclick="closeSheet()">Abbrechen</button>
+      <button type="button" class="staff-danger" onclick="staffMenuDeleteConfirm('${id}')">Löschen</button>
+    </div>
+  </div>`);
+}
+function staffMenuDeleteConfirm(id){
+  const d = getData();
+  d.staff = d.staff.filter(s=>s.id!==id);
+  Object.keys(d.zust).forEach(roleId=>{ d.zust[roleId] = (d.zust[roleId]||[]).filter(sid=>sid!==id); });
+  Object.keys(d.ansprech).forEach(k=>{
+    if(Array.isArray(d.ansprech[k])) d.ansprech[k] = d.ansprech[k].filter(sid=>sid!==id);
+    else if(d.ansprech[k]===id) d.ansprech[k] = null;
+  });
+  saveData(d);
+  closeSheet();
+  renderStaffList();
+  refreshOpenRoleZustRow();
+  refreshGridIfVisible();
+}
+
+function confirmDeleteAllStaff(){
+  const d = getData();
+  if(!d.staff.length){ openSheet('Mitarbeitende', `<div class="staff-empty">Es sind aktuell keine Mitarbeitenden angelegt.</div>`); return; }
+  openSheet('Alle Mitarbeitenden löschen', `<div class="confirm-box">
+    <p>Wirklich <b>alle Mitarbeitenden</b> löschen? Das entfernt sie auch aus allen Zuständigkeiten. Diese Aktion kann nicht rückgängig gemacht werden.</p>
+    <div class="confirm-actions">
+      <button type="button" class="staff-cancel" onclick="closeSheet()">Abbrechen</button>
+      <button type="button" class="staff-danger" onclick="confirmDeleteAllStaffStep2()">Weiter</button>
+    </div>
+  </div>`);
+}
+function confirmDeleteAllStaffStep2(){
+  const n = getData().staff.length;
+  setSheetBody(`<div class="confirm-box">
+    <p><b>Bist du sicher?</b> Es gibt kein Zurück – alle ${n} Mitarbeitenden werden entfernt.</p>
+    <div class="confirm-actions">
+      <button type="button" class="staff-cancel" onclick="closeSheet()">Abbrechen</button>
+      <button type="button" class="staff-danger" onclick="confirmDeleteAllStaffDo()">Endgültig löschen</button>
+    </div>
+  </div>`);
+}
+function confirmDeleteAllStaffDo(){
+  const d = getData();
+  d.staff = [];
+  d.zust = {};
+  Object.keys(d.ansprech).forEach(k=>{ d.ansprech[k] = Array.isArray(d.ansprech[k]) ? [] : null; });
+  saveData(d);
+  closeSheet();
+  renderStaffList();
+  refreshOpenRoleZustRow();
+  refreshGridIfVisible();
+}
+
+/* ============ TN-Infos (Stufe 3, spec/04) ============ */
+/* Reihenfolge exakt wie spec/00_formular_referenz.md „Mini-Dashboard TN": */
+const TN_COUNTERS = [
+  {id:'kritisch', icon:'🆘', label:'Kritisch', desc:'Lebensbedrohliche Besonderheit (z. B. Anaphylaxie, Epilepsie) — vom Team manuell markiert.',
+    match:t=>(t.flags||[]).includes('kritisch')},
+  {id:'medis', icon:'💊', label:'Medis', desc:'Nimmt regelmäßig Medikamente — siehe Medikamenten-Plan unten.',
+    match:t=>(t.flags||[]).includes('medis')},
+  {id:'schwimm', icon:'⚠️🏊', label:'Schwimmen/Baden', desc:'Schwimmfähigkeit nicht „sicher" und/oder Badeerlaubnis eingeschränkt.',
+    match:t=>(t.schwimm && t.schwimm!=='sicher') || (t.bade && t.bade!=='alles')},
+  {id:'zecken_nein', icon:'🚫🕷️', label:'Zecken', desc:'Zecken-Entfernung durch das Team NICHT erlaubt — Eltern sofort kontaktieren (Info an Eltern gilt aber immer).',
+    match:t=>(t.flags||[]).includes('zecken_nein')},
+  {id:'wundvers_nein', icon:'🚫🩸', label:'Wundvers.', desc:'Med. Erstversorgung/Wundversorgung NICHT erlaubt — vor jeder Versorgung Eltern kontaktieren.',
+    match:t=>(t.flags||[]).includes('wundvers_nein')},
+  {id:'foto_nein', icon:'🚫📸', label:'Foto', desc:'Foto-/Video-Einwilligung fehlt (Eltern und/oder TN).',
+    match:t=>(t.flags||[]).includes('foto_nein')},
+  {id:'mitfahr_nein', icon:'🚫🚗', label:'Mitfahrt', desc:'Darf NICHT in PKW/Kleinbus mitfahren.',
+    match:t=>(t.flags||[]).includes('mitfahr_nein')},
+  {id:'kleingruppe_nein', icon:'🚫🚶', label:'Kleingruppe', desc:'Darf NICHT ohne Aufsicht in Kleingruppe (ab 13) unterwegs sein.',
+    match:t=>(t.flags||[]).includes('kleingruppe_nein')},
+  {id:'ticket_nein', icon:'🎫', label:'Ticket fehlt', desc:'Kein VVS-Ticket vorhanden — wichtig fürs Ausflugs-Team.',
+    match:t=>(t.flags||[]).includes('ticket_nein')},
+  /* Feedback 17.07.2026: aus einer Ja/Nein-Flag zwei Optionen gemacht (Zeitpunkt der Abgabe kann
+     variieren) — mit tnHandyExclusive() im Formular gegenseitig ausschließend gehalten. */
+  {id:'handy_2200', icon:'📱➡️', label:'Handy zur Bettruhe', desc:'Handy wird zur Bettruhezeit abgegeben.',
+    match:t=>(t.flags||[]).includes('handy_2200')},
+  {id:'handy_2300', icon:'📱➡️', label:'Handy 1h nach Bettruhe', desc:'Handy wird erst eine Stunde nach der Bettruhe abgegeben.',
+    match:t=>(t.flags||[]).includes('handy_2300')}
+];
+/* Nachträglich vereinfacht (Marco-Feedback nach Stufe 4): Mitfahrt/TN-Infos gesamt gestrichen
+   (keine sinnvolle Verantwortlichkeit), Zecken/Wunden auf Mehrfachauswahl umgestellt (mehr als
+   1 Teamer realistisch).
+   Stufe 11: „Medikamenten-Plan"-Ansprechperson (Einzelauswahl) hier entfernt — ersetzt durch die
+   automatische Zimmerzuständigen-Anzeige im Medi-Plan (siehe spec/09_zimmerzuteilung.md). */
+/* Feedback 17.07.2026: eigene Ansprechpersonen für Zecken/Wundversorgung entfernt — dafür ist
+   im Zweifel jeder im Team zuständig, eine feste Person war überflüssig. Array bewusst leer
+   gelassen (statt komplett entfernt), damit renderTnAnsprech()/openAnsprechPicker() etc. als
+   totes, aber ungefährliches Code weiterlaufen können, falls später wieder Kategorien nötig sind. */
+const TN_ANSPRECH_CATS = [];
+
+let tnFilter = null;
+let tnSearchTerm = "";
+let tnPendingFilter = null; /* für Deep-Links aus Erste Hilfe (Stufe 7): einmaliger Vorbelegungswert für tnFilter */
+
+/* ---- Mini-Dashboard (Counter-Chips) ---- */
+function renderTnCounters(){
+  const el = document.getElementById('tnCounters');
+  if(!el) return;
+  const d = getData();
+  el.innerHTML = TN_COUNTERS.map(c=>{
+    const n = d.tn.filter(c.match).length;
+    const cls = ['tn-counter'];
+    if(n>0) cls.push('has');
+    if(tnFilter===c.id) cls.push('active');
+    return `<button type="button" class="${cls.join(' ')}" onclick="toggleTnFilter('${c.id}')">${c.icon} <span class="n">${n}</span></button>`;
+  }).join('');
+}
+function toggleTnFilter(id){
+  tnFilter = (tnFilter===id) ? null : id;
+  renderTnCounters();
+  renderTnList();
+}
+function openTnLegend(){
+  openSheet('Legende', `<div class="legend-list">` + TN_COUNTERS.map(c=>
+    `<div class="legend-item"><span class="ic">${c.icon}</span><div><b>${esc(c.label)}</b><br><span style="color:var(--muted)">${esc(c.desc)}</span></div></div>`
+  ).join('') + `</div>`);
+}
+
+/* ---- Ansprechpersonen (Medis = Einzelauswahl, Zecken/Wunden = Mehrfachauswahl, nutzt staffPicker aus Stufe 2) ---- */
+function renderTnAnsprech(){
+  const el = document.getElementById('tnAnsprech');
+  if(!el) return;
+  const d = getData();
+  /* Stufe 13 (spec/11 §3): jede Kategorie als eigene, klar abgegrenzte Karte mit den
+     zugeordneten Personen untereinander links-bündig (statt einer Zeile mit Umbruch). */
+  el.innerHTML = TN_ANSPRECH_CATS.map(cat=>{
+    let list, addBtn;
+    if(cat.multi){
+      const ids = d.ansprech[cat.id] || [];
+      list = ids.map(id=>staffChip(id, {onClick:`toggleAnsprechMulti('${cat.id}','${id}')`, showX:true})).join('');
+      addBtn = `<button type="button" class="schip-add" onclick="openAnsprechPicker('${cat.id}')">+ Person</button>`;
+    } else {
+      const staffId = d.ansprech[cat.id];
+      list = staffId ? staffChip(staffId, {onClick:`openAnsprechPicker('${cat.id}')`}) : '';
+      addBtn = staffId ? '' : `<button type="button" class="schip-add" onclick="openAnsprechPicker('${cat.id}')">+ wählen</button>`;
+    }
+    if(!list) list = `<span class="tn-ansprech-empty">Noch niemand zugewiesen.</span>`;
+    return `<div class="tn-ansprech-cat">
+      <div class="tn-ansprech-cat-h">${cat.icon} ${esc(cat.label)}</div>
+      <div class="tn-ansprech-cat-list">${list}</div>
+      ${addBtn}
+    </div>`;
+  }).join('');
+}
+function openAnsprechPicker(catId){
+  const d = getData();
+  const cat = TN_ANSPRECH_CATS.find(c=>c.id===catId);
+  if(cat.multi){
+    const cur = d.ansprech[catId] || [];
+    openSheet(cat.label, staffPicker(cur, {onToggle:`toggleAnsprechMulti('${catId}','{id}')`}));
+  } else {
+    const cur = d.ansprech[catId] ? [d.ansprech[catId]] : [];
+    openSheet(cat.label, staffPicker(cur, {onToggle:`setAnsprech('${catId}','{id}')`}));
+  }
+}
+function setAnsprech(catId, staffId){
+  const d = getData();
+  d.ansprech[catId] = (d.ansprech[catId]===staffId) ? null : staffId;
+  saveData(d);
+  closeSheet();
+  renderTnAnsprech();
+}
+function toggleAnsprechMulti(catId, staffId){
+  const d = getData();
+  if(!Array.isArray(d.ansprech[catId])) d.ansprech[catId] = [];
+  const idx = d.ansprech[catId].indexOf(staffId);
+  if(idx>=0) d.ansprech[catId].splice(idx,1); else d.ansprech[catId].push(staffId);
+  saveData(d);
+  setSheetBody(staffPicker(d.ansprech[catId], {onToggle:`toggleAnsprechMulti('${catId}','{id}')`}));
+  renderTnAnsprech();
+}
+
+/* ---- Medikamenten-Plan ---- */
+/* Stufe 11 (spec/09): ersetzt die frühere manuelle "Ansprechperson Medikamenten-Plan"
+   (ansprech.medis, entfernt) — die Zimmerzuständigen des TN ergeben sich automatisch aus
+   TN.zimmer -> zust['zimmer_'+zimmer], kein manuelles Zuweisen mehr nötig. */
+function zimmerZustaendigeNamesHTML(zimmer){
+  if(!zimmer) return '';
+  const d = getData();
+  const ids = d.zust[roomZustKey(zimmer)] || [];
+  const names = ids.map(id=>{ const p = d.staff.find(s=>s.id===id); return p?p.name:null; }).filter(Boolean);
+  if(!names.length) return '';
+  return `<div class="msub">🛏️ Zuständig: ${esc(names.join(', '))}</div>`;
+}
+function renderMediList(){
+  const el = document.getElementById('mediList');
+  if(!el) return;
+  const d = getData();
+  const list = [...d.medis].sort((a,b)=>(a.zeit||"").localeCompare(b.zeit||""));
+  const sumEl = document.getElementById('mediSummary');
+  if(sumEl) sumEl.textContent = `💊 Medikamenten-Plan (${list.length} ${list.length===1?'Eintrag':'Einträge'})`;
+  if(!list.length){ el.innerHTML = `<div class="medi-empty">Noch keine Einträge.</div>`; return; }
+  el.innerHTML = list.map(m=>{
+    const tn = d.tn.find(t=>t.id===m.tnId);
+    return `<div class="medi-card" onclick="openMediSheet('${m.id}')">
+      <div class="time">${esc(m.zeit||'--:--')}</div>
+      <div class="mid">
+        <div class="mname">${esc(tn?tn.name:'(TN gelöscht)')} — ${esc(m.medikament||'')}</div>
+        ${m.notiz?`<div class="msub">${esc(m.notiz)}</div>`:''}
+        ${tn?zimmerZustaendigeNamesHTML(tn.zimmer):''}
+      </div>
+    </div>`;
+  }).join('');
+}
+function mediTnOptionsHTML(selectedId){
+  const d = getData();
+  if(!d.tn.length) return `<option value="">– zuerst TN anlegen –</option>`;
+  return d.tn.map(t=>`<option value="${t.id}"${t.id===selectedId?' selected':''}>${esc(t.name)}</option>`).join('');
+}
+function openMediSheet(id){
+  const d = getData();
+  const m = id ? d.medis.find(x=>x.id===id) : null;
+  const body = `
+    <div class="form-field"><label>Teilnehmer/in</label>
+      <select id="mfTn">${mediTnOptionsHTML(m?m.tnId:null)}</select></div>
+    <div class="form-field"><label>Uhrzeit</label>
+      <input id="mfZeit" type="time" value="${m?esc(m.zeit||''):''}"></div>
+    <div class="form-field"><label>Medikament</label>
+      <input id="mfMed" type="text" placeholder="z. B. Ibuprofen 400" value="${m?esc(m.medikament||''):''}"></div>
+    <div class="form-field"><label>Notiz</label>
+      <textarea id="mfNotiz" placeholder="z. B. nach dem Essen, im Kühlschrank …">${m?esc(m.notiz||''):''}</textarea></div>
+    <div class="form-actions">
+      ${m?`<button type="button" class="staff-danger" onclick="deleteMedi('${id}')">Löschen</button>`:''}
+      <button type="button" class="form-save" onclick="saveMedi(${m?`'${id}'`:'null'})">Speichern</button>
+    </div>`;
+  openSheet(m?'Eintrag bearbeiten':'Medikamenten-Eintrag', body);
+}
+function saveMedi(id){
+  const tnId = document.getElementById('mfTn').value;
+  const zeit = document.getElementById('mfZeit').value;
+  const medikament = document.getElementById('mfMed').value.trim();
+  const notiz = document.getElementById('mfNotiz').value.trim();
+  if(!tnId || !medikament){ alert('Bitte TN und Medikament angeben.'); return; }
+  const d = getData();
+  if(id){
+    const m = d.medis.find(x=>x.id===id);
+    if(m) Object.assign(m, {tnId, zeit, medikament, notiz});
+  } else {
+    d.medis.push({ id:uid(), tnId, zeit, medikament, notiz });
+  }
+  saveData(d);
+  closeSheet();
+  renderMediList();
+}
+function deleteMedi(id){
+  openSheet('Eintrag löschen', `<div class="confirm-box">
+    <p>Diesen Medikamenten-Eintrag wirklich löschen?</p>
+    <div class="confirm-actions">
+      <button type="button" class="staff-cancel" onclick="closeSheet()">Abbrechen</button>
+      <button type="button" class="staff-danger" onclick="deleteMediConfirm('${id}')">Löschen</button>
+    </div></div>`);
+}
+function deleteMediConfirm(id){
+  const d = getData();
+  d.medis = d.medis.filter(m=>m.id!==id);
+  saveData(d);
+  closeSheet();
+  renderMediList();
+}
+
+/* ---- TN-Liste ---- */
+function onTnSearch(v){ tnSearchTerm = v; renderTnList(); }
+function tnBadgesHTML(t){
+  let out = '';
+  TN_COUNTERS.forEach(c=>{ if(c.id!=='schwimm' && c.match(t)) out += `<span class="tn-badge warn">${c.icon} ${esc(c.label)}</span>`; });
+  if((t.schwimm && t.schwimm!=='sicher') || (t.bade && t.bade!=='alles')){
+    const sw = {sicher:'sicher',anfaenger:'Anfänger',nicht:'Nichtschwimmer'}[t.schwimm] || null;
+    const ba = {alles:'überall',nur_nsb:'nur NSB',verbot:'Badeverbot'}[t.bade] || null;
+    const parts = [sw,ba].filter(Boolean).join(' · ');
+    out += `<span class="tn-badge warn">⚠️🏊 ${esc(parts||'–')}</span>`;
+  }
+  return out;
+}
+function renderTnList(){
+  const el = document.getElementById('tnList');
+  if(!el) return;
+  const d = getData();
+  const q = tnSearchTerm.trim().toLowerCase();
+  let list = d.tn.filter(t=> !q || t.name.toLowerCase().includes(q));
+  if(tnFilter){
+    const c = TN_COUNTERS.find(x=>x.id===tnFilter);
+    if(c) list = list.filter(c.match);
+  }
+  list = [...list].sort((a,b)=>a.name.localeCompare(b.name,'de'));
+  if(!list.length){ el.innerHTML = `<div class="tn-empty">${d.tn.length? 'Keine Treffer.' : 'Noch keine Teilnehmenden erfasst.'}</div>`; return; }
+  el.innerHTML = list.map(t=>`
+    <div class="tn-card" onclick="openTnSheet('${t.id}')">
+      <div class="name">${esc(t.name)}${t.zimmer?`<span class="tn-badge">🛏️ ${esc(t.zimmer)}</span>`:''}${t.alter?`<span class="tn-badge">${esc(String(t.alter))} J.</span>`:''}</div>
+      <div class="flags">${tnBadgesHTML(t)}</div>
+      ${t.details?`<div class="details">${esc(t.details)}</div>`:''}
+      ${t.zimmer?zimmerZustaendigeNamesHTML(t.zimmer):''}
+    </div>`).join('');
+}
+/* Zwei Handy-Abgabe-Zeitpunkte schließen sich gegenseitig aus (ein TN kann nur einen Zeitpunkt
+   haben) — beim Ankreuzen des einen wird der andere automatisch abgewählt. */
+const TN_HANDY_EXCLUSIVE = ['handy_2200','handy_2300'];
+function tnHandyExclusive(input){
+  input.parentElement.classList.toggle('on', input.checked);
+  if(input.checked){
+    TN_HANDY_EXCLUSIVE.filter(id=>id!==input.value).forEach(otherId=>{
+      const otherInput = input.closest('.toggle-chips').querySelector(`input[value="${otherId}"]`);
+      if(otherInput && otherInput.checked){ otherInput.checked=false; otherInput.parentElement.classList.remove('on'); }
+    });
+  }
+}
+function tnFlagChipsHTML(activeFlags){
+  return `<div class="toggle-chips">` + TN_COUNTERS.filter(c=>c.id!=='schwimm').map(c=>{
+    const on = activeFlags.includes(c.id);
+    const onchange = TN_HANDY_EXCLUSIVE.includes(c.id) ? `tnHandyExclusive(this)` : `this.parentElement.classList.toggle('on', this.checked)`;
+    return `<label class="toggle-chip${on?' on':''}">
+      <input type="checkbox" value="${c.id}" ${on?'checked':''} style="display:none"
+        onchange="${onchange}">${c.icon} ${esc(c.label)}</label>`;
+  }).join('') + `</div>`;
+}
+/* Zimmer-Dropdown (Stufe 11, spec/09): Optionen aus meta.raeume. Ist der aktuelle TN-Zimmerwert
+   nicht (mehr) in der Liste (z. B. gelöschter Raum oder alter Freitext-Bestand vor Stufe 11),
+   bleibt er als zusätzliche, deutlich markierte Fallback-Option erhalten statt stillschweigend
+   verworfen zu werden (spec: "Altwert bleibt als Fallback-Text sichtbar bis manuell korrigiert"). */
+function raeumeSelectOptionsHTML(current){
+  const d = getData();
+  const raeume = d.meta.raeume || [];
+  let html = `<option value="">– kein Zimmer –</option>`;
+  html += raeume.map(r=>`<option value="${esc(r)}"${r===current?' selected':''}>${esc(r)}</option>`).join('');
+  if(current && !raeume.includes(current)){
+    html += `<option value="${esc(current)}" selected>⚠️ ${esc(current)} (alt, bitte neu zuordnen)</option>`;
+  }
+  return html;
+}
+function openTnSheet(id){
+  const d = getData();
+  const t = id ? d.tn.find(x=>x.id===id) : null;
+  const flags = t ? (t.flags||[]) : [];
+  const curZimmer = t ? (t.zimmer||'') : '';
+  const zimmerUnbekannt = curZimmer && !(d.meta.raeume||[]).includes(curZimmer);
+  const body = `
+    <div class="form-field"><label>Name</label>
+      <input id="tfName" type="text" placeholder="Vorname Name" value="${t?esc(t.name):''}"></div>
+    <div class="form-field"><label>Alter (optional)</label>
+      <input id="tfAlter" type="number" min="0" max="99" value="${t&&t.alter?esc(String(t.alter)):''}"></div>
+    <div class="form-field"><label>Zimmer (optional)</label>
+      <select id="tfZimmer">${raeumeSelectOptionsHTML(curZimmer)}</select>
+      ${zimmerUnbekannt?`<div class="settings-hint" style="text-align:left;margin:6px 0 0">⚠️ Zimmer zuordnen – „${esc(curZimmer)}“ ist nicht mehr in der Zimmerliste.</div>`:''}
+    </div>
+    <div class="form-field"><label>Flags</label>${tnFlagChipsHTML(flags)}</div>
+    <div class="form-field"><label>Schwimmfähigkeit</label>
+      <select id="tfSchwimm">
+        <option value="">– keine Angabe –</option>
+        <option value="sicher"${t&&t.schwimm==='sicher'?' selected':''}>sicher</option>
+        <option value="anfaenger"${t&&t.schwimm==='anfaenger'?' selected':''}>Anfänger</option>
+        <option value="nicht"${t&&t.schwimm==='nicht'?' selected':''}>Nichtschwimmer</option>
+      </select></div>
+    <div class="form-field"><label>Badeerlaubnis</label>
+      <select id="tfBade">
+        <option value="">– keine Angabe –</option>
+        <option value="alles"${t&&t.bade==='alles'?' selected':''}>überall</option>
+        <option value="nur_nsb"${t&&t.bade==='nur_nsb'?' selected':''}>nur Nichtschwimmerbereich</option>
+        <option value="verbot"${t&&t.bade==='verbot'?' selected':''}>Badeverbot</option>
+      </select></div>
+    <div class="form-field"><label>Details</label>
+      <textarea id="tfDetails" placeholder="z. B. Allergie gegen Nüsse, Details siehe TN-Ordner …">${t?esc(t.details||''):''}</textarea></div>
+    <div class="form-actions">
+      ${t?`<button type="button" class="staff-danger" onclick="deleteTn('${id}')">Löschen</button>`:''}
+      <button type="button" class="form-save" onclick="saveTn(${t?`'${id}'`:'null'})">Speichern</button>
+    </div>`;
+  openSheet(t?'TN bearbeiten':'TN hinzufügen', body);
+}
+function saveTn(id){
+  const name = document.getElementById('tfName').value.trim();
+  if(!name){ alert('Bitte einen Namen angeben.'); return; }
+  const alterVal = document.getElementById('tfAlter').value;
+  const zimmer = document.getElementById('tfZimmer').value.trim();
+  const schwimm = document.getElementById('tfSchwimm').value || null;
+  const bade = document.getElementById('tfBade').value || null;
+  const details = document.getElementById('tfDetails').value.trim();
+  const flags = Array.from(document.querySelectorAll('#sheetBody .toggle-chip input:checked')).map(i=>i.value);
+  const d = getData();
+  if(id){
+    const t = d.tn.find(x=>x.id===id);
+    if(t) Object.assign(t, {name, alter: alterVal?Number(alterVal):"", zimmer, schwimm, bade, details, flags});
+  } else {
+    d.tn.push({ id:uid(), name, alter: alterVal?Number(alterVal):"", zimmer, schwimm, bade, details, flags });
+  }
+  saveData(d);
+  closeSheet();
+  renderTnView();
+  renderDashGrid();
+}
+function deleteTn(id){
+  const d = getData();
+  const t = d.tn.find(x=>x.id===id);
+  openSheet('TN löschen', `<div class="confirm-box">
+    <p>„${esc(t?t.name:'')}" wirklich löschen? Zugehörige Medikamenten-Einträge werden mit entfernt.</p>
+    <div class="confirm-actions">
+      <button type="button" class="staff-cancel" onclick="closeSheet()">Abbrechen</button>
+      <button type="button" class="staff-danger" onclick="deleteTnConfirm('${id}')">Löschen</button>
+    </div></div>`);
+}
+function deleteTnConfirm(id){
+  const d = getData();
+  d.tn = d.tn.filter(t=>t.id!==id);
+  d.medis = d.medis.filter(m=>m.tnId!==id);
+  saveData(d);
+  closeSheet();
+  renderTnView();
+  renderDashGrid();
+}
+
+/* ---- View-Init (bei Aufruf über Routing) ---- */
+function renderTnView(){
+  tnFilter = tnPendingFilter; tnPendingFilter = null; /* einmaliger Deep-Link-Filter aus Erste Hilfe, siehe tnPendingFilter */
+  tnSearchTerm = "";
+  const s = document.getElementById('tnSearch');
+  if(s) s.value = "";
+  renderTnCounters();
+  renderTnAnsprech();
+  renderMediList();
+  renderTnList();
+}
+
+/* ============ Erste Hilfe (Stufe 7, spec/07_erste_hilfe.md) ============ */
+/* Inhalte bewusst als Datenarray (gleiche Idee wie ROLES) — leicht editierbar/ergänzbar im Code, ohne die
+   Render-Logik anzufassen. `tnFilter` verweist auf die passende TN_COUNTERS-Flag-ID (siehe oben) für den
+   Deep-Link-Button "TN-Infos öffnen" — bei Klick wird tnPendingFilter gesetzt, `renderTnView()` übernimmt
+   ihn beim nächsten Aufruf einmalig als Vorauswahl im dortigen Mini-Dashboard. Themen ohne passende Flag
+   (z. B. Gehirnerschütterung) haben `tnFilter:null` → Link führt dann ungefiltert auf TN-Infos. */
+const EH_TOPICS = [
+  { id:'zecken', icon:'🕷️', title:'Zecken', tnFilter:'zecken_nein',
+    steps:[
+      'TN-Infos checken: Erlaubnis zur Entfernung vorhanden? Nein → NICHT entfernen, sofort Eltern kontaktieren.',
+      'Ja → Schlinge unseres Zeckenentferners herausdrücken und um die Zecke herum platzieren.',
+      'Runde Spitze möglichst nah an der Zecke leicht in die Haut eindrücken; Knopf loslassen, Stift nach oben ausrichten (Spitze bleibt in der Haut eingedrückt).',
+      'Stift zwischen den Fingern eine Volldrehung drehen (Richtung egal) → Zecke löst sich. Einstichstelle desinfizieren, mit Stift einkreisen + Uhrzeit/Datum notieren.',
+      'Eltern IMMER informieren (jeder Zeckenfund, auch nach Entfernung). Die Folgetage beobachten (Rötung/Wanderröte → ärztlich abklären).'
+    ],
+    eltern:'IMMER — bei jedem Zeckenfund, auch nach erfolgreicher Entfernung.',
+    note:'📌 Zum Abtöten die Spitze der Schlinge anschließend gegen einen harten Gegenstand klopfen.' },
+  { id:'wunden', icon:'🩹', title:'Schnitt- & Schürfwunden', tnFilter:'wundvers_nein',
+    steps:[
+      'Einmalhandschuhe anziehen.',
+      'TN-Infos checken (🚫🩸?). Ohne Einverständnis: nur steril abdecken, Eltern kontaktieren.',
+      'Mit Einverständnis: Reinigen (Trinkwasser), Wundspray, Pflaster/Verband. Fremdkörper nur oberflächlich entfernen.',
+      'Große/tiefe/stark blutende Wunden: Druckverband, ärztlich versorgen lassen, Eltern informieren.'
+    ],
+    eltern:'Ohne Versorgungs-Einverständnis sowie bei großen/tiefen/stark blutenden Wunden.' },
+  { id:'gehirn', icon:'🤕', title:'Gehirnerschütterung', tnFilter:null,
+    steps:[
+      'Anzeichen: Kopfschmerz, Übelkeit/Erbrechen, Schwindel, Erinnerungslücke, Benommenheit.',
+      'Sport/Programm stoppen, Ruhe, beobachten.',
+      'Bewusstlosigkeit, Erbrechen oder Verschlechterung → sofort ärztlich (112).',
+      'Nachts wecken/kontrollieren nur nach ärztlicher Anweisung.'
+    ],
+    eltern:'Immer informieren.' },
+  { id:'sonnenstich', icon:'☀️', title:'Sonnenstich / Hitzeerschöpfung', tnFilter:null,
+    steps:[
+      'Anzeichen: roter heißer Kopf, Kopfschmerz, Übelkeit.',
+      'Schatten, Oberkörper hoch, Kopf/Nacken kühlen, trinken (kein Eiswasser).',
+      'Bewusstseinsstörung = 112.',
+      'Vorbeugung: Kappe, Trinken, Mittagsschatten.'
+    ],
+    eltern:'Bei stärkeren Beschwerden informieren.' },
+  { id:'diabetes', icon:'💉', title:'Diabetes (falls betroffene TN)', tnFilter:'medis',
+    steps:[
+      'Unterzucker (zittrig, blass, schwitzig, verwirrt): sofort Traubenzucker/Saft, nicht allein lassen.',
+      'Bewusstlos: nichts einflößen, stabile Seitenlage, 112.',
+      'Details je TN in ⚠️ TN-Infos pflegen und dort nachschauen.'
+    ],
+    eltern:'Individuell je TN — siehe TN-Infos.' },
+  { id:'insekt', icon:'🐝', title:'Insektenstich / allergische Reaktion', tnFilter:'kritisch',
+    steps:[
+      'Stich kühlen.',
+      'TN-Infos checken (🆘 Allergie?). Bei bekannter Allergie: Notfallset des TN nutzen (nach Anweisung).',
+      '112 bei Atemnot/Schwellung Gesicht/Hals.',
+      'Stich im Mund: Eis lutschen + 112.'
+    ],
+    eltern:'Bei bekannter Allergie oder auffälliger Reaktion immer informieren.' },
+  { id:'magen', icon:'🤢', title:'Erbrechen/Durchfall, Fieber', tnFilter:null,
+    steps:[
+      'Isolieren light (eigenes Zimmer/Toilette), trinken, beobachten.',
+      'Vom Küchendienst ausschließen.',
+      'Häufung = Meldepflicht ans Gesundheitsamt bedenken → Freizeitleitung informieren.'
+    ],
+    eltern:'Informieren.' }
+];
+
+function ehTnLinkHTML(filterId){
+  if(!filterId) return `<a class="eh-link" href="#tn">TN-Infos öffnen</a>`;
+  return `<a class="eh-link" href="#tn" onclick="tnPendingFilter='${filterId}'">TN-Infos öffnen (gefiltert)</a>`;
+}
+function renderEhView(){
+  const el = document.getElementById('ehList');
+  if(!el) return;
+  el.innerHTML = EH_TOPICS.map(t=>`
+    <details class="acc">
+      <summary>${t.icon} ${esc(t.title)}</summary>
+      <div class="body">
+        <ol class="steps">${t.steps.map(s=>`<li>${esc(s)}</li>`).join('')}</ol>
+        <div class="note">👪 <b>Eltern informieren?</b> ${esc(t.eltern)}</div>
+        ${t.note?`<div class="note">${esc(t.note)}</div>`:''}
+        ${ehTnLinkHTML(t.tnFilter)}
+      </div>
+    </details>`).join('');
+}
+
+/* ============ Team (Stufe 8, spec/08_team.md) ============ */
+let teamEditMode = false; // nur UI-Zustand, nicht Teil des Datenmodells/Exports
+
+function renderTeamView(){
+  const el = document.getElementById('teamBlocks');
+  if(!el) return;
+  const d = getData();
+  const toggleBtn = document.getElementById('teamEditToggle');
+  if(toggleBtn) toggleBtn.textContent = teamEditMode ? '✓ Fertig' : '✏️ Bearbeiten';
+  let h = d.team.map(block => `
+    <div class="valblock">
+      ${teamEditMode ? `
+      <div class="valblock-head">
+        <h3>${esc(block.titel)}</h3>
+        <div class="valblock-actions">
+          <button type="button" class="team-icon-btn" onclick="teamEditBlockTitle('${block.id}')" aria-label="Titel bearbeiten">✏️</button>
+          <button type="button" class="team-icon-btn" onclick="teamDeleteBlockConfirm('${block.id}')" aria-label="Block löschen">🗑️</button>
+        </div>
+      </div>` : `<h3>${esc(block.titel)}</h3>`}
+      <ul>
+        ${block.items.map(it => `<li>${teamEditMode ? `
+          <div class="team-item-row">
+            <span class="team-item-text">${esc(it.text)}</span>
+            <span class="team-item-actions">
+              <button type="button" class="team-icon-btn sm" onclick="teamEditItem('${block.id}','${it.id}')" aria-label="Punkt bearbeiten">✏️</button>
+              <button type="button" class="team-icon-btn sm" onclick="teamDeleteItemConfirm('${block.id}','${it.id}')" aria-label="Punkt löschen">🗑️</button>
+            </span>
+          </div>` : esc(it.text)}</li>`).join('')}
+      </ul>
+      ${teamEditMode ? `<button type="button" class="team-add-point" onclick="teamAddItem('${block.id}')">+ Punkt</button>` : ''}
+    </div>`).join('');
+  if(teamEditMode){
+    h += `<button type="button" class="team-add-block" onclick="teamAddBlock()">+ Block</button>`;
+  }
+  el.innerHTML = h;
+}
+function toggleTeamEdit(){
+  teamEditMode = !teamEditMode;
+  renderTeamView();
+}
+function teamEditBlockTitle(blockId){
+  const d = getData();
+  const b = d.team.find(x=>x.id===blockId); if(!b) return;
+  openSheet('Titel bearbeiten', `<div class="rename-box">
+    <input id="teamTitleInput" type="text" autocomplete="off">
+    <button type="button" class="staff-add-btn" onclick="teamEditBlockTitleSave('${blockId}')" aria-label="Speichern">✓</button>
+  </div>`);
+  const inp = document.getElementById('teamTitleInput');
+  inp.value = b.titel; // per JS gesetzt, nicht als HTML-Attribut (Anführungszeichen/Emoji sicher)
+  inp.focus(); inp.select();
+  inp.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); teamEditBlockTitleSave(blockId); } });
+}
+function teamEditBlockTitleSave(blockId){
+  const inp = document.getElementById('teamTitleInput');
+  const val = inp.value.trim();
+  if(!val) return;
+  const d = getData();
+  const b = d.team.find(x=>x.id===blockId); if(!b) return;
+  b.titel = val;
+  saveData(d);
+  closeSheet();
+  renderTeamView();
+}
+function teamDeleteBlockConfirm(blockId){
+  const d = getData();
+  const b = d.team.find(x=>x.id===blockId); if(!b) return;
+  openSheet('Block löschen', `<div class="confirm-box">
+    <p>Block „${esc(b.titel)}" mit allen Punkten wirklich löschen?</p>
+    <div class="confirm-actions">
+      <button type="button" class="staff-cancel" onclick="closeSheet()">Abbrechen</button>
+      <button type="button" class="staff-danger" onclick="teamDeleteBlockDo('${blockId}')">Löschen</button>
+    </div>
+  </div>`);
+}
+function teamDeleteBlockDo(blockId){
+  const d = getData();
+  d.team = d.team.filter(x=>x.id!==blockId);
+  saveData(d);
+  closeSheet();
+  renderTeamView();
+}
+function teamAddBlock(){
+  openSheet('Neuer Block', `<div class="rename-box">
+    <input id="teamBlockTitleInput" type="text" placeholder="Titel, z. B. 🏆 Wir …" autocomplete="off">
+    <button type="button" class="staff-add-btn" onclick="teamAddBlockSave()" aria-label="Hinzufügen">✓</button>
+  </div>`);
+  const inp = document.getElementById('teamBlockTitleInput');
+  inp.focus();
+  inp.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); teamAddBlockSave(); } });
+}
+function teamAddBlockSave(){
+  const inp = document.getElementById('teamBlockTitleInput');
+  const val = inp.value.trim();
+  if(!val) return;
+  const d = getData();
+  d.team.push({ id: uid(), titel: val, items: [] });
+  saveData(d);
+  closeSheet();
+  renderTeamView();
+}
+function teamEditItem(blockId, itemId){
+  const d = getData();
+  const b = d.team.find(x=>x.id===blockId); if(!b) return;
+  const it = b.items.find(x=>x.id===itemId); if(!it) return;
+  openSheet('Punkt bearbeiten', `<div class="rename-box team-textarea-box">
+    <textarea id="teamItemInput" rows="3"></textarea>
+    <button type="button" class="staff-add-btn" onclick="teamEditItemSave('${blockId}','${itemId}')" aria-label="Speichern">✓</button>
+  </div>`);
+  const inp = document.getElementById('teamItemInput');
+  inp.value = it.text;
+  inp.focus();
+}
+function teamEditItemSave(blockId, itemId){
+  const inp = document.getElementById('teamItemInput');
+  const val = inp.value.trim();
+  if(!val) return;
+  const d = getData();
+  const b = d.team.find(x=>x.id===blockId); if(!b) return;
+  const it = b.items.find(x=>x.id===itemId); if(!it) return;
+  it.text = val;
+  saveData(d);
+  closeSheet();
+  renderTeamView();
+}
+function teamDeleteItemConfirm(blockId, itemId){
+  const d = getData();
+  const b = d.team.find(x=>x.id===blockId); if(!b) return;
+  const it = b.items.find(x=>x.id===itemId); if(!it) return;
+  openSheet('Punkt löschen', `<div class="confirm-box">
+    <p>„${esc(it.text)}" wirklich löschen?</p>
+    <div class="confirm-actions">
+      <button type="button" class="staff-cancel" onclick="closeSheet()">Abbrechen</button>
+      <button type="button" class="staff-danger" onclick="teamDeleteItemDo('${blockId}','${itemId}')">Löschen</button>
+    </div>
+  </div>`);
+}
+function teamDeleteItemDo(blockId, itemId){
+  const d = getData();
+  const b = d.team.find(x=>x.id===blockId); if(!b) return;
+  b.items = b.items.filter(x=>x.id!==itemId);
+  saveData(d);
+  closeSheet();
+  renderTeamView();
+}
+function teamAddItem(blockId){
+  openSheet('Neuer Punkt', `<div class="rename-box team-textarea-box">
+    <textarea id="teamItemInput" rows="3" placeholder="Text eingeben…"></textarea>
+    <button type="button" class="staff-add-btn" onclick="teamAddItemSave('${blockId}')" aria-label="Hinzufügen">✓</button>
+  </div>`);
+  const inp = document.getElementById('teamItemInput');
+  inp.focus();
+}
+function teamAddItemSave(blockId){
+  const inp = document.getElementById('teamItemInput');
+  const val = inp.value.trim();
+  if(!val) return;
+  const d = getData();
+  const b = d.team.find(x=>x.id===blockId); if(!b) return;
+  b.items.push({ id: uid(), text: val });
+  saveData(d);
+  closeSheet();
+  renderTeamView();
+}
+
+/* ============ Dashboard-Kacheln ============ */
+/* Reihenfolge nach Marcos 2. Handy-Test-Feedback (2 Spalten):
+   Zeile 1: Notfall + Erste Hilfe
+   Zeile 2: Wochenplan + Zuständigkeiten
+   Zeile 3: TN-Infos + MA-Infos (jetzt nebeneinander statt versetzt)
+   Zeile 4: Notizen + Team */
+const DASH_TILES = [
+  {id:'notfall', icon:'🚨', title:'Notfall', color:'#E5484D', hash:'notfall', sub:'Erste Schritte & Kontakte'},
+  {id:'ersthilfe', icon:'🩹', title:'Erste Hilfe', color:'#22D3EE', hash:'ersthilfe', sub:'Wundversorgung & Zecken'},
+  {id:'wochenplan', icon:'🗓️', title:'Wochenplan', color:'#A78BFA', hash:'wochenplan', sub:'Programm & Fotos je Tag'},
+  {id:'zust', icon:'📋', title:'Zuständigkeiten', color:'#FF6B4A', hash:'zust', sub:'Rollen & Aufgaben'},
+  {id:'tn', icon:'⚠️', title:'TN-Infos', color:'#FFB23E', hash:'tn', sub:'Gesundheit & Sicherheit'},
+  {id:'ma', icon:'🧡', title:'MA-Infos', color:'#F97316', hash:'ma', sub:'Rettungsschwimmer & Handyregeln'},
+  {id:'notizen', icon:'📝', title:'Notizen', color:'#34d399', hash:'notizen', sub:'Privat, nur dieses Gerät'},
+  {id:'team', icon:'🤝', title:'Team', color:'#FFB23E', hash:'team', sub:'Unsere Werte'}
+];
+
+let roleBackHash = 'zust';
+let currentRoleId = null;
+
+function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+/* ---- Dashboard-Grid ---- */
+function renderDashGrid(){
+  const d = getData();
+  const grid = document.getElementById('dashGrid');
+  grid.innerHTML = DASH_TILES.map(t=>{
+    let badge = '', sub = t.sub || '';
+    if(t.id==='tn'){
+      const n = d.tn.length;
+      badge = n>0 ? String(n) : '';
+      sub = n>0 ? `${n} Teilnehmende` : sub;
+    }
+    if(t.id==='ma'){
+      const n = d.staff.filter(p=>p.rettung_see===true).length;
+      badge = n>0 ? String(n) : '';
+      sub = n>0 ? `${n} Rettungsschwimmer bereit` : sub;
+    }
+    if(t.id==='wochenplan'){
+      const n = Object.values(d.wochenplan||{}).filter(w=>w && w.html && w.html.trim()).length;
+      badge = n>0 ? String(n) : '';
+      sub = n>0 ? `${n} von 7 Tagen befüllt` : sub;
+    }
+    return `<button class="tile" onclick="location.hash='${t.hash}'">
+      <div class="emoji">${t.icon}</div>
+      <div class="t">${esc(t.title)}<span class="tile-badge">${esc(badge)}</span></div>
+      <div class="tile-sub">${esc(sub)}</div>
+      <div class="bar" style="background:${t.color}"></div>
+    </button>`;
+  }).join('');
+}
+
+/* ---- Zuständigkeiten-Grid (innerhalb view-zust) ---- */
+const grid = ()=>document.getElementById('grid');
+const home = ()=>document.getElementById('home');
+const detail = ()=>document.getElementById('detail');
+const detailBody = ()=>document.getElementById('detailBody');
+const noresult = ()=>document.getElementById('noresult');
+
+function renderGrid(filter=""){
+  const f = filter.trim().toLowerCase();
+  const g = grid();
+  g.innerHTML="";
+  let shown=0;
+  const d = getData();
+  ROLES.forEach(r=>{
+    const hay = (r.title+" "+(r.intro||"")+" "+r.who+" "+
+      r.core.map(b=>(b.h||"")+" "+b.items.join(" ")).join(" ")+" "+
+      (r.details?r.details.map(b=>(b.h||"")+" "+b.items.join(" ")).join(" "):"")).toLowerCase();
+    if(f && !hay.includes(f)) return;
+    shown++;
+    const el=document.createElement('button');
+    el.className="tile"+(r.info?" info-tile":"");
+    el.onclick=()=>{ roleBackHash='zust'; openRole(r.id); };
+    const assigned = (d.zust[r.id]||[]).map(sid=>d.staff.find(s=>s.id===sid)).filter(Boolean);
+    const people = assigned.length ? `<div class="tile-people">${assigned.map(p=>
+      `<span class="tile-person"><span class="d" style="background:${p.farbe}"></span>${esc(p.name)}</span>`).join('')}</div>` : '';
+    el.innerHTML=`<div class="emoji">${r.icon}</div><div class="t">${esc(r.title)}</div>${people}<div class="bar" style="background:${r.color}"></div>`;
+    g.appendChild(el);
+  });
+  noresult().style.display = shown? "none":"block";
+}
+
+function blockHTML(blocks, checkable, roleId){
+  let html="", idx=0;
+  blocks.forEach(b=>{
+    if(b.h) html+=`<div class="group-h">${esc(b.h)}</div>`;
+    if(checkable){
+      html+=`<ul class="checks">`;
+      b.items.forEach(it=>{
+        const key=LS_PREFIX+"chk_"+roleId+"_"+idx;
+        const done=localStorage.getItem(key)==="1";
+        html+=`<li class="${done?'done':''}" data-key="${key}"><span class="box">✓</span><span>${esc(it)}</span></li>`;
+        idx++;
+      });
+      html+=`</ul>`;
+    }else{
+      html+=`<ul>`+b.items.map(it=>`<li>${esc(it)}</li>`).join("")+`</ul>`;
+    }
+  });
+  return html;
+}
+
+/* Feedback 17.07.2026: "noch offen"-Hinweis (r.who) verschwindet, sobald mind. eine Person der
+   Rolle zugewiesen ist — vorher hatte der Hinweis auch nach Zuweisung keinen Nutzen mehr. Rollen
+   ohne "noch offen" im Text (z. B. "alle, abwechselnd") bleiben unverändert. */
+function roleWhoText(r){
+  if(!/noch offen/.test(r.who)) return r.who;
+  const d = getData();
+  const assigned = (d.zust[r.id]||[]).length > 0;
+  if(!assigned) return r.who;
+  return r.who.replace(/noch offen\s*(?:·\s*)?/,'').trim();
+}
+function whoBadgeHTML(r){
+  const text = roleWhoText(r);
+  if(!text) return `<div class="who" id="whoBadge"></div>`;
+  const isOpen=/offen|festgelegt/.test(text);
+  return `<div class="who ${isOpen?'open':''}" id="whoBadge">${esc(text)}</div>`;
+}
+function renderWhoBadge(roleId){
+  const r = ROLES.find(x=>x.id===roleId); if(!r) return;
+  const el = document.getElementById('whoBadge');
+  if(el) el.outerHTML = whoBadgeHTML(r);
+}
+function zustRowHTML(roleId){
+  const d = getData();
+  const ids = d.zust[roleId] || [];
+  const chips = ids.map(id=>staffChip(id, {onClick:`removeRoleStaff('${roleId}','${id}')`, showX:true})).join('');
+  return `<span class="zust-label">Zuständig:</span>${chips}<button type="button" class="schip-add" onclick="openRoleStaffPicker('${roleId}')">+ Person</button>`;
+}
+function renderZustRow(roleId){
+  const el = document.getElementById('zustRow');
+  if(el) el.innerHTML = zustRowHTML(roleId);
+}
+function removeRoleStaff(roleId, staffId){
+  const d = getData();
+  d.zust[roleId] = (d.zust[roleId]||[]).filter(id=>id!==staffId);
+  saveData(d);
+  renderZustRow(roleId);
+  renderWhoBadge(roleId);
+  refreshGridIfVisible();
+}
+function toggleRoleStaff(roleId, staffId){
+  const d = getData();
+  if(!d.zust[roleId]) d.zust[roleId] = [];
+  const idx = d.zust[roleId].indexOf(staffId);
+  if(idx>=0) d.zust[roleId].splice(idx,1); else d.zust[roleId].push(staffId);
+  saveData(d);
+  setSheetBody(staffPicker(d.zust[roleId], {onToggle:`toggleRoleStaff('${roleId}','{id}')`}));
+  renderZustRow(roleId);
+  renderWhoBadge(roleId);
+  refreshGridIfVisible();
+}
+function openRoleStaffPicker(roleId){
+  const d = getData();
+  openSheet('Zuständig für diese Rolle', staffPicker(d.zust[roleId]||[], {onToggle:`toggleRoleStaff('${roleId}','{id}')`}));
+}
+
+/* ---- Zimmer-Zuteilung (Stufe 11, spec/09_zimmerzuteilung.md) ----
+   Zimmer werden als "virtuelle Rollen" im bestehenden `zust`-Objekt behandelt (Key-Konvention
+   `zust['zimmer_'+raumLabel]`), volle Wiederverwendung von staffPicker()/staffChip(). Räume selbst
+   liegen in `meta.raeume` (Array von Strings). In onclick-Handlern wird bewusst der Array-INDEX
+   statt des Raum-Labels verwendet (Label ist frei editierbarer Text und könnte Anführungszeichen
+   enthalten, die eine im HTML-String gebaute onclick-Attribut-Zeichenkette brechen würden). */
+function roomZustKey(raum){ return 'zimmer_' + raum; }
+/* Stufe 14 (spec/12): Bettenzahl (meta.betten, Default 4 falls kein Override gesetzt) und
+   Belegung (Anzahl TN mit TN.zimmer === raum) — reine Lesehelfer, kein eigener State. */
+const RAUM_BETTEN_DEFAULT = 4;
+function raumBetten(raum){
+  const d = getData();
+  const n = d.meta.betten ? d.meta.betten[raum] : undefined;
+  return (typeof n === 'number' && n >= 0) ? n : RAUM_BETTEN_DEFAULT;
+}
+function raumBelegt(raum){
+  const d = getData();
+  return d.tn.filter(t => t.zimmer === raum).length;
+}
+/* Stufe 14 (spec/12): aus der einfachen Zuständig-Zeile wird eine öffenbare Zimmer-Karte
+   (<details>, wiederverwendet wie schon beim Medi-Plan-Akkordeon aus Stufe 13). Geschlossen:
+   nur Label + Belegung + statische (nicht klickbare) Teamer-Chips. Geöffnet zusätzlich:
+   Teamer zuweisen, Bettenzahl-Editor, TN-Liste dieses Zimmers, Umbenennen/Löschen. */
+function raeumeZustRowsHTML(){
+  const d = getData();
+  const raeume = d.meta.raeume || [];
+  if(!raeume.length){
+    return `<div class="staff-empty">Noch keine Zimmer angelegt.</div>`;
+  }
+  return raeume.map((raum, idx)=>{
+    const key = roomZustKey(raum);
+    const ids = d.zust[key] || [];
+    const chipsStatic = ids.map(id=>staffChip(id)).join('') || `<span class="tn-ansprech-empty">noch niemand zugewiesen</span>`;
+    const chipsEdit = ids.map(id=>staffChip(id, {onClick:`removeRoomStaff(${idx},'${id}')`, showX:true})).join('');
+    const betten = raumBetten(raum), belegt = raumBelegt(raum);
+    const tnHier = d.tn.filter(t=>t.zimmer===raum).sort((a,b)=>a.name.localeCompare(b.name,'de'));
+    const tnListHTML = tnHier.length
+      ? tnHier.map(t=>`<div class="tn-card" onclick="openTnSheet('${t.id}')">
+          <div class="name">${esc(t.name)}${t.alter?`<span class="tn-badge">${esc(String(t.alter))} J.</span>`:''}</div>
+          <div class="flags">${tnBadgesHTML(t)}</div>
+        </div>`).join('')
+      : `<div class="tn-empty">Noch kein TN diesem Zimmer zugeordnet.</div>`;
+    return `<details class="det room-card" data-idx="${idx}">
+      <summary>
+        <span class="room-summary-label">🛏️ ${esc(raum)}</span>
+        <span class="room-summary-belegt">${belegt}/${betten} belegt</span>
+        <span class="room-summary-chips">${chipsStatic}</span>
+      </summary>
+      <div class="body">
+        <div class="zust-row">${chipsEdit}<button type="button" class="schip-add" onclick="openRoomStaffPicker(${idx})">+ Person</button></div>
+        <div class="room-betten-row">
+          <label for="bettenInput${idx}">Bettenzahl</label>
+          <input id="bettenInput${idx}" type="number" min="0" inputmode="numeric" value="${betten}"
+            oninput="raeumeSetBetten(${idx}, this.value)">
+          <span class="room-belegt">${belegt}/${betten} belegt</span>
+        </div>
+        <div class="sec-h" style="margin-top:14px">TN in diesem Zimmer</div>
+        <div class="room-tn-list">${tnListHTML}</div>
+        <div class="room-card-actions">
+          <button type="button" onclick="raeumeEditRoom(${idx})">✏️ Umbenennen</button>
+          <button type="button" onclick="raeumeDeleteRoomConfirm(${idx})">🗑️ Löschen</button>
+        </div>
+      </div>
+    </details>`;
+  }).join('');
+}
+function renderRaeumeZustList(){
+  const el = document.getElementById('raeumeZustList');
+  if(!el) return;
+  // Offene Karten bleiben beim Neuzeichnen offen (z. B. wenn im Bottom-Sheet ein Teamer
+  // zugewiesen wird, während die Karte darunter geöffnet ist) — Index als Merkmal reicht,
+  // da meta.raeume seine Reihenfolge außer bei Add/Delete/Rename nicht ändert.
+  const openIdx = new Set(Array.from(el.querySelectorAll('details.room-card'))
+    .filter(det=>det.open).map(det=>det.dataset.idx));
+  el.innerHTML = raeumeZustRowsHTML();
+  el.querySelectorAll('details.room-card').forEach(det=>{
+    if(openIdx.has(det.dataset.idx)) det.open = true;
+  });
+}
+function raeumeSetBetten(idx, val){
+  const d = getData();
+  const raum = d.meta.raeume[idx]; if(raum===undefined) return;
+  const n = parseInt(val, 10);
+  if(!Number.isFinite(n) || n < 0) delete d.meta.betten[raum];
+  else d.meta.betten[raum] = n;
+  saveData(d);
+  // Gezieltes DOM-Update statt renderRaeumeZustList(): das Zahlenfeld darf beim Tippen
+  // (oninput) nicht neu gerendert werden, sonst verliert es Fokus/Cursor-Position.
+  const belegt = raumBelegt(raum), betten = raumBetten(raum);
+  const card = document.querySelector(`.room-card[data-idx="${idx}"]`);
+  if(card){
+    const belowInput = card.querySelector('.room-belegt');
+    if(belowInput) belowInput.textContent = `${belegt}/${betten} belegt`;
+    const summaryBelegt = card.querySelector('.room-summary-belegt');
+    if(summaryBelegt) summaryBelegt.textContent = `${belegt}/${betten} belegt`;
+  }
+}
+function removeRoomStaff(idx, staffId){
+  const d = getData();
+  const raum = d.meta.raeume[idx]; if(raum===undefined) return;
+  const key = roomZustKey(raum);
+  d.zust[key] = (d.zust[key]||[]).filter(id=>id!==staffId);
+  saveData(d);
+  renderRaeumeZustList();
+}
+function toggleRoomStaff(idx, staffId){
+  const d = getData();
+  const raum = d.meta.raeume[idx]; if(raum===undefined) return;
+  const key = roomZustKey(raum);
+  if(!d.zust[key]) d.zust[key] = [];
+  const i2 = d.zust[key].indexOf(staffId);
+  if(i2>=0) d.zust[key].splice(i2,1); else d.zust[key].push(staffId);
+  saveData(d);
+  setSheetBody(staffPicker(d.zust[key], {onToggle:`toggleRoomStaff(${idx},'{id}')`}));
+  renderRaeumeZustList();
+}
+function openRoomStaffPicker(idx){
+  const d = getData();
+  const raum = d.meta.raeume[idx]; if(raum===undefined) return;
+  const key = roomZustKey(raum);
+  openSheet('🛏️ ' + raum + ' — Zuständig', staffPicker(d.zust[key]||[], {onToggle:`toggleRoomStaff(${idx},'{id}')`}));
+}
+
+function openRole(id){
+  const r=ROLES.find(x=>x.id===id); if(!r)return;
+  currentRoleId = id;
+  let h=`<div class="dhead"><div class="emoji">${r.icon}</div><h2>${esc(r.title)}</h2></div>`;
+  /* Stufe 14 (spec/12): bei der Zimmer-Rolle gibt es bewusst KEINE bereichsweite "Zuständig:"-Zeile
+     — Zuständigkeit ist pro Zimmer (siehe Zimmer-Karten unten), nicht für den Gesamtbereich. */
+  if(r.id!=='zimmer') h+=`<div class="zust-row" id="zustRow">${zustRowHTML(r.id)}</div>`;
+  h+=whoBadgeHTML(r);
+  if(r.intro) h+=`<div class="intro">${esc(r.intro)}</div>`;
+
+  if(r.id==='zimmer'){
+    /* Stufe 14 (spec/12): Checkliste + Details wandern in ein geschlossenes "Worauf muss ich
+       achten?"-Akkordeon (Muster wie das Medi-Plan-Akkordeon aus Stufe 13) — erst die Hinweise,
+       dann die eigentliche Zimmer-Übersicht als öffenbare Karten. */
+    h+=`<details class="det" style="margin-top:4px">
+      <summary>🧭 Worauf muss ich achten?</summary>
+      <div class="body">
+        ${blockHTML(r.core, true, r.id)}
+        ${r.details && r.details.length ? `<details class="det" style="margin-top:10px"><summary>Mehr Details & Sonderfälle</summary><div class="body">${blockHTML(r.details,false,r.id)}</div></details>` : ''}
+      </div>
+    </details>`;
+    h+=`<div class="sec-h" style="margin-top:18px">Zimmer-Übersicht</div>`;
+    h+=`<div id="raeumeZustList">${raeumeZustRowsHTML()}</div>`;
+    h+=`<button type="button" class="team-add-point" onclick="raeumeAddRoom()">+ Zimmer</button>`;
+  }
+
+  if(r.id==='kueche'){
+    /* Stufe 12 (spec/10 §4): bewusst die einzige Info auf dieser Seite — Inhalte
+       leben in der separaten Küchenplaner-App, keine Doppelpflege. */
+    h+=`<div class="hint" style="margin-top:4px">
+      <span>🍳</span>
+      <span>Zuständigkeiten, Menü-Planer und Einkaufsliste gibt's in der eigenen Küchenplaner-App.<br>
+      <a class="kueche-link-btn" href="https://jubuekal-source.github.io/summer-camp/kueche/" target="_blank" rel="noopener">🍳 Küchenplaner öffnen</a>
+      <span style="display:block;margin-top:10px;font-size:.78rem;opacity:.85">📲 Aufs Handy holen:<br>iOS (Safari) → Teilen → „Zum Home-Bildschirm"<br>Android (Chrome) → Menü ⋮ → „Zum Startbildschirm hinzufügen"</span></span>
+    </div>`;
+  }
+
+  if(r.id!=='zimmer' && r.core && r.core.length){
+    h+=`<div class="sec-h">${r.info?'Regeln':'Checkliste'}</div>`;
+    h+=blockHTML(r.core, true, r.id);
+  }
+
+  if(r.id!=='zimmer' && r.details && r.details.length){
+    h+=`<details class="det"><summary>Mehr Details & Sonderfälle</summary><div class="body">${blockHTML(r.details,false,r.id)}</div></details>`;
+  }
+
+  const nkey=LS_PREFIX+"note_"+r.id;
+  h+=`<div class="notes"><label>📝 Meine privaten Notizen <span class="saved" id="savedTag">gespeichert ✓</span></label>
+    <textarea id="noteArea" placeholder="Nur auf diesem Gerät, offline & privat …">${esc(localStorage.getItem(nkey)||"")}</textarea></div>`;
+  /* Feedback 17.07.2026: Checklisten waren nirgendwo als "abhaken & merken"-Liste sinnvoll (kein
+     Team-Sync, jeder sieht nur seinen eigenen Haken) — Antippen/Durchstreichen + "Haken
+     zurücksetzen"-Button entfernt. Die Box mit Häkchen-Icon bleibt rein als Aufzählungs-Optik. */
+
+  detailBody().innerHTML=h;
+
+  const ta=document.getElementById('noteArea'), tag=document.getElementById('savedTag');
+  let t=null;
+  ta.addEventListener('input',()=>{
+    localStorage.setItem(nkey, ta.value);
+    tag.classList.add('show'); clearTimeout(t); t=setTimeout(()=>tag.classList.remove('show'),1200);
+  });
+
+  home().style.display="none"; detail().classList.add('active');
+  window.scrollTo(0,0);
+  if(location.hash!=="#"+id) location.hash=id;
+}
+
+function goHome(){
+  detail().classList.remove('active'); home().style.display="block";
+  window.scrollTo(0,0);
+}
+
+/* ---- Notizen (Dashboard-Kachel: Allgemein + je Tag, wird später vom Wochenplan mitgenutzt) ---- */
+const NOTE_KEY = LS_PREFIX + 'notizen_privat';
+const DAYS = [
+  {key:'mo', label:'Montag'}, {key:'di', label:'Dienstag'}, {key:'mi', label:'Mittwoch'},
+  {key:'do', label:'Donnerstag'}, {key:'fr', label:'Freitag'}, {key:'sa', label:'Samstag'}, {key:'so', label:'Sonntag'}
+];
+
+function emptyNotizen(){
+  return { allgemein:"", mo:"", di:"", mi:"", do:"", fr:"", sa:"", so:"" };
+}
+function getNotizenData(){
+  const raw = localStorage.getItem(NOTE_KEY);
+  if(!raw) return emptyNotizen();
+  try{
+    const parsed = JSON.parse(raw);
+    if(parsed && typeof parsed === 'object' && !Array.isArray(parsed)){
+      return Object.assign(emptyNotizen(), parsed);
+    }
+    return emptyNotizen();
+  }catch(e){
+    // Altformat vor dieser Erweiterung war ein reiner Text ohne Tage — als "Allgemein" übernehmen.
+    const d = emptyNotizen();
+    d.allgemein = raw;
+    return d;
+  }
+}
+function saveNotizenData(d){ localStorage.setItem(NOTE_KEY, JSON.stringify(d)); }
+
+function renderNotizenDays(){
+  const data = getNotizenData();
+  const container = document.getElementById('notizenDays');
+  container.innerHTML = DAYS.map(d=>`
+    <details class="det">
+      <summary>${d.label}</summary>
+      <div class="body">
+        <div class="notes" style="margin-top:0">
+          <textarea data-day="${d.key}" class="notizenDayArea" placeholder="Notizen für ${d.label} …">${esc(data[d.key]||"")}</textarea>
+        </div>
+      </div>
+    </details>`).join('');
+  container.querySelectorAll('.notizenDayArea').forEach(ta=>{
+    ta.addEventListener('input', ()=>{
+      const cur = getNotizenData();
+      cur[ta.dataset.day] = ta.value;
+      saveNotizenData(cur);
+    });
+  });
+}
+
+function loadNotizen(){
+  const d = getNotizenData();
+  document.getElementById('notizen_allgemein').value = d.allgemein || "";
+  renderNotizenDays();
+}
+function bindNotizen(){
+  const ta = document.getElementById('notizen_allgemein'), tag = document.getElementById('notizenSaved');
+  let t=null;
+  ta.addEventListener('input', ()=>{
+    const d = getNotizenData();
+    d.allgemein = ta.value;
+    saveNotizenData(d);
+    tag.classList.add('show'); clearTimeout(t); t=setTimeout(()=>tag.classList.remove('show'),1200);
+  });
+}
+
+/* ============ Wochenplan (Stufe 6, spec/06_wochenplan.md) ============ */
+/* Nutzt für Tages-Notizen bewusst dieselbe Datenquelle wie die Notizen-Kachel (getNotizenData/
+   saveNotizenData, siehe STAND.md "Besonderheiten aus Stufe 1") - keine eigene Notiz-Ablage. */
+let wpCurrentDay = 'mo';
+let wpSaveTimer = null;
+
+/* -- Paste-Sanitizing: nur b/strong,i/em,u,br,p,ul/ol/li erlauben, Attribute/Scripts/Styles strippen -- */
+const WP_ALLOWED_TAGS = {B:1,STRONG:1,I:1,EM:1,U:1,BR:1,P:1,UL:1,OL:1,LI:1};
+function sanitizeWpNode(node){
+  Array.prototype.slice.call(node.childNodes).forEach(child=>{
+    if(child.nodeType === 3) return; // Textknoten bleibt
+    if(child.nodeType !== 1){ node.removeChild(child); return; }
+    if(child.tagName==='SCRIPT' || child.tagName==='STYLE'){ node.removeChild(child); return; }
+    sanitizeWpNode(child); // erst Kinder bereinigen (bottom-up)
+    if(WP_ALLOWED_TAGS[child.tagName]){
+      Array.prototype.slice.call(child.attributes).forEach(a=>child.removeAttribute(a.name));
+    } else {
+      // unbekanntes Element auflösen: Inhalt behalten, Tag selbst entfernen
+      while(child.firstChild) node.insertBefore(child.firstChild, child);
+      node.removeChild(child);
+    }
+  });
+}
+function sanitizeWpHtml(html){
+  const div = document.createElement('div');
+  div.innerHTML = html;
+  sanitizeWpNode(div);
+  return div.innerHTML;
+}
+/* -- WhatsApp-Sternchen-Syntax für reinen Plain-Text-Paste: *fett* -> <b>, _kursiv_ -> <i> -- */
+function parseWhatsAppText(text){
+  let out = esc(text);
+  out = out.replace(/\*([^*\n]+)\*/g, '<b>$1</b>');
+  out = out.replace(/_([^_\n]+)_/g, '<i>$1</i>');
+  out = out.replace(/\r\n|\r|\n/g, '<br>');
+  return out;
+}
+
+function wpDayData(day){
+  const d = getData();
+  if(!d.wochenplan[day]) d.wochenplan[day] = {html:"",imgIds:[],datum:""};
+  return d.wochenplan[day];
+}
+function wpDoSave(){
+  const editor = document.getElementById('wpEditor');
+  const d = getData();
+  if(!d.wochenplan[wpCurrentDay]) d.wochenplan[wpCurrentDay] = {html:"",imgIds:[],datum:""};
+  d.wochenplan[wpCurrentDay].html = sanitizeWpHtml(editor.innerHTML);
+  saveData(d);
+  const tag = document.getElementById('wpSaved');
+  tag.classList.add('show'); setTimeout(()=>tag.classList.remove('show'),1200);
+}
+function wpScheduleSave(){
+  clearTimeout(wpSaveTimer);
+  wpSaveTimer = setTimeout(wpDoSave, 500);
+}
+function wpFlushSave(){
+  if(wpSaveTimer){ clearTimeout(wpSaveTimer); wpSaveTimer=null; wpDoSave(); }
+}
+function bindWpEditor(){
+  const editor = document.getElementById('wpEditor');
+  editor.addEventListener('paste', e=>{
+    e.preventDefault();
+    const cd = e.clipboardData || window.clipboardData;
+    const html = cd.getData('text/html');
+    let insertHtml;
+    if(html && html.trim()) insertHtml = sanitizeWpHtml(html);
+    else insertHtml = parseWhatsAppText(cd.getData('text/plain') || '');
+    document.execCommand('insertHTML', false, insertHtml);
+    wpScheduleSave();
+  });
+  editor.addEventListener('input', wpScheduleSave);
+}
+function bindWpMotto(){
+  document.getElementById('wpMotto').addEventListener('input', function(){
+    const d = getData();
+    if(!d.wochenplan[wpCurrentDay]) d.wochenplan[wpCurrentDay] = {html:"",imgIds:[],datum:""};
+    d.wochenplan[wpCurrentDay].datum = this.value;
+    saveData(d);
+  });
+}
+function bindWpDayNote(){
+  const ta = document.getElementById('wpDayNote'), tag = document.getElementById('wpNoteSaved');
+  let t = null;
+  ta.addEventListener('input', ()=>{
+    const cur = getNotizenData();
+    cur[wpCurrentDay] = ta.value;
+    saveNotizenData(cur);
+    tag.classList.add('show'); clearTimeout(t); t = setTimeout(()=>tag.classList.remove('show'),1200);
+  });
+}
+
+function renderWpDayChips(){
+  document.getElementById('wpDayChips').innerHTML = DAYS.map(day=>
+    `<button type="button" class="daychip${day.key===wpCurrentDay?' active':''}" onclick="selectWpDay('${day.key}')">${day.label.slice(0,2)}</button>`
+  ).join('');
+}
+function loadWpDay(day){
+  const data = wpDayData(day);
+  document.getElementById('wpMotto').value = data.datum || "";
+  document.getElementById('wpEditor').innerHTML = data.html || "";
+  document.getElementById('wpDayNote').value = (getNotizenData()[day]) || "";
+  renderWpImages();
+}
+function selectWpDay(day){
+  if(day === wpCurrentDay) return;
+  wpFlushSave();
+  wpCurrentDay = day;
+  renderWpDayChips();
+  loadWpDay(day);
+}
+function renderWochenplanView(){
+  wpCurrentDay = 'mo';
+  renderWpDayChips();
+  loadWpDay('mo');
+}
+
+/* -- Bilder -- */
+function wpHandleImageFile(ev){
+  const file = ev.target.files && ev.target.files[0];
+  ev.target.value = '';
+  if(!file) return;
+  compressAndStoreImage(file).then(id=>{
+    const d = getData();
+    if(!d.wochenplan[wpCurrentDay]) d.wochenplan[wpCurrentDay] = {html:"",imgIds:[],datum:""};
+    d.wochenplan[wpCurrentDay].imgIds.push(id);
+    saveData(d);
+    renderDashGrid();
+    renderWpImages();
+  }).catch(()=>{
+    alert('Bild konnte nicht verarbeitet werden.');
+  });
+}
+function renderWpImages(){
+  const data = wpDayData(wpCurrentDay);
+  const ids = data.imgIds || [];
+  const container = document.getElementById('wpImages');
+  if(!ids.length){ container.innerHTML = ''; return; }
+  container.innerHTML = ids.map(id=>`<div class="wp-thumb" data-id="${id}">
+    <img alt="Wochenplan-Bild">
+    <button type="button" class="wp-thumb-del" data-id="${id}" aria-label="Bild löschen">🗑️</button>
+  </div>`).join('');
+  ids.forEach(id=>{
+    imgGet(id).then(url=>{
+      if(!url) return;
+      const el = container.querySelector(`.wp-thumb[data-id="${id}"] img`);
+      if(el) el.src = url;
+    });
+  });
+  // Direkter, immer sichtbarer Lösch-Button (Stufe 9, Marcos Feedback: Long-Press allein war nicht
+  // auffindbar genug — Fehl-Uploads sollen sich einfach entfernen lassen, keine Einbahnstraße).
+  container.querySelectorAll('.wp-thumb-del').forEach(btn=>{
+    btn.addEventListener('click', ev=>{
+      ev.stopPropagation();
+      deleteWpImage(btn.dataset.id);
+    });
+  });
+  container.querySelectorAll('.wp-thumb').forEach(el=>{
+    const id = el.dataset.id;
+    let pressTimer = null, longPress = false;
+    const start = ()=>{ longPress=false; pressTimer=setTimeout(()=>{ longPress=true; deleteWpImage(id); }, 550); };
+    const cancel = ()=>{ if(pressTimer){ clearTimeout(pressTimer); pressTimer=null; } };
+    el.addEventListener('touchstart', start, {passive:true});
+    el.addEventListener('touchend', cancel);
+    el.addEventListener('touchmove', cancel);
+    el.addEventListener('mousedown', start);
+    el.addEventListener('mouseup', cancel);
+    el.addEventListener('mouseleave', cancel);
+    el.addEventListener('click', ()=>{ if(longPress){ longPress=false; return; } openWpImageFull(id); });
+  });
+}
+function wpImgOverlay(){
+  let ov = document.getElementById('wpImgOverlay');
+  if(!ov){
+    ov = document.createElement('div');
+    ov.id = 'wpImgOverlay';
+    ov.className = 'wp-img-overlay';
+    ov.innerHTML = `<button type="button" class="wp-img-del" id="wpImgDelBtn">🗑️ Löschen</button>
+      <button type="button" class="wp-img-close" onclick="closeWpImageFull()" aria-label="Schließen">✕</button>
+      <div class="wp-zoom-wrap"><img id="wpImgFull" alt="Wochenplan-Bild"></div>`;
+    document.body.appendChild(ov);
+  }
+  return ov;
+}
+let _wpFullImgId = null;
+function openWpImageFull(id){
+  _wpFullImgId = id;
+  const ov = wpImgOverlay();
+  imgGet(id).then(url=>{
+    if(url) document.getElementById('wpImgFull').src = url;
+  });
+  document.getElementById('wpImgDelBtn').onclick = ()=>deleteWpImage(id);
+  ov.classList.add('active');
+}
+function closeWpImageFull(){
+  const ov = document.getElementById('wpImgOverlay');
+  if(ov) ov.classList.remove('active');
+  _wpFullImgId = null;
+}
+function deleteWpImage(id){
+  openSheet('Bild löschen', `<div class="confirm-box">
+    <p>Dieses Bild wirklich löschen?</p>
+    <div class="confirm-actions">
+      <button type="button" class="staff-cancel" onclick="closeSheet()">Abbrechen</button>
+      <button type="button" class="staff-danger" onclick="deleteWpImageConfirm('${id}')">Löschen</button>
+    </div></div>`);
+}
+function deleteWpImageConfirm(id){
+  const d = getData();
+  const data = d.wochenplan[wpCurrentDay];
+  if(data) data.imgIds = (data.imgIds||[]).filter(x=>x!==id);
+  saveData(d);
+  imgDelete(id);
+  closeSheet();
+  closeWpImageFull();
+  renderDashGrid();
+  renderWpImages();
+}
+
+/* ---- Einstellungen ---- */
+function loadEinstellungen(){
+  const d = getData();
+  document.getElementById('setTitelZusatz').value = d.meta.titelZusatz || "";
+  document.getElementById('setZeitraum').value = d.meta.zeitraum || "";
+  document.getElementById('setStand').value = d.meta.stand || "";
+  document.getElementById('setTheme').value = d.meta.theme || "system";
+  renderRaeumeSettings();
+}
+
+/* ---- Zimmer verwalten (Stufe 11, spec/09): Räume frei anlegen/umbenennen/löschen.
+   Analog zum Team-Edit-Muster (Stufe 8): Titel/Namen per JS ins Eingabefeld gesetzt statt als
+   HTML-Attribut (Anführungszeichen/Emoji sicher), onclick-Handler nutzen den Array-Index statt
+   des Raum-Labels (siehe Kommentar bei raeumeZustRowsHTML). */
+function renderRaeumeSettings(){
+  const el = document.getElementById('raeumeList');
+  if(!el) return;
+  const d = getData();
+  const raeume = d.meta.raeume || [];
+  if(!raeume.length){ el.innerHTML = `<div class="staff-empty">Noch keine Zimmer angelegt.</div>`; return; }
+  el.innerHTML = raeume.map((raum, idx)=>`
+    <div class="team-item-row">
+      <span class="team-item-text">🛏️ ${esc(raum)}</span>
+      <span class="team-item-actions">
+        <button type="button" class="team-icon-btn sm" onclick="raeumeEditRoom(${idx})" aria-label="Umbenennen">✏️</button>
+        <button type="button" class="team-icon-btn sm" onclick="raeumeDeleteRoomConfirm(${idx})" aria-label="Löschen">🗑️</button>
+      </span>
+    </div>`).join('');
+}
+function raeumeAddRoom(){
+  openSheet('Neues Zimmer', `<div class="rename-box">
+    <input id="raumAddInput" type="text" placeholder="z. B. 12" autocomplete="off">
+    <button type="button" class="staff-add-btn" onclick="raeumeAddRoomSave()" aria-label="Hinzufügen">✓</button>
+  </div>`);
+  const inp = document.getElementById('raumAddInput');
+  inp.focus();
+  inp.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); raeumeAddRoomSave(); } });
+}
+function raeumeAddRoomSave(){
+  const inp = document.getElementById('raumAddInput');
+  const val = inp.value.trim();
+  if(!val) return;
+  const d = getData();
+  if(!d.meta.raeume.includes(val)) d.meta.raeume.push(val);
+  saveData(d);
+  closeSheet();
+  renderRaeumeSettings();
+  renderRaeumeZustList();
+}
+function raeumeEditRoom(idx){
+  const d = getData();
+  const raum = d.meta.raeume[idx]; if(raum===undefined) return;
+  openSheet('Zimmer umbenennen', `<div class="rename-box">
+    <input id="raumEditInput" type="text" autocomplete="off">
+    <button type="button" class="staff-add-btn" onclick="raeumeEditRoomSave(${idx})" aria-label="Speichern">✓</button>
+  </div>`);
+  const inp = document.getElementById('raumEditInput');
+  inp.value = raum; // per JS gesetzt (siehe Kommentar oben)
+  inp.focus(); inp.select();
+  inp.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); raeumeEditRoomSave(idx); } });
+}
+function raeumeEditRoomSave(idx){
+  const inp = document.getElementById('raumEditInput');
+  const val = inp.value.trim();
+  if(!val) return;
+  const d = getData();
+  const oldRaum = d.meta.raeume[idx]; if(oldRaum===undefined) return;
+  if(val !== oldRaum){
+    d.meta.raeume[idx] = val;
+    // Zuständigkeits-Zuteilung (zust-Key) & TN-Zimmerzuordnung auf das neue Label ummappen,
+    // sonst gehen bestehende Zuweisungen durch die Umbenennung verloren (spec/09 "überlebt Reload").
+    const oldKey = roomZustKey(oldRaum), newKey = roomZustKey(val);
+    if(d.zust[oldKey]){ d.zust[newKey] = d.zust[oldKey]; delete d.zust[oldKey]; }
+    d.tn.forEach(t=>{ if(t.zimmer===oldRaum) t.zimmer = val; });
+    // Stufe 14 (spec/12): Bettenzahl-Override (falls gesetzt) mit umbenennen.
+    if(Object.prototype.hasOwnProperty.call(d.meta.betten, oldRaum)){
+      d.meta.betten[val] = d.meta.betten[oldRaum];
+      delete d.meta.betten[oldRaum];
+    }
+  }
+  saveData(d);
+  closeSheet();
+  renderRaeumeSettings();
+  renderRaeumeZustList();
+}
+function raeumeDeleteRoomConfirm(idx){
+  const d = getData();
+  const raum = d.meta.raeume[idx]; if(raum===undefined) return;
+  openSheet('Zimmer löschen', `<div class="confirm-box">
+    <p>Zimmer „${esc(raum)}" wirklich löschen? Die Teamer-Zuteilung für dieses Zimmer geht dabei verloren.
+    TN, die diesem Zimmer zugeordnet waren, bleiben mit dem alten Wert sichtbar (Hinweis „Zimmer zuordnen“),
+    bis das im TN-Formular manuell korrigiert wird.</p>
+    <div class="confirm-actions">
+      <button type="button" class="staff-cancel" onclick="closeSheet()">Abbrechen</button>
+      <button type="button" class="staff-danger" onclick="raeumeDeleteRoomDo(${idx})">Löschen</button>
+    </div></div>`);
+}
+function raeumeDeleteRoomDo(idx){
+  const d = getData();
+  const raum = d.meta.raeume[idx]; if(raum===undefined) return;
+  delete d.zust[roomZustKey(raum)];
+  delete d.meta.betten[raum];
+  d.meta.raeume.splice(idx,1);
+  saveData(d);
+  closeSheet();
+  renderRaeumeSettings();
+  renderRaeumeZustList();
+}
+function bindEinstellungen(){
+  ['setTitelZusatz','setZeitraum','setStand'].forEach(id=>{
+    document.getElementById(id).addEventListener('input', ()=>{
+      const d = getData();
+      d.meta.titelZusatz = document.getElementById('setTitelZusatz').value;
+      d.meta.zeitraum = document.getElementById('setZeitraum').value;
+      d.meta.stand = document.getElementById('setStand').value;
+      saveData(d);
+      updateMetaDisplay();
+    });
+  });
+  document.getElementById('setTheme').addEventListener('change', ()=>{
+    const d = getData();
+    d.meta.theme = document.getElementById('setTheme').value;
+    saveData(d);
+    applyTheme();
+  });
+}
+
+/* ============ Export & Import (Stufe 5, spec/01_architektur.md §Export) ============ */
+/* Datei-Format (.fzx = verschlüsseltes JSON, .json = unverschlüsselter Export):
+   { fzappExport:true, version:1, encrypted:true, kdf:'PBKDF2', iterations, salt, iv, ciphertext }
+   { fzappExport:true, version:1, encrypted:false, data:{...kompletter fzapp_data-Inhalt...} } */
+const PBKDF2_ITER = 150000;
+
+function bufToB64(buf){
+  const bytes = new Uint8Array(buf);
+  let bin = '';
+  for(let i=0;i<bytes.byteLength;i++){ bin += String.fromCharCode(bytes[i]); }
+  return btoa(bin);
+}
+function b64ToBuf(b64){
+  const bin = atob(b64);
+  const bytes = new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++){ bytes[i] = bin.charCodeAt(i); }
+  return bytes.buffer;
+}
+async function deriveAesKey(password, saltBuf){
+  const enc = new TextEncoder();
+  const keyMaterial = await crypto.subtle.importKey('raw', enc.encode(password), {name:'PBKDF2'}, false, ['deriveKey']);
+  return crypto.subtle.deriveKey(
+    {name:'PBKDF2', salt:saltBuf, iterations:PBKDF2_ITER, hash:'SHA-256'},
+    keyMaterial,
+    {name:'AES-GCM', length:256},
+    false,
+    ['encrypt','decrypt']
+  );
+}
+async function encryptJSON(dataObj, password){
+  const enc = new TextEncoder();
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const key = await deriveAesKey(password, salt);
+  const cipherBuf = await crypto.subtle.encrypt({name:'AES-GCM', iv}, key, enc.encode(JSON.stringify(dataObj)));
+  return {
+    fzappExport: true, version: 1, encrypted: true,
+    kdf: 'PBKDF2', iterations: PBKDF2_ITER,
+    salt: bufToB64(salt), iv: bufToB64(iv), ciphertext: bufToB64(cipherBuf)
+  };
+}
+async function decryptJSON(env, password){
+  const key = await deriveAesKey(password, b64ToBuf(env.salt));
+  const plainBuf = await crypto.subtle.decrypt({name:'AES-GCM', iv:b64ToBuf(env.iv)}, key, b64ToBuf(env.ciphertext));
+  return JSON.parse(new TextDecoder().decode(plainBuf));
+}
+function downloadFile(filename, content, mime){
+  const blob = new Blob([content], {type: mime||'application/octet-stream'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(url), 2000);
+}
+
+/* ---- Export ---- */
+function openExportSheet(){
+  openSheet('Export', `
+    <div class="form-field"><label>Passwort</label>
+      <input id="expPw1" type="password" placeholder="Mind. 6 Zeichen" autocomplete="new-password"></div>
+    <div class="form-field"><label>Passwort wiederholen</label>
+      <input id="expPw2" type="password" autocomplete="new-password"></div>
+    <div style="display:flex;align-items:center;gap:8px;margin-top:4px">
+      <input type="checkbox" id="expIncludeImages" checked style="width:auto">
+      <label for="expIncludeImages" style="font-size:.9rem;cursor:pointer">Wochenplan-Bilder einschließen</label>
+    </div>
+    <div class="settings-hint" style="text-align:left;margin-top:10px">⚠️ Ohne dieses Passwort ist der Export NICHT wiederherstellbar – gut aufbewahren (z. B. Passwort-Manager)!</div>
+    <div class="form-actions">
+      <button type="button" class="staff-cancel" onclick="closeSheet()">Abbrechen</button>
+      <button type="button" class="form-save" id="expGoBtn" onclick="doEncryptedExport()">Exportieren</button>
+    </div>`);
+}
+async function doEncryptedExport(){
+  const pw1 = document.getElementById('expPw1').value;
+  const pw2 = document.getElementById('expPw2').value;
+  if(pw1.length < 6){ alert('Passwort muss mindestens 6 Zeichen haben.'); return; }
+  if(pw1 !== pw2){ alert('Passwörter stimmen nicht überein.'); return; }
+  const includeImages = document.getElementById('expIncludeImages').checked;
+  const btn = document.getElementById('expGoBtn');
+  btn.disabled = true; btn.textContent = includeImages ? 'Sammle Bilder…' : 'Verschlüssele…';
+  try{
+    const exportData = getData();
+    if(includeImages){
+      exportData._images = await collectWochenplanImages();
+      btn.textContent = 'Verschlüssele…';
+    }
+    const env = await encryptJSON(exportData, pw1);
+    downloadFile('freizeit-app-export.fzx', JSON.stringify(env), 'application/octet-stream');
+    closeSheet();
+  }catch(e){
+    alert('Export fehlgeschlagen: ' + e.message);
+    btn.disabled = false; btn.textContent = 'Exportieren';
+  }
+}
+function openUnencryptedExportConfirm(){
+  openSheet('Unverschlüsselt exportieren', `<div class="confirm-box">
+    <p>⚠️ Diese Datei enthält alle Daten <b>unverschlüsselt im Klartext</b> — inklusive Gesundheitsdaten von Kindern.
+    Nur für dein eigenes Backup, niemals ungeschützt weitergeben oder in eine Cloud laden.</p>
+    <div style="display:flex;align-items:center;gap:8px;margin:10px 0">
+      <input type="checkbox" id="expUncIncludeImages" checked style="width:auto">
+      <label for="expUncIncludeImages" style="font-size:.9rem;cursor:pointer">Wochenplan-Bilder einschließen</label>
+    </div>
+    <div class="confirm-actions">
+      <button type="button" class="staff-cancel" onclick="closeSheet()">Abbrechen</button>
+      <button type="button" class="staff-danger" id="expUncGoBtn" onclick="doUnencryptedExport()">Trotzdem exportieren</button>
+    </div></div>`);
+}
+async function doUnencryptedExport(){
+  const includeImages = document.getElementById('expUncIncludeImages').checked;
+  const btn = document.getElementById('expUncGoBtn');
+  if(includeImages){ btn.disabled = true; btn.textContent = 'Sammle Bilder…'; }
+  const exportData = getData();
+  if(includeImages){
+    exportData._images = await collectWochenplanImages();
+  }
+  const env = { fzappExport:true, version:1, encrypted:false, data:exportData };
+  downloadFile('freizeit-app-export-unverschluesselt.json', JSON.stringify(env), 'application/json');
+  closeSheet();
+}
+
+/* ---- Import ---- */
+let _pendingImportEnv = null;
+let _pendingImportData = null;
+let _pendingImportImages = null;
+
+function openImportPasteSheet(){
+  openSheet('Import', `
+    <div class="form-field"><label>Export-Inhalt einfügen</label>
+      <textarea id="impPasteText" style="min-height:140px" placeholder="Kompletten Inhalt der Export-Datei hier einfügen…"></textarea></div>
+    <div class="form-actions">
+      <button type="button" class="staff-cancel" onclick="closeSheet()">Abbrechen</button>
+      <button type="button" class="form-save" onclick="processImportText(document.getElementById('impPasteText').value)">Weiter</button>
+    </div>`);
+}
+function handleImportFile(ev){
+  const file = ev.target.files && ev.target.files[0];
+  ev.target.value = '';
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = ()=> processImportText(String(reader.result));
+  reader.onerror = ()=> alert('Datei konnte nicht gelesen werden.');
+  reader.readAsText(file);
+}
+function processImportText(text){
+  let env;
+  try{ env = JSON.parse(text); }catch(e){ alert('Ungültige Datei: kein gültiges JSON.'); return; }
+  if(!env || env.fzappExport !== true){ alert('Das ist keine gültige Freizeit-App-Exportdatei.'); return; }
+  if(env.encrypted){
+    _pendingImportEnv = env;
+    openSheet('Import', `
+      <div class="form-field"><label>Passwort</label>
+        <input id="impPw" type="password" placeholder="Export-Passwort" autocomplete="current-password"></div>
+      <div class="form-actions">
+        <button type="button" class="staff-cancel" onclick="closeSheet()">Abbrechen</button>
+        <button type="button" class="form-save" onclick="tryDecryptAndPreview()">Entschlüsseln</button>
+      </div>`);
+  } else if(env.data){
+    showImportPreview(env.data);
+  } else {
+    alert('Die Datei enthält keine lesbaren Daten.');
+  }
+}
+async function tryDecryptAndPreview(){
+  const pw = document.getElementById('impPw').value;
+  if(!pw){ alert('Bitte Passwort eingeben.'); return; }
+  try{
+    const dataObj = await decryptJSON(_pendingImportEnv, pw);
+    showImportPreview(dataObj);
+  }catch(e){
+    alert('Falsches Passwort oder beschädigte Datei.');
+  }
+}
+function showImportPreview(dataObj){
+  // Bilder (Stufe 9) liegen unter _images im Export-Objekt, nicht im eigentlichen
+  // Datenmodell — vor normalizeData() abtrennen, damit sie das Schema nicht verunreinigen.
+  const images = dataObj._images || null;
+  if(dataObj._images) delete dataObj._images;
+  _pendingImportImages = images;
+  const d = normalizeData(dataObj);
+  _pendingImportData = d;
+  const tageMitPlan = Object.keys(d.wochenplan||{}).filter(k=>d.wochenplan[k] && d.wochenplan[k].html).length;
+  const bildAnzahl = images ? Object.keys(images).length : 0;
+  setSheetBody(`<div class="confirm-box">
+    <p><b>Vorschau:</b><br>
+    ${d.staff.length} Mitarbeitende · ${d.tn.length} Teilnehmende · ${d.medis.length} Medikamenten-Einträge<br>
+    ${tageMitPlan} Tage mit Wochenplan-Inhalt · ${d.team.length} Team-Punkte${images ? ` · ${bildAnzahl} Wochenplan-Bild(er)` : ''}</p>
+    <p>⚠️ Der komplette aktuelle Datenbestand wird <b>ersetzt</b>. Das kann nicht rückgängig gemacht werden.</p>
+    <div class="confirm-actions">
+      <button type="button" class="staff-cancel" onclick="closeSheet()">Abbrechen</button>
+      <button type="button" class="staff-danger" id="impGoBtn" onclick="doImportConfirm()">Import bestätigen</button>
+    </div></div>`);
+}
+async function doImportConfirm(){
+  if(!_pendingImportData) return;
+  const btn = document.getElementById('impGoBtn');
+  if(btn) btn.disabled = true;
+  saveData(_pendingImportData);
+  if(_pendingImportImages){
+    if(btn) btn.textContent = 'Importiere Bilder…';
+    const ids = Object.keys(_pendingImportImages);
+    for(const id of ids){
+      try{ await imgPut(id, _pendingImportImages[id]); }catch(e){ /* einzelnes Bild überspringen, Rest weiterlaufen lassen */ }
+    }
+  }
+  _pendingImportData = null;
+  _pendingImportEnv = null;
+  _pendingImportImages = null;
+  closeSheet();
+  location.reload();
+}
+
+/* ---- Alle Daten löschen (App zurücksetzen) ---- */
+function confirmResetAll(){
+  openSheet('Gesamten App-Inhalt zurücksetzen', `<div class="confirm-box">
+    <p>Wirklich <b>alle Daten</b> löschen (Mitarbeitende, TN-Infos, Medikamenten-Plan, Zuständigkeiten, Wochenplan,
+    Team-Notizen)? Tipp: vorher exportieren! Diese Aktion kann nicht rückgängig gemacht werden.</p>
+    <div class="confirm-actions">
+      <button type="button" class="staff-cancel" onclick="closeSheet()">Abbrechen</button>
+      <button type="button" class="staff-danger" onclick="confirmResetAllStep2()">Weiter</button>
+    </div></div>`);
+}
+function confirmResetAllStep2(){
+  setSheetBody(`<div class="confirm-box">
+    <p><b>Bist du sicher?</b> Es gibt kein Zurück.</p>
+    <div class="confirm-actions">
+      <button type="button" class="staff-cancel" onclick="closeSheet()">Abbrechen</button>
+      <button type="button" class="staff-danger" onclick="confirmResetAllDo()">Endgültig alles löschen</button>
+    </div></div>`);
+}
+async function confirmResetAllDo(){
+  saveData(defaultData());
+  try{ await imgClearAll(); }catch(e){ /* IndexedDB-Fehler beim Reset ignorieren, Datenreset hat trotzdem geklappt */ }
+  closeSheet();
+  location.reload();
+}
+
+/* ---- Darstellung (Dark/Light/System) ---- */
+function resolveTheme(pref){
+  if(pref==='dark' || pref==='light') return pref;
+  return (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) ? 'light' : 'dark';
+}
+function applyTheme(){
+  const d = getData();
+  document.documentElement.setAttribute('data-theme', resolveTheme(d.meta.theme || 'system'));
+}
+if(window.matchMedia){
+  window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', ()=>{
+    const d = getData();
+    if((d.meta.theme||'system')==='system') applyTheme();
+  });
+}
+
+function updateMetaDisplay(){
+  const d = getData();
+  document.getElementById('dashTitle').textContent = "☀️ Freizeit App" + (d.meta.titelZusatz ? " · "+d.meta.titelZusatz : "");
+  const sub = document.getElementById('dashSubtitle');
+  if(d.meta.zeitraum){ sub.textContent = d.meta.zeitraum; sub.style.display = "block"; }
+  else { sub.textContent=""; sub.style.display = "none"; }
+  document.getElementById('dashFooter').textContent = "Stand: " + (d.meta.stand || "–");
+}
+
+/* ============ Navigation (Hash-Routing, kein Jahr, kein Tab-Bar) ============ */
+function showView(name){
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  const v=document.getElementById('view-'+name);
+  if(v) v.classList.add('active');
+}
+
+function route(){
+  wpFlushSave(); // beim Verlassen der Wochenplan-View ausstehende Textänderung sofort sichern
+  const h=location.hash.replace('#','');
+  if(!h || h==='dashboard'){ showView('dashboard'); }
+  else if(h==='notfall'){ showView('notfall'); }
+  else if(h==='team'){ showView('team'); teamEditMode=false; renderTeamView(); }
+  else if(h==='tn'){ showView('tn'); renderTnView(); }
+  else if(h==='ma'){ showView('ma'); renderMaView(); }
+  else if(h==='ersthilfe'){ showView('ersthilfe'); renderEhView(); }
+  else if(h==='wochenplan'){ showView('wochenplan'); renderWochenplanView(); }
+  else if(h==='notizen'){ showView('notizen'); loadNotizen(); }
+  else if(h==='einstellungen'){ showView('einstellungen'); loadEinstellungen(); }
+  else if(h==='zust'){ showView('zust'); goHome(); }
+  else if(ROLES.find(x=>x.id===h)){ showView('zust'); openRole(h); }
+  else { showView('dashboard'); }
+  window.scrollTo(0,0);
+}
+window.addEventListener('hashchange', route);
+
+/* ---- Wisch-nach-rechts = zurück (Stufe 12, spec/10 §2) ----
+   Nur vom linken Bildschirmrand aus (~30px), damit normales seitliches
+   Scrollen/Wischen im Rest der Seite nicht versehentlich navigiert.
+   Klickt den gerade sichtbaren „‹ Zurück"/„‹ Dashboard"-Button der aktiven
+   View an — nutzt so die pro View bereits hinterlegte Zurück-Logik. */
+function setupSwipeBack(){
+  const EDGE = 30, THRESHOLD = 60;
+  let startX = null, startY = null, active = false;
+  document.addEventListener('touchstart', e=>{
+    if(e.touches.length !== 1) return;
+    const t = e.touches[0];
+    active = t.clientX <= EDGE;
+    startX = t.clientX; startY = t.clientY;
+  }, {passive:true});
+  document.addEventListener('touchend', e=>{
+    if(!active || startX===null) return;
+    active = false;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - startX, dy = t.clientY - startY;
+    startX = null; startY = null;
+    if(dx > THRESHOLD && Math.abs(dx) > Math.abs(dy) * 1.5){
+      const btns = document.querySelectorAll('.view.active .back');
+      for(const b of btns){ if(b.offsetParent !== null){ b.click(); break; } }
+    }
+  }, {passive:true});
+}
+
+/* ============ Init ============ */
+document.getElementById('search').addEventListener('input', e=>renderGrid(e.target.value));
+
+migrateOldKeys();
+applyTheme();
+updateMetaDisplay();
+renderDashGrid();
+renderGrid();
+bindNotizen();
+bindWpEditor();
+bindWpMotto();
+bindWpDayNote();
+bindEinstellungen();
+bindMaInputs();
+setupSwipeBack();
+route();
+</script>
+</body>
+</html>
