@@ -1553,10 +1553,12 @@ const TN_COUNTERS = [
   {id:'ticket_nein', icon:'🎫', label:'Ticket fehlt', desc:'Kein VVS-Ticket vorhanden — wichtig fürs Ausflugs-Team.',
     match:t=>(t.flags||[]).includes('ticket_nein')},
   /* Feedback 17.07.2026: aus einer Ja/Nein-Flag zwei Optionen gemacht (Zeitpunkt der Abgabe kann
-     variieren) — mit tnHandyExclusive() im Formular gegenseitig ausschließend gehalten. */
-  {id:'handy_2200', icon:'📱➡️', label:'Handy zur Bettruhe', desc:'Handy wird zur Bettruhezeit abgegeben.',
+     variieren) — mit tnHandyExclusive() im Formular gegenseitig ausschließend gehalten.
+     Icons 18.07.2026 überarbeitet (Marco-Feedback: beide Icons sahen identisch aus): 📱🕙 = Standard
+     (zur Bettruhe), 📱➕ = Sonderregel (länger/1h mehr Zeit). */
+  {id:'handy_2200', icon:'📱🕙', label:'Handy zur Bettruhe', desc:'Handy wird zur Bettruhezeit abgegeben.',
     match:t=>(t.flags||[]).includes('handy_2200')},
-  {id:'handy_2300', icon:'📱➡️', label:'Handy 1h nach Bettruhe', desc:'Handy wird erst eine Stunde nach der Bettruhe abgegeben.',
+  {id:'handy_2300', icon:'📱➕', label:'Handy 1h nach Bettruhe', desc:'Handy wird erst eine Stunde nach der Bettruhe abgegeben.',
     match:t=>(t.flags||[]).includes('handy_2300')}
 ];
 /* Nachträglich vereinfacht (Marco-Feedback nach Stufe 4): Mitfahrt/TN-Infos gesamt gestrichen
