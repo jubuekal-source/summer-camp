@@ -1,0 +1,2315 @@
+<!DOCTYPE html>
+<!-- saved from url=(0035)https://sf-kuechen-app.netlify.app/ -->
+<html lang="de"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+<meta name="theme-color" content="#059669">
+<title>Küchenplaner Sommerfreizeit</title>
+<style>
+  :root{
+    --bg:#fafafa; --bg2:#ffffff; --card:#ffffff;
+    --text:#18181b; --text2:#52525b; --text3:#a1a1aa;
+    --ring:#e4e4e7; --ring2:#d4d4d8;
+    --hover:#f4f4f5; --chip:#f4f4f5; --chipText:#52525b;
+    --primary:#059669; --primaryHover:#047857; --primaryText:#ffffff;
+    --emerald-bg:#ecfdf5; --emerald-ring:#a7f3d0; --emerald-text:#065f46;
+    --amber-bg:#fffbeb; --amber-ring:#fde68a; --amber-text:#92400e; --amber-icon:#d97706;
+    --green-bg:#f0fdf4; --green-ring:#bbf7d0; --green-text:#15803d;
+    --orange-bg:#fff7ed; --orange-ring:#fed7aa; --orange-text:#c2410c;
+    --red-bg:#fef2f2; --red-ring:#fecaca; --red-text:#b91c1c;
+    --cold-bg:#eff6ff; --cold-ring:#bfdbfe; --cold-text:#1d4ed8; --cold-chip:#dbeafe;
+    --violet:#5F4A8B; --violetHover:#4d3c73; --violetText:#ffffff;
+    --violet-bg:#f3f0f9; --violet-ring:#dcd3ee; --violet-text:#473668; --violet-soft:#ede8f6;
+    --shadow:0 1px 2px rgba(0,0,0,.04), 0 1px 3px rgba(0,0,0,.06);
+    --shadowMd:0 4px 12px rgba(0,0,0,.06);
+  }
+  html.dark{
+    --bg:#0c0c0f; --bg2:#18181b; --card:#18181b;
+    --text:#fafafa; --text2:#a1a1aa; --text3:#71717a;
+    --ring:#27272a; --ring2:#3f3f46;
+    --hover:#27272a; --chip:#27272a; --chipText:#d4d4d8;
+    --primary:#10b981; --primaryHover:#34d399; --primaryText:#04221a;
+    --emerald-bg:#052e23; --emerald-ring:#0f5132; --emerald-text:#6ee7b7;
+    --amber-bg:#2a1d05; --amber-ring:#5b430f; --amber-text:#fcd34d; --amber-icon:#fbbf24;
+    --green-bg:#06250f; --green-ring:#14532d; --green-text:#86efac;
+    --orange-bg:#2b1407; --orange-ring:#5a2c0d; --orange-text:#fdba74;
+    --red-bg:#2a0e0e; --red-ring:#5b1a1a; --red-text:#fca5a5;
+    --cold-bg:#0c1e3a; --cold-ring:#1e3a5f; --cold-text:#7cb0f5; --cold-chip:#16294a;
+    --violet:#9579c9; --violetHover:#a98fd6; --violetText:#1c1330;
+    --violet-bg:#1e1730; --violet-ring:#3a2d57; --violet-text:#c9b8ea; --violet-soft:#241b3a;
+    --shadow:0 1px 2px rgba(0,0,0,.3), 0 1px 3px rgba(0,0,0,.4);
+    --shadowMd:0 4px 14px rgba(0,0,0,.5);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    font-family:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+    background:var(--bg); color:var(--text); line-height:1.55;
+    -webkit-font-smoothing:antialiased; transition:background .2s,color .2s;
+  }
+  input[type=number]{-moz-appearance:textfield}
+  input[type=number]::-webkit-outer-spin-button,
+  input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+  button{font-family:inherit}
+  ::selection{background:var(--primary);color:var(--primaryText)}
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script>
+/* =========================================================
+   Mini-React (eingebettet) — createElement + Hooks + Render
+   Vollständiges Neu-Rendern bei jedem State-Update.
+   Fokus/Cursor in Textfeldern wird über data-focus-id bewahrt.
+   ========================================================= */
+(function(global){
+  "use strict";
+  const Fragment = Symbol("Fragment");
+
+  function createElement(type, props){
+    const children=[];
+    for(let i=2;i<arguments.length;i++){
+      const c=arguments[i];
+      if(Array.isArray(c)){ for(let j=0;j<c.length;j++) children.push(c[j]); }
+      else children.push(c);
+    }
+    props=props||{};
+    return {__v:true, type, props, children};
+  }
+
+  let rootVNode=null, container=null, scheduled=false;
+  let instances=new Map();      // key -> {hooks, index}
+  let nextInstances=new Map();
+  let current=null;
+  let pendingEffects=[];
+
+  function schedule(){
+    if(scheduled) return;
+    scheduled=true;
+    Promise.resolve().then(()=>{ scheduled=false; commit(); });
+  }
+
+  function depsEqual(a,b){
+    if(!a||!b) return false;
+    if(a.length!==b.length) return false;
+    for(let i=0;i<a.length;i++) if(a[i]!==b[i]) return false;
+    return true;
+  }
+
+  function useState(initial){
+    const inst=current, i=inst.index++;
+    if(!(i in inst.hooks)) inst.hooks[i]= (typeof initial==="function")?initial():initial;
+    const set=(val)=>{
+      const prev=inst.hooks[i];
+      const next=(typeof val==="function")?val(prev):val;
+      if(next!==prev){ inst.hooks[i]=next; schedule(); }
+    };
+    return [inst.hooks[i], set];
+  }
+  function useMemo(fn, deps){
+    const inst=current, i=inst.index++;
+    const prev=inst.hooks[i];
+    if(prev && prev.__memo && depsEqual(prev.deps,deps)) return prev.value;
+    const value=fn();
+    inst.hooks[i]={__memo:true, value, deps};
+    return value;
+  }
+  function useEffect(fn, deps){
+    const inst=current, i=inst.index++;
+    const prev=inst.hooks[i];
+    const changed=!prev || !depsEqual(prev.deps,deps);
+    const rec=prev||{__effect:true, cleanup:null};
+    rec.deps=deps;
+    if(changed){ rec.run=fn; pendingEffects.push(rec); }
+    inst.hooks[i]=rec;
+  }
+
+  function build(vnode, path, svgContext){
+    if(vnode==null||vnode===false||vnode===true) return document.createComment("e");
+    if(typeof vnode==="string"||typeof vnode==="number") return document.createTextNode(String(vnode));
+    if(Array.isArray(vnode)){
+      const f=document.createDocumentFragment();
+      for(let i=0;i<vnode.length;i++) f.appendChild(build(vnode[i], path+"["+i+"]", svgContext));
+      return f;
+    }
+    if(!vnode.__v) return document.createTextNode(String(vnode));
+
+    const {type, props, children}=vnode;
+
+    if(type===Fragment){
+      const f=document.createDocumentFragment();
+      for(let i=0;i<children.length;i++) f.appendChild(build(children[i], path+".f"+i, svgContext));
+      return f;
+    }
+
+    if(typeof type==="function"){
+      const key=path+"#"+(type.name||"C");
+      let inst=instances.get(key);
+      if(!inst) inst={hooks:[], index:0};
+      inst.index=0;
+      const prev=current; current=inst;
+      let out;
+      try{ out=type(Object.assign({}, props, {children})); }
+      finally{ current=prev; }
+      nextInstances.set(key, inst);
+      return build(out, key, svgContext);
+    }
+
+    const SVG_NS="http://www.w3.org/2000/svg";
+    const isSvg = svgContext || type==="svg";
+    const el = isSvg ? document.createElementNS(SVG_NS, type) : document.createElement(type);
+    applyProps(el, props, isSvg);
+    for(let i=0;i<children.length;i++){
+      const c=children[i];
+      if(c==null||c===false||c===true) continue;
+      el.appendChild(build(c, path+">"+i, isSvg));
+    }
+    // <select>: value muss NACH dem Anhängen der <option>-Kinder gesetzt werden,
+    // sonst greift die Vorauswahl nicht.
+    if(!isSvg && type==="select" && ("value" in props)){
+      el.value = (props.value==null ? "" : props.value);
+    }
+    return el;
+  }
+
+  function applyProps(el, props, isSvg){
+    for(const k in props){
+      if(k==="children"||k==="key") continue;
+      const v=props[k];
+      if(k==="style"&&v&&typeof v==="object"){
+        for(const s in v) el.style[s]=v[s];
+      } else if(k==="className"){
+        if(v!=null) el.setAttribute("class", v);
+      } else if(k.charCodeAt(0)===111 && k.charCodeAt(1)===110 && typeof v==="function"){ // "on..."
+        el[k.toLowerCase()]=v;
+      } else if(!isSvg && k==="value"){
+        el.value=(v==null?"":v);
+      } else if(!isSvg && k==="checked"){
+        el.checked=!!v;
+      } else if(v===true){
+        el.setAttribute(k,"");
+      } else if(v===false||v==null){
+        /* skip */
+      } else {
+        el.setAttribute(k, v);
+      }
+    }
+  }
+
+  function commit(){
+    nextInstances=new Map();
+    pendingEffects=[];
+    // Fokus merken
+    const active=document.activeElement;
+    let focusId=null, selStart=null, selEnd=null;
+    if(active && active.getAttribute && active.getAttribute("data-focus-id")){
+      focusId=active.getAttribute("data-focus-id");
+      try{ selStart=active.selectionStart; selEnd=active.selectionEnd; }catch(e){}
+    }
+    // Scroll-Position merken — container.innerHTML="" kollabiert die Seite kurzzeitig
+    // auf Höhe 0, wodurch der Browser die Scrollposition sonst auf 0 zurücksetzt.
+    const scrollX=window.scrollX, scrollY=window.scrollY;
+
+    let dom;
+    try{
+      dom=build(rootVNode, "root");
+    }catch(err){
+      console.error("Render-Fehler:", err);
+      container.innerHTML="<pre style='padding:16px;color:#b91c1c;white-space:pre-wrap;font:13px monospace'>Fehler beim Rendern:\n"+(err&&err.message||err)+"</pre>";
+      return;
+    }
+    container.innerHTML="";
+    container.appendChild(dom);
+
+    // alte Instanzen aufräumen
+    instances.forEach((inst,key)=>{
+      if(!nextInstances.has(key)){
+        inst.hooks.forEach(h=>{ if(h&&h.__effect&&h.cleanup){ try{h.cleanup();}catch(e){} } });
+      }
+    });
+    instances=nextInstances;
+
+    // Fokus wiederherstellen (ohne eigenes Scrollen — das übernimmt die Scroll-Wiederherstellung unten)
+    if(focusId){
+      const restore=container.querySelector('[data-focus-id="'+focusId+'"]');
+      if(restore){
+        restore.focus({preventScroll:true});
+        if(selStart!=null){ try{ restore.setSelectionRange(selStart, selEnd); }catch(e){} }
+      }
+    }
+    // Scroll-Position wiederherstellen
+    window.scrollTo(scrollX, scrollY);
+
+    // Effekte
+    const eff=pendingEffects.slice(); pendingEffects=[];
+    eff.forEach(rec=>{
+      if(rec.cleanup){ try{rec.cleanup();}catch(e){} rec.cleanup=null; }
+      try{ const c=rec.run(); if(typeof c==="function") rec.cleanup=c; }catch(e){ console.error(e); }
+    });
+  }
+
+  function createRoot(c){
+    container=c;
+    return { render(vnode){ rootVNode=vnode; commit(); } };
+  }
+
+  global.React={createElement, Fragment, useState, useMemo, useEffect};
+  global.ReactDOM={createRoot};
+})(window);
+</script>
+
+<script>
+/* =========================================================
+   App
+   ========================================================= */
+(function(){
+const {createElement:h, Fragment, useState, useMemo, useEffect} = React;
+
+/* ---- Icons ---- */
+function svg(children, sw){
+  return h("svg",{xmlns:"http://www.w3.org/2000/svg",viewBox:"0 0 24 24",
+    fill:"none",stroke:"currentColor","stroke-width":sw||2,"stroke-linecap":"round","stroke-linejoin":"round",
+    width:"1em",height:"1em",
+    style:{display:"block",width:"1em",height:"1em"}}, children);
+}
+const P=(d,extra)=>h("path",Object.assign({d},extra||{}));
+const Ic={
+  search:()=>svg([h("circle",{cx:11,cy:11,r:8}),P("m21 21-4.3-4.3")]),
+  clock:()=>svg([h("circle",{cx:12,cy:12,r:10}),h("polyline",{points:"12 6 12 12 16 14"})]),
+  users:()=>svg([P("M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"),h("circle",{cx:9,cy:7,r:4}),P("M22 21v-2a4 4 0 0 0-3-3.87"),P("M16 3.13a4 4 0 0 1 0 7.75")]),
+  chef:()=>svg([P("M6 13.87A4 4 0 0 1 7.41 6a5.11 5.11 0 0 1 1.05-1.54 5 5 0 0 1 7.08 0A5.11 5.11 0 0 1 16.59 6 4 4 0 0 1 18 13.87V21H6Z"),h("line",{x1:6,y1:17,x2:18,y2:17})]),
+  alert:(sw)=>svg([P("m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"),h("line",{x1:12,y1:9,x2:12,y2:13}),h("line",{x1:12,y1:17,x2:"12.01",y2:17})],sw),
+  chevron:()=>svg([h("polyline",{points:"6 9 12 15 18 9"})]),
+  check:(sw)=>svg([h("polyline",{points:"20 6 9 17 4 12"})],sw),
+  info:()=>svg([h("circle",{cx:12,cy:12,r:10}),h("line",{x1:12,y1:16,x2:12,y2:12}),h("line",{x1:12,y1:8,x2:"12.01",y2:8})]),
+  leaf:()=>svg([P("M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"),P("M2 21c0-3 1.85-5.36 5.08-6")]),
+  flame:()=>svg([P("M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z")]),
+  utensils:()=>svg([P("m16 2-2.3 2.3a3 3 0 0 0 0 4.2l1.8 1.8a3 3 0 0 0 4.2 0L22 8"),P("M15 15 3.3 3.3a4.2 4.2 0 0 0 0 6l7.3 7.3c.7.7 2 .7 2.8 0L15 15Zm0 0 7 7"),P("m2.1 21.8 6.4-6.3"),P("m19 5-7 7")]),
+  minus:(sw)=>svg([h("line",{x1:5,y1:12,x2:19,y2:12})],sw),
+  plus:(sw)=>svg([h("line",{x1:12,y1:5,x2:12,y2:19}),h("line",{x1:5,y1:12,x2:19,y2:12})],sw),
+  sun:()=>svg([h("circle",{cx:12,cy:12,r:4}),P("M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41")]),
+  moon:()=>svg([P("M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z")]),
+  cart:()=>svg([h("circle",{cx:8,cy:21,r:1}),h("circle",{cx:19,cy:21,r:1}),P("M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12")]),
+  book:()=>svg([P("M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20")]),
+  trash:()=>svg([h("polyline",{points:"3 6 5 6 21 6"}),P("M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2")]),
+  add:(sw)=>svg([h("line",{x1:12,y1:5,x2:12,y2:19}),h("line",{x1:5,y1:12,x2:19,y2:12})],sw),
+  layers:()=>svg([h("polygon",{points:"12 2 2 7 12 12 22 7 12 2"}),h("polyline",{points:"2 17 12 22 22 17"}),h("polyline",{points:"2 12 12 17 22 12"})]),
+  list:()=>svg([h("line",{x1:8,y1:6,x2:21,y2:6}),h("line",{x1:8,y1:12,x2:21,y2:12}),h("line",{x1:8,y1:18,x2:21,y2:18}),h("line",{x1:3,y1:6,x2:"3.01",y2:6}),h("line",{x1:3,y1:12,x2:"3.01",y2:12}),h("line",{x1:3,y1:18,x2:"3.01",y2:18})]),
+  route:()=>svg([h("circle",{cx:6,cy:19,r:3}),P("M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15"),h("circle",{cx:18,cy:5,r:3})]),
+  snow:(sw)=>svg([h("line",{x1:12,y1:2,x2:12,y2:22}),h("line",{x1:2,y1:12,x2:22,y2:12}),P("m20 16-4-4 4-4"),P("m4 8 4 4-4 4"),P("m16 4-4 4-4-4"),P("m8 20 4-4 4 4")],sw),
+  share:(sw)=>svg([h("circle",{cx:18,cy:5,r:3}),h("circle",{cx:6,cy:12,r:3}),h("circle",{cx:18,cy:19,r:3}),h("line",{x1:"8.59",y1:"13.51",x2:"15.42",y2:"17.49"}),h("line",{x1:"15.41",y1:"6.51",x2:"8.59",y2:"10.49"})],sw),
+  shield:()=>svg([P("M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z")]),
+  arrowRight:(sw)=>svg([h("line",{x1:5,y1:12,x2:19,y2:12}),h("polyline",{points:"12 5 19 12 12 19"})],sw),
+  user:()=>svg([P("M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"),h("circle",{cx:12,cy:7,r:4})]),
+  carrot:()=>svg([P("M2.27 21.7s9.87-3.5 12.73-6.36a4.5 4.5 0 0 0-6.36-6.37C5.77 11.84 2.27 21.7 2.27 21.7zM8.64 14l-2.05-2.04M15.34 15l-2.46-2.46"),P("M22 9s-1.33-2-3.5-2C16.86 7 15 9 15 9s1.33 2 3.5 2S22 9 22 9zM15 2s-2 1.33-2 3.5S15 9 15 9s2-1.84 2-3.5S15 2 15 2z")]),
+  x:(sw)=>svg([h("line",{x1:18,y1:6,x2:6,y2:18}),h("line",{x1:6,y1:6,x2:18,y2:18})],sw),
+  home:()=>svg([P("M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"),h("polyline",{points:"9 22 9 12 15 12 15 22"})]),
+  bulb:()=>svg([P("M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"),P("M9 18h6"),P("M10 22h4")]),
+  reset:()=>svg([P("M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"),P("M3 3v5h5")]),
+  download:(sw)=>svg([P("M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"),h("polyline",{points:"7 10 12 15 17 10"}),h("line",{x1:12,y1:15,x2:12,y2:3})],sw),
+  upload:(sw)=>svg([P("M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"),h("polyline",{points:"17 8 12 3 7 8"}),h("line",{x1:12,y1:3,x2:12,y2:15})],sw),
+};
+function icon(name, sizePx, color, extraStyle, sw){
+  return h("span",{style:Object.assign({display:"inline-flex",fontSize:(sizePx||16)+"px",color:color||"inherit",lineHeight:0},extraStyle||{})}, Ic[name](sw));
+}
+
+/* ---- DATEN ---- */
+const GERICHTE = [
+  { nr:1, name:"Nudeln mit Tomatensauce", level:"einfach", veg:true, grill:false, zeit:"ca. 30 Min",
+    warum:"Rein pflanzlich gekocht, alles wird durcherhitzt – praktisch kein kritisches Lebensmittel im Spiel. Sicherster Einstieg überhaupt.",
+    zutaten:[{n:"Nudeln (Penne/Fusilli)",m:125,u:"g",a:["Gluten"]},{n:"Passierte Tomaten",m:200,u:"g"},{n:"Zwiebel",m:40,u:"g"},{n:"Knoblauchzehe",m:0.4,u:"stk"},{n:"Olivenöl",m:5,u:"ml"},{n:"Tomatenmark",m:12,u:"g"},{n:"Salz, Pfeffer, Oregano",m:0,u:"frei"},{n:"Geriebener Käse (optional)",m:20,u:"g",a:["Milch"]}],
+    schritte:["Zwiebel und Knoblauch fein würfeln, in Öl glasig dünsten.","Tomatenmark kurz mitrösten, passierte Tomaten zugeben, würzen, 15 Min köcheln.","Nudeln in reichlich Salzwasser bissfest kochen, abgießen.","Nudeln mit der Sauce mischen, mit Käse servieren."],
+    hygiene:"Sauce mind. 70 °C durchziehen lassen. Reste sofort kühlen, nicht lauwarm stehen lassen." },
+  { nr:2, name:"Nudeln Bolognese", level:"mittel", veg:false, grill:false, zeit:"ca. 40 Min",
+    warum:"Rinderhack ist erlaubt, wenn es nicht roh verarbeitet, sondern sofort vollständig durchgebraten wird (Farbumschlag rot→braun). Hack am selben Tag verbrauchen.",
+    zutaten:[{n:"Nudeln (Penne/Fusilli)",m:125,u:"g",a:["Gluten"]},{n:"Rinderhackfleisch",m:110,u:"g"},{n:"Passierte Tomaten",m:180,u:"g"},{n:"Zwiebel",m:40,u:"g"},{n:"Karotte",m:30,u:"g"},{n:"Knoblauchzehe",m:0.4,u:"stk"},{n:"Tomatenmark",m:12,u:"g"},{n:"Olivenöl",m:5,u:"ml"},{n:"Salz, Pfeffer, Oregano",m:0,u:"frei"}],
+    schritte:["Zwiebel, Karotte, Knoblauch fein würfeln.","Hackfleisch in Öl vollständig krümelig anbraten, bis nichts mehr rot ist.","Gemüse mitdünsten, Tomatenmark zugeben, kurz rösten.","Passierte Tomaten zugeben, würzen, 20–25 Min köcheln.","Nudeln bissfest kochen, mit der Sauce servieren."],
+    hygiene:"Hack frisch kaufen, gekühlt lagern, am selben Tag verarbeiten und KOMPLETT durchbraten (≥70 °C). Brett und Messer vom rohen Hack sofort spülen, bevor andere Lebensmittel damit in Kontakt kommen." },
+  { nr:3, name:"Chili con/sin Carne", level:"mittel", veg:true, grill:false, zeit:"ca. 45 Min",
+    warum:"Lange gekochter Eintopf – hohe Sicherheit. Optional mit durchgebratenem Rinderhack oder rein vegetarisch mit extra Bohnen.",
+    zutaten:[{n:"Kidneybohnen (Dose, abgetropft)",m:90,u:"g"},{n:"Mais (Dose, abgetropft)",m:60,u:"g"},{n:"Gehackte Tomaten (Dose)",m:150,u:"g"},{n:"Rinderhackfleisch (optional)",m:80,u:"g"},{n:"Zwiebel",m:45,u:"g"},{n:"Paprika",m:60,u:"g"},{n:"Knoblauchzehe",m:0.4,u:"stk"},{n:"Tomatenmark",m:12,u:"g"},{n:"Öl",m:5,u:"ml"},{n:"Salz, Paprikapulver, Kreuzkümmel mild",m:0,u:"frei"}],
+    schritte:["Zwiebel, Paprika, Knoblauch würfeln.","Falls mit Fleisch: Hack zuerst komplett durchbraten.","Gemüse mitdünsten, Tomatenmark rösten, Dosentomaten zugeben.","Bohnen und Mais zugeben, würzen, 25–30 Min köcheln.","Mild abschmecken. Dazu passt Brot oder Reis."],
+    hygiene:"Bei Variante mit Hack: erst vollständig durchbraten. Dosen mit gewölbtem Deckel nicht verwenden." },
+  { nr:4, name:"Kartoffeleintopf mit Würstchen", level:"einfach", veg:false, grill:false, zeit:"ca. 40 Min",
+    warum:"Eintopf, alles weichgekocht; Brühwürstchen erst zum Schluss heiß ziehen lassen. Deftig, kostengünstig, kinderfreundlich.",
+    zutaten:[{n:"Kartoffeln (festkochend)",m:300,u:"g"},{n:"Brühwürstchen (Wiener/Saiten)",m:1.5,u:"stk",ap:1},{n:"Karotte",m:60,u:"g"},{n:"Zwiebel",m:40,u:"g"},{n:"Gemüsebrühe",m:300,u:"ml",a:["Sellerie"],ap:1},{n:"Lauch (optional)",m:40,u:"g"},{n:"Öl",m:5,u:"ml"},{n:"Salz, Pfeffer, Majoran",m:0,u:"frei"}],
+    schritte:["Kartoffeln, Karotte, Zwiebel schälen und würfeln.","Zwiebel in Öl andünsten, Gemüse zugeben, kurz mitdünsten.","Mit Brühe auffüllen, 20–25 Min weich köcheln.","Würstchen in Scheiben schneiden, die letzten 5–8 Min heiß mitziehen lassen.","Abschmecken, mit Majoran würzen."],
+    hygiene:"Würstchen sind vorgegart – nur heiß durchziehen (~75 °C), nicht kochen. Reste schnell kühlen." },
+  { nr:5, name:"Linsen mit Spätzle & Saitenwürstle", level:"einfach", veg:false, grill:false, zeit:"ca. 45 Min",
+    warum:"Schwäbischer Klassiker, regional perfekt. Linsen lange gekocht, Würstchen heiß durchgezogen, Spätzle aus dem Beutel halten es einfach.",
+    zutaten:[{n:"Tellerlinsen (trocken)",m:80,u:"g"},{n:"Spätzle (fertig/Beutel)",m:125,u:"g",a:["Gluten","Ei"]},{n:"Saitenwürstle (Brühwurst)",m:1.5,u:"stk",ap:1},{n:"Zwiebel",m:40,u:"g"},{n:"Karotte",m:40,u:"g"},{n:"Gemüsebrühe",m:300,u:"ml",a:["Sellerie"],ap:1},{n:"Tomatenmark",m:10,u:"g"},{n:"Essig (zum Abschmecken)",m:5,u:"ml"},{n:"Öl, Salz, Pfeffer, Lorbeer",m:0,u:"frei"}],
+    schritte:["Linsen nach Packung ggf. einweichen/abspülen.","Zwiebel und Karotte würfeln, in Öl andünsten, Tomatenmark mitrösten.","Linsen und Brühe zugeben, 25–35 Min weich köcheln (Lorbeer mitkochen).","Mit Salz, Pfeffer, einem Schuss Essig abschmecken.","Spätzle erhitzen; Würstle in Scheiben heiß mitziehen lassen. Zusammen servieren."],
+    hygiene:"Würstle nur heiß durchziehen. Linsen vollständig weich und durchgegart servieren." },
+  { nr:6, name:"Asia-Gemüsereispfanne", level:"einfach", veg:true, grill:false, zeit:"ca. 35 Min",
+    warum:"Buntes Reisgericht, vegetarisch. Wichtig: gekochten Reis nicht stundenlang lauwarm stehen lassen – frisch kochen, heiß servieren.",
+    zutaten:[{n:"Reis",m:90,u:"g"},{n:"Tiefkühl-Gemüsemix (Asia)",m:150,u:"g"},{n:"Paprika",m:50,u:"g"},{n:"Zwiebel",m:40,u:"g"},{n:"Karotte",m:40,u:"g"},{n:"Sojasauce",m:12,u:"ml",a:["Soja","Gluten"]},{n:"Öl",m:8,u:"ml"},{n:"Salz, Pfeffer",m:0,u:"frei"}],
+    schritte:["Reis nach Packung kochen.","Gemüse klein schneiden; TK-Gemüse muss nicht auftauen.","Gemüse in heißem Öl kräftig anbraten, bis es heiß und gar ist.","Gekochten Reis untermischen, mit Sojasauce abschmecken, heiß servieren."],
+    hygiene:"TK-Gemüse vollständig durcherhitzen (≥70 °C). Reis frisch kochen, heiß servieren, Reste sofort portionsweise kühlen (Bacillus cereus bildet sich in lauwarmem Reis)." },
+  { nr:7, name:"Gemüse-Curry mit Reis", level:"mittel", veg:true, grill:false, zeit:"ca. 40 Min",
+    warum:"Kartoffeln, Karotten, Erbsen, Kichererbsen in milder Kokossauce. Alles durchgekocht, sättigend, vegetarisch.",
+    zutaten:[{n:"Reis",m:90,u:"g"},{n:"Kartoffeln",m:120,u:"g"},{n:"Karotte",m:60,u:"g"},{n:"Kichererbsen (Dose, abgetropft)",m:70,u:"g"},{n:"Tiefkühl-Erbsen",m:40,u:"g"},{n:"Kokosmilch",m:80,u:"ml"},{n:"Gehackte Tomaten (Dose)",m:80,u:"g"},{n:"Zwiebel",m:40,u:"g"},{n:"Currypulver (mild)",m:4,u:"g"},{n:"Öl, Salz",m:0,u:"frei"}],
+    schritte:["Reis nach Packung kochen.","Kartoffeln und Karotte würfeln, Zwiebel hacken.","Zwiebel in Öl andünsten, Curry kurz mitrösten.","Kartoffeln, Karotte, Tomaten und Kokosmilch zugeben, 20 Min köcheln.","Kichererbsen und Erbsen zugeben, weitere 8–10 Min garen. Mild abschmecken, mit Reis servieren."],
+    hygiene:"Kartoffeln vollständig weich garen. Mild würzen (Kindergruppe). Reis frisch, heiß servieren." },
+  { nr:8, name:"Hot Dogs", level:"einfach", veg:false, grill:false, zeit:"ca. 20 Min",
+    warum:"Hygienisch top: Würstchen sind vorgegart und werden nur heiß gezogen, Brötchen sind unkritisch. Schneller Abend mit fast keinen Garrisiken.",
+    zutaten:[{n:"Hot-Dog-Würstchen (Brühwurst)",m:1.5,u:"stk",ap:1},{n:"Hot-Dog-Brötchen",m:1.5,u:"stk",a:["Gluten"],ap:1},{n:"Röstzwiebeln",m:10,u:"g",a:["Gluten"]},{n:"Gewürzgurken",m:20,u:"g"},{n:"Ketchup",m:20,u:"g",ap:1},{n:"Senf (mild)",m:8,u:"g",a:["Senf"]}],
+    schritte:["Würstchen in heißem (nicht kochendem) Wasser ~75 °C ziehen lassen.","Brötchen kurz aufbacken oder antoasten.","Gurken in Streifen schneiden, Toppings bereitstellen.","Würstchen ins Brötchen, nach Wunsch garnieren."],
+    hygiene:"Würstchen heiß durchziehen lassen. Geöffnete Toppings kühl halten, nicht stundenlang offen stehen lassen." },
+  { nr:9, name:"Ofen-Nudelauflauf", level:"einfach", veg:true, grill:false, ofen:true, zeit:"ca. 45 Min",
+    warum:"Gekochte Nudeln + Sauce + Käse im Ofen überbacken = nochmal komplett durcherhitzt. Gut für große Bleche, keine rohen Eier nötig.",
+    zutaten:[{n:"Nudeln (Penne/Hörnchen)",m:120,u:"g",a:["Gluten"]},{n:"Passierte Tomaten",m:150,u:"g"},{n:"Sahne oder Kochcreme",m:50,u:"ml",a:["Milch"]},{n:"Geriebener Käse",m:40,u:"g",a:["Milch"]},{n:"Zwiebel",m:35,u:"g"},{n:"Tomatenmark",m:10,u:"g"},{n:"Öl, Salz, Pfeffer, Oregano",m:0,u:"frei"}],
+    schritte:["Nudeln nur halb gar kochen (sie ziehen im Ofen nach).","Zwiebel andünsten, Tomaten, Tomatenmark und Sahne zu einer Sauce verrühren, würzen.","Nudeln mit Sauce mischen, in gefettete Form/Blech geben.","Mit Käse bestreuen, bei 200 °C ca. 20–25 Min goldbraun überbacken."],
+    hygiene:"Auflauf muss in der Mitte heiß durchgaren (≥70 °C). Vor dem Überbacken nicht lange stehen lassen." },
+  { nr:10, name:"Kartoffelgratin (eifrei)", level:"mittel", veg:true, grill:false, ofen:true, zeit:"ca. 60 Min",
+    warum:"Mit Sahne/Milch statt Ei-Guss gebunden, im Ofen vollständig durchgegart. Vegetarisch, herzhaft. Etwas mehr Vorausplanung wegen Garzeit.",
+    zutaten:[{n:"Kartoffeln (festkochend)",m:280,u:"g"},{n:"Sahne",m:80,u:"ml",a:["Milch"]},{n:"Milch",m:60,u:"ml",a:["Milch"]},{n:"Geriebener Käse",m:40,u:"g",a:["Milch"]},{n:"Knoblauchzehe",m:0.3,u:"stk"},{n:"Butter (für die Form)",m:3,u:"g",a:["Milch"]},{n:"Salz, Pfeffer, Muskat",m:0,u:"frei"}],
+    schritte:["Kartoffeln schälen und in dünne Scheiben hobeln.","Sahne, Milch, Knoblauch und Gewürze verrühren.","Kartoffeln geschichtet in gefettete Form geben, Sahnemischung darübergießen.","Mit Käse bestreuen, bei 180 °C ca. 40–50 Min backen, bis die Kartoffeln weich sind."],
+    hygiene:"Kein rohes Ei verwenden – Sahne/Milch bindet ausreichend. Garprobe: Kartoffeln müssen ganz weich sein." },
+  { nr:11, name:"Pizza vom Blech", level:"einfach", veg:true, grill:false, ofen:true, zeit:"ca. 35 Min",
+    warum:"Fertigteig, Tomatensauce, Käse, unkritischer Belag (Salami/Schinken sind erhitzbar, Gemüse, Mais). Im Ofen voll durchgebacken. Kinderfavorit.",
+    zutaten:[{n:"Pizzateig (fertig, ausgerollt)",m:120,u:"g",a:["Gluten"]},{n:"Passierte Tomaten",m:60,u:"g"},{n:"Geriebener Käse / Mozzarella",m:50,u:"g",a:["Milch"]},{n:"Salami oder gekochter Schinken",m:25,u:"g",ap:1},{n:"Mais / Paprika",m:30,u:"g"},{n:"Öl, Salz, Oregano",m:0,u:"frei"}],
+    schritte:["Teig auf gefettetes Blech legen.","Tomaten mit Salz/Oregano würzen, dünn aufstreichen.","Mit Käse und Belag belegen.","Bei 220 °C ca. 12–15 Min backen, bis Rand und Käse goldbraun sind."],
+    hygiene:"Kein roher Hackbelag. Fleischbelag nur als bereits gegarte/erhitzbare Wurst. Pizza vollständig durchbacken." },
+  { nr:12, name:"Maultaschen geschmälzt", level:"mittel", veg:false, grill:false, zeit:"ca. 25 Min",
+    warum:"Gekaufte Maultaschen in Brühe ziehen lassen oder in der Pfanne mit Zwiebeln – beides durcherhitzt. Regional passend und schnell.",
+    zutaten:[{n:"Maultaschen (gekauft)",m:200,u:"g",a:["Gluten","Ei"],ap:1},{n:"Zwiebel",m:50,u:"g"},{n:"Gemüsebrühe",m:250,u:"ml",a:["Sellerie"],ap:1},{n:"Butter oder Öl",m:8,u:"g",a:["Milch"]},{n:"Schnittlauch (optional)",m:2,u:"g"},{n:"Salz, Pfeffer",m:0,u:"frei"}],
+    schritte:["Variante Brühe: Maultaschen in heißer Brühe 8–10 Min ziehen lassen (nicht stark kochen).","Variante geschmälzt: Zwiebeln in Butter goldbraun rösten.","Maultaschen in Scheiben in der Pfanne mit den Zwiebeln schwenken und durcherhitzen.","Mit Schnittlauch bestreuen. Dazu Kartoffelsalat oder Brühe servieren."],
+    hygiene:"Gekühlte Maultaschen frisch halten und vollständig durcherhitzen (≥70 °C). Geöffnete Packungen rasch verbrauchen." },
+  { nr:13, name:"Kartoffelpüree mit Gemüse & Würstchen", level:"einfach", veg:false, grill:false, zeit:"ca. 30 Min",
+    warum:"Püree (auch als Pulver für große Mengen praktikabel) + durchgegartes Gemüse + vorgegarte Würstchen. Keine selbst geformten Rohhack-Buletten.",
+    zutaten:[{n:"Kartoffeln (mehligkochend)",m:250,u:"g"},{n:"Milch",m:50,u:"ml",a:["Milch"]},{n:"Butter",m:10,u:"g",a:["Milch"]},{n:"Brühwürstchen",m:1.5,u:"stk",ap:1},{n:"Erbsen & Möhren (TK)",m:120,u:"g"},{n:"Salz, Muskat",m:0,u:"frei"}],
+    schritte:["Kartoffeln schälen, würfeln, weich kochen.","Mit warmer Milch und Butter zu Püree stampfen, mit Salz/Muskat abschmecken.","TK-Gemüse in Salzwasser durchgaren.","Würstchen heiß durchziehen lassen, alles zusammen anrichten."],
+    hygiene:"Statt roher Buletten nur vorgegarte Produkte erhitzen. Würstchen heiß durchziehen. TK-Gemüse voll durchgaren." },
+  { nr:14, name:"Grillabend mit Würstchen & Beilagen", level:"mittel", veg:false, grill:true, zeit:"ca. 60 Min",
+    warum:"Grillabend mit vorgebrühten Würstchen statt rohem Fleisch/Geflügel. Lagerfeuer-Stimmung ohne das Roh-Innen-Risiko. Höchste Aufmerksamkeit wegen Grill-Setting.",
+    zutaten:[{n:"Vorgebrühte Würstchen (Brühwurst)",m:2,u:"stk",ap:1},{n:"Grillbrötchen / Baguette",m:80,u:"g",a:["Gluten"]},{n:"Maiskolben",m:0.5,u:"stk"},{n:"Paprika & Zucchini (Grillgemüse)",m:120,u:"g"},{n:"Kartoffeln (für Folie)",m:150,u:"g"},{n:"Öl, Salz, Kräuter",m:0,u:"frei"},{n:"Ketchup / Senf",m:20,u:"g",a:["Senf"],ap:1}],
+    schritte:["Kartoffeln vorab weich kochen, in Folie wickeln (verkürzt Grillzeit, sichert Durchgaren).","Gemüse in Stücke schneiden, mit Öl/Salz marinieren.","Würstchen sind vorgegart – nur heiß grillen, bis sie durchgewärmt sind.","Gemüse grillen, bis es weich und heiß ist. Mit Brot servieren."],
+    hygiene:"Nur vorgegarte Würstchen grillen (kein rohes Fleisch/Geflügel). Beim Grillen wird außen schnell dunkel, innen oft noch kalt – auf durchgehende Hitze achten. Rohe und gegrillte Ware nicht auf denselben Teller legen." },
+  { nr:15, name:"Käsespätzle", level:"einfach", veg:true, grill:false, ofen:false, zeit:"ca. 25 Min",
+    warum:"Fertige Spätzle, Käse und Röstzwiebeln werden nur geschichtet und heiß durchgezogen bzw. kurz überbacken — kein rohes Ei, keine kritische Zutat im Spiel. Kam laut Reflexion sehr gut an.",
+    zutaten:[{n:"Spätzle (fertig)",m:125,u:"g",a:["Gluten","Ei"]},{n:"Geriebener Käse (Bergkäse/Emmentaler)",m:60,u:"g",a:["Milch"]},{n:"Röstzwiebeln",m:10,u:"g",a:["Gluten"]},{n:"Zwiebel",m:40,u:"g"},{n:"Butter",m:8,u:"g",a:["Milch"]},{n:"Grüner Salat",m:50,u:"g"},{n:"Öl (fürs Dressing)",m:5,u:"ml"},{n:"Essig (fürs Dressing)",m:5,u:"ml"},{n:"Salz, Pfeffer",m:0,u:"frei"}],
+    schritte:["Zwiebeln in Butter goldbraun anrösten.","Spätzle in wenig Butter heiß durchschwenken.","Lagenweise Spätzle und Käse mischen/schichten, bis der Käse vollständig geschmolzen ist (bei Bedarf kurz im Ofen überbacken).","Mit Röstzwiebeln und den gerösteten Zwiebeln bestreuen.","Grünen Salat separat anmachen und dazu servieren."],
+    hygiene:"Käse muss vollständig schmelzen, Gericht heiß servieren. Keine rohen Zutaten im Spiel." },
+  { nr:16, name:"Toast Hawaii (überbackenes Vesper)", level:"einfach", veg:false, grill:false, ofen:true, zeit:"ca. 20 Min",
+    warum:"Gekochter Schinken (Brühware) und Ananas aus der Dose sind unkritisch, der Käse wird im Ofen vollständig geschmolzen. Kein Geflügel, kein rohes Hackfleisch, kein rohes Ei — passt genau ins Hygienekonzept. Als überbackenes Vesper laut Reflexion eine gute Alternative zur kalten Küche.",
+    zutaten:[{n:"Toastbrot",m:2,u:"stk",a:["Gluten"],ap:1},{n:"Gekochter Schinken",m:40,u:"g",ap:1},{n:"Ananas (Dose, abgetropft)",m:50,u:"g"},{n:"Käse (Scheiben oder gerieben)",m:40,u:"g",a:["Milch"]},{n:"Butter (zum Bestreichen)",m:5,u:"g",a:["Milch"]}],
+    schritte:["Toastscheiben dünn mit Butter bestreichen und auf ein Blech legen.","Mit Schinken belegen, Ananasstück daraufsetzen.","Mit Käse bestreuen.","Im Ofen bei 200 °C ca. 8–10 Min überbacken, bis der Käse vollständig geschmolzen ist."],
+    hygiene:"Kein Geflügel, kein rohes Hackfleisch, kein rohes Ei — nur gekochte Wurstware verwenden. Im Ofen vollständig durcherhitzen und heiß servieren." },
+  { nr:17, name:"Maultaschen-Burger", level:"einfach", veg:true, grill:false, ofen:false, zeit:"ca. 25 Min",
+    warum:"Fertige Maultaschen werden nur in der Pfanne angebraten (vorgegart, aus geschlossener Packung) — kein rohes Hackfleisch, keine Formerei mit rohem Fleisch. Vegetarische Maultaschen machen das Gericht ohne Zusatzaufwand komplett vegetarisch. Deutlich unkritischer als ein klassischer Hamburger.",
+    zutaten:[{n:"Maultaschen (fertig, zum Anbraten)",m:180,u:"g",a:["Gluten","Ei"],ap:1},{n:"Burger-Brötchen",m:1,u:"stk",a:["Gluten"],ap:1},{n:"Zwiebel",m:20,u:"g"},{n:"Käse (Scheiben)",m:20,u:"g",a:["Milch"]},{n:"Gewürzgurken (Scheiben)",m:15,u:"g"},{n:"Salat (Blattsalat)",m:15,u:"g"},{n:"Ketchup / Senf / Mayo (oder fertiges Burger-Dressing)",m:20,u:"g",a:["Senf","Ei"],ap:1}],
+    schritte:["Maultaschen in Scheiben schneiden oder ganz in etwas Öl von beiden Seiten knusprig anbraten.","Zwiebeln separat glasig anbraten.","Burger-Brötchen aufschneiden, kurz anrösten.","Brötchen mit Salat, Maultaschen, Zwiebeln, Käse, Gurken und Sauce belegen."],
+    hygiene:"Maultaschen sind vorgegart — vollständig heiß durchbraten und sofort servieren reicht aus, kein Risiko durch rohes Fleisch." },
+  { nr:18, name:"Hamburger (klassisch mit Hackfleisch)", level:"mittel", veg:false, grill:true, ofen:false, zeit:"ca. 35 Min",
+    warum:"Klassischer Hamburger mit echten Fleischküchle-Pattys aus Rinderhackfleisch. Achtung: Das ist die einzige Stelle im Planer, an der bewusst mit rohem Hackfleisch gearbeitet wird (sonst gilt in der Küche „kein rohes Hackfleisch als Endprodukt“) — bitte nur mit erfahrenem Team/Main-Teamer zubereiten. Wer auf Nummer sicher gehen will, nimmt stattdessen den Maultaschen-Burger.",
+    zutaten:[{n:"Rinderhackfleisch (Fleischküchle-Qualität)",m:130,u:"g"},{n:"Burger-Brötchen",m:1,u:"stk",a:["Gluten"],ap:1},{n:"Zwiebel",m:20,u:"g"},{n:"Käse (Scheiben)",m:20,u:"g",a:["Milch"]},{n:"Gewürzgurken (Scheiben)",m:15,u:"g"},{n:"Salat (Blattsalat)",m:15,u:"g"},{n:"Ketchup / Senf / Mayo (oder fertiges Burger-Dressing)",m:20,u:"g",a:["Senf","Ei"],ap:1},{n:"Salz, Pfeffer",m:0,u:"frei"}],
+    schritte:["Hackfleisch würzen, zu flachen Pattys formen (nicht zu dick, damit sie durchgaren) — direkt vor dem Braten, nicht auf Vorrat formen.","Pattys von beiden Seiten kräftig anbraten/grillen, bis sie komplett durch sind.","Getrennte Bretter/Utensilien für rohes Fleisch und alles andere verwenden, danach Hände & Flächen gründlich reinigen.","Brötchen aufschneiden, kurz anrösten, mit Salat, Patty, Zwiebeln, Käse, Gurken und Sauce belegen."],
+    hygiene:"WICHTIG — rohes Hackfleisch: separates Schneidebrett/Besteck verwenden, Hände nach dem Formen gründlich waschen, Pattys sofort nach dem Formen braten (nicht stehen lassen). Patty muss komplett durchgegart sein — in der Mitte darf nichts mehr rosa/roh sein (anders als bei einem Steak). Rohes und fertig gegrilltes Fleisch nie auf denselben Teller legen." },
+  { nr:19, name:"Tortellini mit Sahnesoße", level:"einfach", veg:true, grill:false, ofen:false, zeit:"ca. 25 Min",
+    warum:"Fertige, bereits durchgegarte Tortellini aus dem Kühlregal werden nur in kochendem Wasser erhitzt, die Sahnesoße wird komplett aufgekocht — kein rohes Ei, keine kritische Zutat im Spiel.",
+    zutaten:[{n:"Tortellini (frisch, gekühlt)",m:200,u:"g",a:["Gluten","Ei"],ap:1},{n:"Sahne oder Kochcreme",m:70,u:"ml",a:["Milch"]},{n:"Geriebener Käse (Parmesan/Bergkäse)",m:25,u:"g",a:["Milch"]},{n:"Knoblauchzehe",m:0.3,u:"stk"},{n:"Butter",m:5,u:"g",a:["Milch"]},{n:"Salz, Pfeffer, Muskat",m:0,u:"frei"}],
+    schritte:["Tortellini nach Packungsangabe in reichlich Salzwasser kochen, abgießen.","Knoblauch in Butter kurz andünsten, Sahne zugeben und aufkochen.","Käse einrühren, bis er geschmolzen ist, mit Salz, Pfeffer und Muskat abschmecken.","Tortellini in der Sauce schwenken und heiß servieren."],
+    hygiene:"Tortellini sind ein gekühltes, vorgegartes Frischprodukt — bis zur Zubereitung durchgehend kühl lagern und nach Packungsangabe vollständig durchgaren. Sahnesoße einmal komplett aufkochen." },
+  { nr:20, name:"Pizzabrötchen", level:"einfach", veg:true, grill:false, ofen:true, zeit:"ca. 20 Min",
+    warum:"Wie Pizza vom Blech, nur auf aufgeschnittenen Brötchen statt Hefeteig — Belag wird im Ofen komplett durchgebacken, kein roher Belag im Spiel. Schneller als die Blech-Variante, gut für kleine Portionen.",
+    zutaten:[{n:"Brötchen (helle)",m:2,u:"stk",a:["Gluten"]},{n:"Passierte Tomaten",m:60,u:"g"},{n:"Geriebener Käse / Mozzarella",m:50,u:"g",a:["Milch"]},{n:"Salami oder gekochter Schinken (optional)",m:25,u:"g",ap:1},{n:"Öl, Salz, Oregano",m:0,u:"frei"}],
+    schritte:["Brötchen halbieren, Schnittflächen mit Tomaten bestreichen.","Mit Käse und optional Salami/Schinken belegen.","Auf einem Blech bei 200 °C ca. 8–10 Min backen, bis der Käse vollständig geschmolzen ist.","Heiß servieren."],
+    hygiene:"Kein roher Belag — nur bereits gegarte Wurst verwenden. Im Ofen vollständig durchbacken, bis der Käse komplett geschmolzen ist." },
+];
+
+/* ---- Zusätzliche Rubriken im „Einkaufs- & Essensplaner" ----
+   Ersteinkauf: einmalige Grundausstattung, NICHT personenskaliert (feste Mengen,
+   manuell überschreibbar). Frühstück & Vesper: taeglich = Pro-Person × Personen × Tage,
+   vorrat = Pro-Person × Personen (unabhängig von den Tagen, reicht für mehrere Tage).
+   Shop-Einkauf: Mengen werden komplett manuell eingetragen. Nachtisch: gleiches
+   Schema wie GERICHTE (nr ab 101, damit es nie mit den Hauptgerichten (aktuell 1–20) kollidiert). */
+
+const ERSTEINKAUF = [
+  {n:"Spüllappen",m:20,u:"stk"},
+  {n:"Geschirr-Handtücher",m:10,u:"stk"},
+  {n:"Putzhandtücher",m:10,u:"stk"},
+  {n:"Handseife (Nachfüllpackung)",m:3,u:"stk"},
+  {n:"Toilettenpapier",m:24,u:"stk"},
+  {n:"Scheuerschwämme",m:10,u:"stk"},
+  {n:"Stahlwolle",m:2,u:"stk"},
+  {n:"Spülmittel",m:3,u:"stk"},
+  {n:"Spülbürste",m:3,u:"stk"},
+  {n:"Geschirrspültabs (Packung)",m:1,u:"stk"},
+  {n:"Allzweckreiniger",m:3,u:"stk"},
+  {n:"Einweghandschuhe (Packung)",m:2,u:"stk"},
+  {n:"Küchenrolle",m:8,u:"stk"},
+  {n:"Alufolie",m:2,u:"stk"},
+  {n:"Frischhaltefolie",m:2,u:"stk"},
+  {n:"Backpapier",m:2,u:"stk"},
+  {n:"Müllbeutel (groß, Rolle)",m:2,u:"stk"},
+  {n:"Speiseöl (Sonnenblumen-/Rapsöl)",m:3,u:"stk"},
+  {n:"Essig",m:1,u:"stk"},
+  {n:"Zucker",m:2000,u:"g",altU:"packung",altHinweis:"≈ 1 kg-Packung"},
+  {n:"Salz",m:1000,u:"g",altU:"packung",altHinweis:"≈ 1 kg-Packung"},
+  {n:"Pfeffer (gemahlen)",m:200,u:"g",altU:"packung",altHinweis:"≈ 1 Streudose (Lidl/Aldi-Eigenmarke) ≈ 50 g"},
+  {n:"Paprikapulver (edelsüß)",m:200,u:"g",altU:"packung",altHinweis:"≈ 1 Streudose (Lidl/Aldi-Eigenmarke) ≈ 50 g"},
+  {n:"Currypulver (mild)",m:150,u:"g",altU:"packung",altHinweis:"≈ 1 Streudose (Lidl/Aldi-Eigenmarke) ≈ 50 g"},
+  {n:"Oregano (getrocknet)",m:50,u:"g",altU:"packung",altHinweis:"≈ 1 Streudose (Lidl/Aldi-Eigenmarke) ≈ 50 g"},
+  {n:"Majoran (getrocknet)",m:50,u:"g",altU:"packung",altHinweis:"≈ 1 Streudose (Lidl/Aldi-Eigenmarke) ≈ 50 g"},
+  {n:"Lorbeerblätter",m:20,u:"g",altU:"packung",altHinweis:"≈ 1 Päckchen ≈ 15 g (leichter als gemahlene Gewürze)"},
+  {n:"Muskatnuss (gemahlen)",m:30,u:"g",altU:"packung",altHinweis:"≈ 1 Döschen ≈ 25–35 g"},
+  {n:"Kreuzkümmel (mild, gemahlen)",m:50,u:"g",altU:"packung",altHinweis:"≈ 1 Streudose (Lidl/Aldi-Eigenmarke) ≈ 50 g"},
+  {n:"Gemischte Kräuter (getrocknet, z. B. italienische Kräuter)",m:50,u:"g",altU:"packung",altHinweis:"≈ 1 Streudose (Lidl/Aldi-Eigenmarke) ≈ 50 g"},
+  {n:"Hygiene-Handschuhe (Küche)",m:2,u:"stk"},
+  {n:"Desinfektionsmittel (Küche)",m:2,u:"stk"},
+  {n:"Schürzen (Küche)",m:10,u:"stk"},
+  {n:"Einmal-Handtücher (Küche)",m:4,u:"stk"},
+  {n:"Kühlakkus",m:10,u:"stk"},
+  {n:"Kühlboxen",m:4,u:"stk"},
+  {n:"Transport-Boxen",m:6,u:"stk"},
+  {n:"Einkaufs-Taschen",m:10,u:"stk"},
+];
+
+/* Mengen sind pragmatische Startwerte für ca. 35 Pers./7 Tage, keine Eichwerte wie
+   bei den Hauptgerichten — bewusst überschreibbar, vom Team nach Bedarf anzupassen. */
+const FRUEHSTUECK = [
+  {n:"Brot (Misch-/Schwarzbrot)",proPerson:80,u:"g",typ:"taeglich",a:["Gluten"]},
+  {n:"Brötchen",proPerson:0.4,u:"stk",typ:"taeglich",a:["Gluten"]},
+  {n:"Baguette",proPerson:0.2,u:"stk",typ:"taeglich",a:["Gluten"]},
+  {n:"Aufbackbrötchen",proPerson:0.3,u:"stk",typ:"taeglich",a:["Gluten"]},
+  {n:"Toast",proPerson:0.5,u:"stk",typ:"taeglich",a:["Gluten"],ap:1},
+  {n:"Butter",proPerson:12,u:"g",typ:"taeglich",altU:"packung",altHinweis:"1 Stück Butter = 250 g",a:["Milch"]},
+  {n:"Wurst (verschiedene Sorten)",proPerson:25,u:"g",typ:"taeglich",altU:"packung",altHinweis:"Packungsgröße je Sorte unterschiedlich – am Regal prüfen",ap:1},
+  {n:"Käse",proPerson:25,u:"g",typ:"taeglich",altU:"packung",altHinweis:"Packungsgröße je Sorte unterschiedlich – am Regal prüfen",a:["Milch"]},
+  {n:"Milch",proPerson:200,u:"ml",typ:"taeglich",altU:"liter",altHinweis:"1 Milchpackung = 1 Liter",a:["Milch"]},
+  {n:"Gurke",proPerson:15,u:"g",typ:"taeglich"},
+  {n:"Tomate",proPerson:20,u:"g",typ:"taeglich"},
+  {n:"Paprika",proPerson:15,u:"g",typ:"taeglich"},
+  {n:"Bananen",proPerson:0.4,u:"stk",typ:"taeglich"},
+  {n:"Äpfel",proPerson:0.4,u:"stk",typ:"taeglich"},
+  {n:"Trauben",proPerson:25,u:"g",typ:"taeglich"},
+  {n:"Marmelade",proPerson:70,u:"g",typ:"vorrat",altU:"packung",altHinweis:"Glasgröße unterschiedlich – am Regal prüfen"},
+  {n:"Honig",proPerson:40,u:"g",typ:"vorrat",altU:"packung",altHinweis:"Glasgröße unterschiedlich – am Regal prüfen"},
+  {n:"Nuss-Nougat-Creme",proPerson:60,u:"g",typ:"vorrat",altU:"packung",altHinweis:"Glasgröße unterschiedlich – am Regal prüfen",a:["Nüsse","Milch"],ap:1},
+  {n:"Müsli",proPerson:150,u:"g",typ:"vorrat",altU:"packung",altHinweis:"Packungsgröße stark unterschiedlich – am Regal prüfen",a:["Gluten"],ap:1},
+  {n:"Cornflakes",proPerson:100,u:"g",typ:"vorrat",altU:"packung",altHinweis:"≈ 1 Packung ≈ 500 g (Lidl-Standardgröße)",a:["Gluten"]},
+  {n:"Grieß (Weichweizengrieß, für Milchbrei)",proPerson:15,u:"g",typ:"taeglich",altU:"packung",altHinweis:"Packungsgröße 300 g bis 1 kg – am Regal prüfen",a:["Gluten"]},
+  {n:"Dosenfrüchte nach Wahl",proPerson:30,u:"g",typ:"vorrat",altU:"stk",altHinweis:"= Anzahl Dosen, Abtropfgewicht je Dose unterschiedlich – am Etikett prüfen"},
+];
+
+const SHOP = [
+  {n:"Schokoriegel",u:"stk",a:["Milch"],ap:1},
+  {n:"Kekse",u:"stk",a:["Gluten"],ap:1},
+  {n:"Chips",u:"stk",ap:1},
+  {n:"Salzstangen",u:"stk",a:["Gluten"]},
+  {n:"Eis (TK)",u:"stk",a:["Milch"],ap:1},
+  {n:"Kaugummi",u:"stk"},
+  {n:"Gummibären",u:"stk",ap:1},
+  {n:"Maoam",u:"stk",ap:1},
+  {n:"Lutscher",u:"stk"},
+  {n:"M&M's",u:"stk",a:["Milch"],ap:1},
+];
+
+/* ---- Getränke (Stufe 3): bündelt alle Getränke-Positionen in einer eigenen
+   Planer-Rubrik, unabhängig davon, ob sie vorher bei Frühstück (Kaffee/Tee/
+   Kaffeefilter) oder Shop (Fanta/Spezi/Zitronen-Eistee/Durstlöscher) standen.
+   Diese Bündelung ist rein die Planer-Ansicht — die Laden-Kategorie ("Nach
+   Laden") bleibt unverändert über kategorieFuer() gesteuert (Namen bewusst
+   unverändert gelassen, damit die bestehende Stichwortlogik weiter greift).
+   Items MIT proPerson bekommen wie bei FRUEHSTUECK einen editierbaren
+   Mengen-Vorschlag (proPerson × Personen, reine Vorratsmenge ohne Tage-Bezug).
+   Items OHNE proPerson bleiben wie bisher bei SHOP komplett manuell (Zahl
+   selbst eintragen, 0/leer = nicht auf der Liste). */
+const GETRAENKE = [
+  {n:"Kaffee (gemahlen)",proPerson:20,u:"g",altU:"packung",altHinweis:"übliche Kaffeepackung ≈ 500 g"},
+  {n:"Kaffeefilter",proPerson:2,u:"stk"},
+  {n:"Tee (Beutel)",proPerson:3,u:"stk"},
+  {n:"Fanta",u:"stk"},
+  {n:"Spezi",u:"stk"},
+  {n:"Zitronen-Eistee",u:"stk"},
+  {n:"Durstlöscher (Sirup)",u:"stk"},
+];
+
+/* Mittags-Snacks/Reisesnacks: für Ausflugstage/unterwegs. Gleiches proPerson-Prinzip
+   wie Frühstück, aber mit "Anzahl Anlässe" statt "Anzahl Tage" (z. B. Anzahl der
+   Ausflugstage), da nicht jeden Tag gebraucht. */
+const MITTAGSSNACKS = [
+  {n:"Müsliriegel",proPerson:1,u:"stk",a:["Gluten"],ap:1},
+  {n:"Bananen",proPerson:1,u:"stk"},
+  {n:"Äpfel",proPerson:1,u:"stk"},
+  {n:"Abgepacktes Einzelgebäck",proPerson:1,u:"stk",a:["Gluten"],ap:1},
+  {n:"Waffeln / Muffins",proPerson:1,u:"stk",a:["Gluten","Ei","Milch"]},
+  {n:"Prinzenrolle (Packung, für die Gruppe)",proPerson:0.1,u:"stk",a:["Gluten"],ap:1},
+];
+
+const NACHTISCH = [
+  { nr:101, name:"Quarkspeise mit Erdbeeren", level:"einfach", veg:true, grill:false, ofen:false, zeit:"ca. 15 Min",
+    warum:"Nur Quark/Skyr, Milch, Zucker und Obst verrührt — kein rohes Ei, keine Erhitzung nötig, komplett unkritisch. Basis und Frucht-Komponente sind austauschbar (z. B. günstigere Erdbeermarmelade statt frischer Erdbeeren) — die jeweils andere Option einfach anhaken.",
+    zutaten:[{n:"Quark (Speisequark)",m:100,u:"g",alt:"basis",a:["Milch"]},{n:"Skyr",m:100,u:"g",alt:"basis",a:["Milch"]},{n:"Erdbeeren",m:60,u:"g",alt:"frucht"},{n:"Erdbeermarmelade",m:40,u:"g",alt:"frucht"},{n:"Dosenfrüchte (z. B. Mandarinen, abgetropft)",m:60,u:"g",alt:"frucht"},{n:"Milch",m:20,u:"ml",a:["Milch"]},{n:"Zucker",m:8,u:"g"}],
+    schritte:["Quark oder Skyr mit Milch und Zucker glattrühren.","Frucht-Komponente vorbereiten: Erdbeeren waschen und klein schneiden, ODER Erdbeermarmelade unterrühren, ODER Dosenfrüchte abtropfen lassen.","Frucht unterheben oder als Topping obenauf geben, kühl servieren."],
+    hygiene:"Quark/Skyr durchgehend kühl halten. Bis zum Servieren nicht bei Raumtemperatur stehen lassen." },
+  { nr:102, name:"Milchreis", level:"einfach", veg:true, grill:false, ofen:false, zeit:"ca. 35 Min",
+    warum:"Reis wird in Milch vollständig durchgekocht — kein rohes Ei, keine kritische Zutat.",
+    zutaten:[{n:"Milchreis (Rundkornreis)",m:60,u:"g"},{n:"Milch",m:200,u:"ml",a:["Milch"]},{n:"Zucker",m:10,u:"g"},{n:"Zimt (gemahlen)",m:0.3,u:"g",altU:"packung",altHinweis:"≈ 1 Streudose (Lidl/Aldi-Eigenmarke) ≈ 50 g – reicht für die ganze Freizeit"}],
+    schritte:["Milch mit einer Prise Salz aufkochen.","Milchreis einrühren, bei niedriger Hitze ca. 25–30 Min quellen lassen, gelegentlich umrühren.","Mit Zucker und nach Wunsch Zimt servieren."],
+    hygiene:"Milch/Reis vollständig durchgaren. Heiß oder gut durchgekühlt servieren, nicht stundenlang lauwarm stehen lassen." },
+  { nr:103, name:"Grießbrei mit Kompott", level:"einfach", veg:true, grill:false, ofen:false, zeit:"ca. 20 Min",
+    warum:"Grieß wird vollständig in Milch gegart, das Kompott kommt aus dem Glas — kein rohes Ei, keine kritische Zutat.",
+    zutaten:[{n:"Grieß (Hartweizengrieß)",m:50,u:"g",altU:"packung",altHinweis:"Packungsgröße 300 g bis 1 kg – am Regal prüfen",a:["Gluten"]},{n:"Milch",m:200,u:"ml",a:["Milch"]},{n:"Zucker",m:10,u:"g"},{n:"Fruchtkompott (Glas)",m:80,u:"g",altU:"stk",altHinweis:"= Anzahl Gläser, Glasgröße unterschiedlich – am Regal prüfen"}],
+    schritte:["Milch mit Zucker aufkochen.","Grieß unter Rühren einrieseln lassen, 2–3 Min köcheln, dann quellen lassen.","Mit Kompott servieren."],
+    hygiene:"Milch/Grieß vollständig durchkochen. Heiß servieren, Reste sofort kühlen." },
+  { nr:104, name:"Schokopudding (Fertigpulver)", level:"einfach", veg:true, grill:false, ofen:false, zeit:"ca. 20 Min",
+    warum:"Fertigpulver wird nach Packungsanleitung in Milch aufgekocht — kein rohes Ei, industriell geprüftes Produkt.",
+    zutaten:[{n:"Milch",m:150,u:"ml",a:["Milch"]},{n:"Puddingpulver (Fertigmix, Schokogeschmack)",m:15,u:"g",altU:"packung",altHinweis:"≈ 1 Päckchen Fertigpulver ≈ 35–40 g",ap:1}],
+    schritte:["Pudding nach Packungsanleitung mit der Milch aufkochen.","In Schälchen füllen, auskühlen und fest werden lassen.","Kühl servieren."],
+    hygiene:"Nach Packungsanleitung vollständig aufkochen. Nach dem Erkalten kühl lagern, nicht stundenlang bei Raumtemperatur stehen lassen." },
+  { nr:105, name:"Obstsalat", level:"einfach", veg:true, grill:false, ofen:false, zeit:"ca. 15 Min",
+    warum:"Nur frisches, gewaschenes Obst — keine Erhitzung nötig, keine kritische Zutat.",
+    zutaten:[{n:"Äpfel",m:0.5,u:"stk"},{n:"Bananen",m:0.5,u:"stk"},{n:"Trauben",m:40,u:"g"},{n:"Orange",m:0.3,u:"stk"},{n:"Zitronensaft (gegen Braunwerden)",m:5,u:"ml"}],
+    schritte:["Obst gründlich waschen, ggf. schälen und klein schneiden.","Mit etwas Zitronensaft vermischen, damit es nicht braun wird.","Kühl servieren."],
+    hygiene:"Obst gründlich mit Trinkwasser waschen. Bis zum Servieren kühl stellen." },
+  { nr:106, name:"Wassereis / Eis am Stiel", level:"einfach", veg:true, grill:false, ofen:false, zeit:"—",
+    warum:"Fertig gekauftes Wassereis, keine Zubereitung, kein Risiko im Spiel.",
+    zutaten:[{n:"Wassereis / Eis am Stiel (TK)",m:1,u:"stk"}],
+    schritte:["Aus dem Gefrierfach direkt verteilen."],
+    hygiene:"Durchgehend tiefgekühlt lagern, erst kurz vor dem Servieren aus dem TK holen." },
+  { nr:107, name:"Kirsch-Joghurt", level:"einfach", veg:true, grill:false, ofen:false, zeit:"ca. 15 Min + Abkühlzeit",
+    warum:"TK-Kirschen werden vor der Verwendung kräftig aufgekocht (BfR-Empfehlung gegen Noro-/Hepatitis-A-Viren in TK-Beerenobst) und erst danach kalt mit dem Joghurt vermischt — kein rohes Ei, keine kritische Zutat.",
+    zutaten:[{n:"Joghurt (Natur)",m:130,u:"g",a:["Milch"]},{n:"TK-Kirschen (Sauerkirschen)",m:60,u:"g"},{n:"Zucker",m:10,u:"g"}],
+    schritte:["TK-Kirschen mit etwas Wasser und dem Zucker in einem Topf mindestens 2 Minuten sprudelnd aufkochen.","Kirschen vollständig auskühlen lassen, dann kalt stellen.","Joghurt in Schälchen füllen, die abgekühlten Kirschen unterheben oder als Topping daraufgeben.","Kühl servieren."],
+    hygiene:"TK-Beerenobst kann Noroviren/Hepatitis-A-Viren tragen (BfR-Empfehlung, Quelle: bfr.bund.de). Daher mindestens 2 Minuten kräftig aufkochen (>85 °C), NICHT nur kurz erwärmen. Erst nach vollständigem Abkühlen mit dem Joghurt mischen — der Joghurt selbst wird nicht mitgekocht." },
+  { nr:108, name:"Ananas-Quark", level:"einfach", veg:true, grill:false, ofen:false, zeit:"ca. 10 Min",
+    warum:"Nur Quark, Milch, Zucker und Dosen-Ananas verrührt — kein rohes Ei, keine Erhitzung nötig, komplett unkritisch.",
+    zutaten:[{n:"Quark (Speisequark)",m:100,u:"g",a:["Milch"]},{n:"Dosen-Ananas (abgetropft)",m:60,u:"g"},{n:"Milch",m:20,u:"ml",a:["Milch"]},{n:"Zucker",m:8,u:"g"}],
+    schritte:["Quark mit Milch und Zucker glattrühren.","Dosen-Ananas gut abtropfen lassen, bei Bedarf klein schneiden.","Ananas unterheben oder als Topping obenauf geben.","Kühl servieren."],
+    hygiene:"Quark durchgehend kühl halten, bis zum Servieren nicht bei Raumtemperatur stehen lassen. Dose vor dem Öffnen auf Beschädigung/Wölbung prüfen." },
+];
+
+/* ---- DIE 8 KÜCHENREGELN ----
+   Inhalt = die mit dem Team abgestimmte Kurzfassung (identisch zum A3-Aushang).
+   Quellengrundlage wie die Hygiene-Belehrung: § 42/43 IfSG, LMHV, LMIV; BfR & LGL Bayern. */
+const REGELN = [
+  { nr:1, emoji:"🤒", titel:"Gesund sein",
+    kern:"Wer Durchfall, Erbrechen, Fieber, eitrige Wunden oder Gelbsucht hat, arbeitet nicht in der Küche.",
+    punkte:["Sofort der Küchenleitung sagen.","Gilt auch, wenn du dich nur „komisch\u201c fühlst."] },
+  { nr:2, emoji:"🖐️", titel:"Hände waschen",
+    kern:"Der Übertragungsweg Nr. 1.",
+    punkte:["Vor dem Kochen, nach WC/Pause, nach rohem Fleisch/Ei.","Kein Schmuck/Uhr, saubere Kleidung, Haare zusammenbinden.","Wunden wasserdicht abdecken; Husten/Niesen in die Armbeuge."] },
+  { nr:3, emoji:"🔪", titel:"Roh und gekocht trennen",
+    kern:"Keime von rohem Fleisch dürfen nicht auf fertiges Essen.",
+    punkte:["Eigene Brettchen & Messer für roh / gekocht.","Dazwischen Hände, Geräte, Flächen reinigen.","Fertiges Essen nie mit bloßen Händen – Besteck, Zange oder Handschuhe nutzen."] },
+  { nr:4, emoji:"🔥", titel:"Richtig durchgaren",
+    kern:"Fleisch (alle Sorten) und Fisch immer komplett durchgaren – innen nichts mehr roh/rosa.",
+    punkte:["Eier gut durchgaren, keine rohen Eierspeisen.","Beim Grillen aufschneiden & prüfen – Ziel: mind. 70 °C/2 Min (LGL).","Fertig gekocht heiß halten (mind. 65 °C), nicht lauwarm stehen lassen."] },
+  { nr:5, emoji:"❄️", titel:"Kühl halten",
+    kern:"Was kühl gehört, muss kühl bleiben (Kühlschrank max. 7 °C).",
+    punkte:["Rohes Fleisch nach unten, fertiges Essen nach oben.","Auftauen nur im Kühlschrank, nie auf der Arbeitsfläche."] },
+  { nr:6, emoji:"🥦", titel:"Obst & Gemüse waschen",
+    kern:"Gründlich mit Trinkwasser waschen, erdnah Gewachsenes schälen.",
+    punkte:["Angeschimmeltes/Angefaultes großzügig wegwerfen."] },
+  { nr:7, emoji:"🪰", titel:"Sauber & geschützt halten",
+    kern:"Keime und Tiere vom Essen fernhalten.",
+    punkte:["Lappen/Schwämme oft wechseln, lieber Einweg-Papier.","Essen abdecken – vor Fliegen, Wespen, Tieren schützen.","Nur Trinkwasser zum Kochen & Spülen."] },
+  { nr:8, emoji:"🥜", titel:"Allergien kennen",
+    kern:"Allergien der Kinder vorher erfassen und im Team bekannt machen.",
+    punkte:["Verpackungen/Zutatenlisten aufheben.","Für Allergiker-Kinder getrennt arbeiten."] },
+];
+
+/* Typische kennzeichnungspflichtige Allergene (Auszug der 14 Hauptallergene nach LMIV),
+   für die schnelle Auswahl in der TN-Berücksichtigung. */
+const ALLERGENE = [
+  "Gluten (Getreide)","Laktose / Milch","Ei","Erdnüsse","Nüsse (Schalenfrüchte)",
+  "Soja","Fisch","Krebstiere / Weichtiere","Sellerie","Senf","Sesam","Sulfite",
+];
+
+/* ---- Tipps aus vergangenen Freizeiten (Tab „Tipps") ---- */
+const TIPPS = [
+  { titel:"Beim Einkauf", emoji:"🛒", punkte:[
+    "Erster Einkauf üppig! Lieber am Anfang großzügig einkaufen als ständig nachkaufen.",
+    "Möglichst immer gleich für **2 Tage** einkaufen.",
+    "Pommes: wenn, dann **fertig kaufen** (kein Selbstschneiden).",
+    "Grillen: In der Küche ist es wesentlich einfacher. Auf die Einkaufsliste kommen **nur Würstchen**.",
+    "Lieber **kleinere Nudeln wie Penne oder Fusilli statt Spaghetti** — Spaghetti kleben bei der Menge zu sehr zusammen.",
+  ]},
+  { titel:"Brot & Vesper", emoji:"🥪", punkte:[
+    "Mehr Brotvariation — vereinzelt Aufback- oder Supermarktbrötchen (1 pro Kopf) **plus** Brot.",
+    "Lieber **Pizzabrötchen statt Pizza**.",
+    "**Überbackenes Vesper** (Käse/Salami im Backofen) kam super an.",
+    "**Überbackenes statt kalter Mittagsküche** — z. B. Toast Hawaii, Salami und Käse überbacken.",
+  ]},
+  { titel:"Was gut ankam (aus der Reflexion)", emoji:"⭐", punkte:[
+    "**Käsespätzle** kamen laut Reflexion sehr gut an.",
+  ]},
+];
+
+/* ---- Aufgaben & Hintergrundwissen (Tab „Zuständigkeiten") ---- */
+const AUFGABEN = [
+  "Küchengeld verwalten (Details siehe „Geld & Abrechnung“ unten).",
+  "Überblick über Frühstück & Vesper behalten; Einkaufsliste führen und aktualisieren; einkaufen oder delegieren.",
+  "**Shop:** Fragt das Shop-Team, was ihr für dieses einkaufen sollt.",
+  "Möglichst immer gleich für **2 Tage** einkaufen.",
+  "Erinnert die Mitarbeiter, die Spiele vorbereiten, rechtzeitig daran, benötigte Preise oder Materialien bei euch auf die Einkaufsliste zu setzen.",
+  "Kassenbelege sammeln und einzeln aufkleben (Details siehe „Geld & Abrechnung“ unten).",
+  "**Wake-Up-Service:** Wer Frühstück vorbereitet, weckt **15 Minuten** vor dem Frühstück zuerst die Kinder mit Küchendienst, dann alle anderen inkl. Team. *(Kann delegiert werden!)*",
+];
+
+const ZUSTAENDIG_INFO = [
+  { emoji:"🪙", titel:"Geld & Abrechnung", punkte:[
+    "Es stehen ca. **7 €** pro Person und Tag für Lebensmittel zur Verfügung.",
+    "**Kassenbelege sammeln** und einzeln auf die Kassenformulare kleben — **Klebestift verwenden, kein Tesa!** → an die Gesamtleitung abgeben.",
+    "Das Küchenteam kauft Süßes & Getränke (auch fürs Team) und zusätzlich Produkte, von denen es glaubt, dass die Kids sie gern im Shop kaufen.",
+    "Das Shop-Team sammelt alle Einnahmen bis zum Schluss und gibt **am Ende der Freizeit** seine gesammelten Einnahmen als „Shop-Einnahmen“ an die Gesamtleitung (wird als Einnahme verbucht).",
+    "Was genau verkauft oder vom Team gegessen wurde, lässt sich kaum trennen — daher sparen wir uns hierfür separate Kassenzettel. Die Shop-Käufe stehen einfach mit auf dem normalen Lebensmittel-Kassenzettel.",
+  ]},
+];
+
+// Sehr einfache Inline-Formatierung für kurze Hinweistexte: **fett** und *kursiv*.
+// Kein vollständiges Markdown — reicht für Stichpunkte in Tipps/Aufgaben.
+function parseInline(text){
+  const out=[];
+  text.split(/\*\*(.+?)\*\*/g).forEach((part,i)=>{
+    if(i%2===1){ out.push(h("strong",{},part)); return; }
+    part.split(/\*(.+?)\*/g).forEach((ip,j)=>{
+      if(j%2===1) out.push(h("em",{},ip));
+      else if(ip) out.push(ip);
+    });
+  });
+  return out;
+}
+
+function formatMenge(menge, unit){
+  if(unit==="frei") return {text:"nach Bedarf", frei:true};
+  if(unit==="g"){
+    if(menge>=1000) return {text:(menge/1000).toLocaleString("de-DE",{maximumFractionDigits:2})+" kg"};
+    return {text:Math.round(menge).toLocaleString("de-DE")+" g"};
+  }
+  if(unit==="ml"){
+    if(menge>=1000) return {text:(menge/1000).toLocaleString("de-DE",{maximumFractionDigits:2})+" l"};
+    return {text:Math.round(menge).toLocaleString("de-DE")+" ml"};
+  }
+  if(unit==="stk") return {text:Math.ceil(menge).toLocaleString("de-DE")+" Stk"};
+  if(unit==="packung"){
+    const n=Math.round(menge*10)/10;
+    return {text:n.toLocaleString("de-DE")+" "+(n===1?"Packung":"Packungen")};
+  }
+  if(unit==="liter") return {text:menge.toLocaleString("de-DE",{maximumFractionDigits:2})+" l"};
+  return {text:menge+" "+unit};
+}
+
+/* ---- Stufe 4: wählbare Mengen-Einheit pro Position ----
+   Für "unpraktische" Positionen (Gewürze, Käse/Wurst, Milch, ...) kann die angezeigte
+   Einheit von der Basis-Einheit (meist g/ml) auf eine Alternative (Stück/Packung/Liter,
+   in den Datensätzen als it.altU + it.altHinweis hinterlegt) umgeschaltet werden. Das ist
+   ein REINER Label-Switch — die eingetragene Zahl wird NICHT automatisch umgerechnet
+   (sie ist in den Planer-Rubriken ohnehin frei editierbar). Bei aktiver Alternative
+   erscheint zusätzlich ein kurzer grauer Hinweistext (Packungsgrößen-Richtwert), damit
+   klar ist, wie viele Packungen die eingetragene Zahl ungefähr ergibt. Standard bleibt
+   überall die bisherige Einheit — der Umschalter erscheint nur, wenn it.altU gesetzt ist. */
+function einheitLabel(u){
+  if(u==="packung") return "Packung";
+  if(u==="liter") return "Liter";
+  if(u==="stk") return "Stk";
+  return u;
+}
+function EinheitUmschalter(props){
+  const basisU=props.basisU, altU=props.altU, aktiv=!!props.aktiv, onChange=props.onChange;
+  const pill=(label,istAktiv,onClick)=>h("span",{onClick:(e)=>{e.stopPropagation(); onClick();},
+    style:{fontSize:"10px",fontWeight:600,padding:"2px 7px",borderRadius:"999px",cursor:"pointer",whiteSpace:"nowrap",
+      background:istAktiv?"var(--primary)":"var(--chip)",color:istAktiv?"var(--primaryText)":"var(--text3)"}}, label);
+  return h("div",{style:{display:"flex",gap:"3px",flex:"none"}},
+    pill(einheitLabel(basisU), !aktiv, ()=>onChange(false)),
+    pill(einheitLabel(altU), aktiv, ()=>onChange(true))
+  );
+}
+
+/* ---- Stufe 5: Allergen-Anzeige ----
+   Jede Zutat kann ein optionales Feld z.a (Liste von Allergen-Kürzeln, z. B.
+   ["Gluten","Milch"]) und/oder z.ap (true = "weitere Allergene je nach Marke möglich,
+   laut Verpackung prüfen") tragen. Das Allergen-Set eines GERICHTS wird NICHT separat
+   gepflegt, sondern automatisch aus der Vereinigung aller Zutaten-Allergene berechnet —
+   so kann Gericht- und Zutaten-Ebene nie auseinanderlaufen. Rein informativ; ändert
+   nichts an Mengen, Kategorien oder kategorieFuer().
+   Bewusste Ehrlichkeits-Regel: Grundzutaten (Nudeln→Gluten, Käse→Milch) sind fix
+   getaggt; bei verarbeiteten Fertigprodukten (Würstchen, Maultaschen, Fertigsoßen …)
+   hängen weitere Allergene von Marke/Rezeptur ab — dort steht zusätzlich der neutrale
+   "laut Verpackung prüfen"-Hinweis statt erfundener Angaben. */
+function gerichtAllergene(zutaten){
+  const liste=[]; let pruefen=false;
+  (zutaten||[]).forEach(function(z){
+    if(z && z.a) z.a.forEach(function(al){ if(liste.indexOf(al)<0) liste.push(al); });
+    if(z && z.ap) pruefen=true;
+  });
+  return {liste:liste, pruefen:pruefen};
+}
+// Einzelner Allergen-Chip im Amber-Warnstil. Bewusst mit Präfix-Punkt/kompakter Optik,
+// damit er nicht mit dem gelben "Mittel"-Level-Chip der Gericht-Kopfzeile verwechselt wird.
+function allergenChip(text){
+  return h("span",{style:{display:"inline-flex",alignItems:"center",fontSize:"10px",fontWeight:600,
+    background:"var(--amber-bg)",color:"var(--amber-text)",boxShadow:"inset 0 0 0 1px var(--amber-ring)",
+    borderRadius:"999px",padding:"2px 7px",whiteSpace:"nowrap",lineHeight:1.3}}, text);
+}
+// Neutraler "laut Verpackung prüfen"-Chip (kein Amber, um echte Allergene optisch stärker zu lassen).
+function pruefenChip(){
+  return h("span",{style:{display:"inline-flex",alignItems:"center",fontSize:"10px",fontWeight:600,
+    background:"transparent",color:"var(--text3)",boxShadow:"inset 0 0 0 1px var(--ring2)",
+    borderRadius:"999px",padding:"2px 7px",whiteSpace:"nowrap",lineHeight:1.3}}, "lt. Verpackung prüfen");
+}
+// Inline-Chips hinter einem einzelnen Zutatennamen (kompakt, umbrechend).
+function zutatAllergenChips(z){
+  if(!z || (!z.a && !z.ap)) return null;
+  const chips=[];
+  if(z.a) z.a.forEach(function(al){ chips.push(allergenChip(al)); });
+  if(z.ap) chips.push(pruefenChip());
+  return h("span",{style:{display:"inline-flex",flexWrap:"wrap",gap:"4px",marginLeft:"6px",verticalAlign:"middle"}}, chips);
+}
+// Gericht-Ebene: zusammenfassende Allergen-Box (in der Rezeptkarte, sichtbar bei
+// Zutaten & Zubereitung).
+function allergenBox(zutaten){
+  const ag=gerichtAllergene(zutaten);
+  if(ag.liste.length===0 && !ag.pruefen) return null;
+  const chips=ag.liste.map(function(al){ return allergenChip(al); });
+  if(ag.pruefen) chips.push(pruefenChip());
+  return h("div",{style:{display:"flex",flexWrap:"wrap",alignItems:"center",gap:"6px",marginBottom:"16px",
+      padding:"11px 13px",borderRadius:"12px",background:"var(--amber-bg)",boxShadow:"inset 0 0 0 1px var(--amber-ring)"}},
+    h("span",{style:{display:"inline-flex",alignItems:"center",gap:"5px",fontSize:"11px",fontWeight:700,letterSpacing:".03em",textTransform:"uppercase",color:"var(--amber-text)"}},
+      icon("alert",13,"var(--amber-icon)"), "Enthält (Allergene):"),
+    chips
+  );
+}
+
+/* ---- Laden-Kategorien (Laufreihenfolge im Discounter) ----
+   Quelle der Reihenfolge: Frische am Eingang (Obst/Gemüse, Backwaren),
+   Trockenware/Konserven mittig, Kühl- und Tiefkühlware hinten, Süßes/Kasse zuletzt.
+   (Lidl/Discounter-Aufbau, vgl. BfR-unabhängige Marktrecherche) */
+const KATEGORIEN = [
+  { id:"obst",    label:"Obst & Gemüse",            kalt:false },
+  { id:"brot",    label:"Brot & Backwaren",          kalt:false },
+  { id:"fruehst", label:"Frühstück",                 kalt:false },
+  { id:"trocken", label:"Nudeln, Reis & Trockenes",  kalt:false },
+  { id:"konserve",label:"Konserven & Haltbares",     kalt:false },
+  { id:"gewuerz", label:"Öl, Gewürze & Soßen",       kalt:false },
+  { id:"suess",   label:"Süßes & Salziges / Snacks", kalt:false },
+  { id:"getraenk",label:"Getränke",                  kalt:false },
+  { id:"kuehl",   label:"Kühlregal",                 kalt:true  },
+  { id:"tk",      label:"Tiefkühl",                  kalt:true  },
+  { id:"haushalt",label:"Haushalt & Hygiene",        kalt:false },
+  { id:"sonst",   label:"Sonstiges",                 kalt:false },
+];
+const KAT_INDEX={}; KATEGORIEN.forEach((k,i)=>KAT_INDEX[k.id]=i);
+
+// Zutat anhand von Stichwörtern einer Kategorie zuordnen.
+function kategorieFuer(name){
+  const n=name.toLowerCase();
+  // Tiefkühl zuerst (klar gekennzeichnete TK-Ware)
+  if(/tiefkühl|tk-|tk gemüse|tk-gemüse|\(tk\)|tk\b/.test(n)) return "tk";
+  // Frisches Fleisch (kühlpflichtig)
+  if(/hackfleisch|hack\b|rinderhack|fleisch\b/.test(n)) return "kuehl";
+  // Kühlpflichtig
+  if(/würst|saiten|wiener|brühwurst|hot-dog-würstchen|maultaschen|tortellini|schinken|salami|käse|mozzarella|sahne|kochcreme|\bmilch\b|butter|joghurt|quark|\bei\b|eier|wurst|skyr/.test(n)) return "kuehl";
+  // Haushalt & Hygiene
+  if(/spülmittel|spüli|müllbeutel|müllsack|alufolie|frischhalte|küchenrolle|küchenpapier|klopapier|toilettenpapier|seife|servietten|geschirrtuch|schwamm|putz|reiniger|taschentücher|zahn|sonnencreme|sonnenmilch|pflaster|schwämme|stahlwolle|spülbürste|spültab|geschirrspül|handschuh|handtücher|backpapier|spüllappen|schürze|desinfek/.test(n)) return "haushalt";
+  // Zitronensaft (Flasche, zum Kochen/Würzen) VOR der Getränke-Regel abfangen: die
+  // Getränke-Regel greift sonst schon auf den Teilstring "saft" — Zitronensaft steht
+  // im Handel (Aldi/Lidl) unter "Backen & Kochen" bei Essig/Öl, nicht bei Getränken.
+  if(/zitronensaft/.test(n)) return "gewuerz";
+  // Getränke
+  if(/wasser|saft|sirup|sprudel|limo|limonade|cola|tee\b|kaffee|kakao(?!pulver)|getränk|fanta|durstlöscher|kaffeefilter|spezi/.test(n)) return "getraenk";
+  // Frühstück
+  if(/cornflakes|müsli|cerealien|haferflocken|marmelade|konfitüre|honig|nuss-nougat|nutella|nougatcreme|frühstück/.test(n)) return "fruehst";
+  // Süßes & Salziges / Snacks
+  if(/schokolade|schoko\b|süßigkeit|gummibär|maoam|lutscher|m&m|bonbon|keks|chips|cracker|salzstangen|snack|riegel|\beis\b|kaugummi|prinzenrolle/.test(n)) return "suess";
+  // Brot & Backwaren (Waffeln/Muffins bewusst hier statt bei Süßes/Salziges, s. Referenz-Recherche)
+  if(/brötchen|baguette|brot\b|pizzateig|teig|grillbrötchen|toast|gebäck|waffel|muffin/.test(n)) return "brot";
+  // Obst & Gemüse (frisch) — Röstzwiebeln ausgenommen (haltbar, Beutel/Glas); "pulver" ausgenommen (Paprikapulver o.ä. sind Gewürze, keine Frischware)
+  if(/zwiebel|knoblauch|karotte|möhre|paprika|kartoffel|lauch|zucchini|mais(kolben)?|tomate$|salat|gemüse(?!brühe)|obst|maiskolben|apfel|äpfel|banane|trauben|\bgurken?\b|erdbeer|orange|zitrone/.test(n) && !/passierte|gehackte|dose|mark|brühe|röst|pulver/.test(n)) return "obst";
+  // Trockene Hülsenfrüchte, Nudeln, Reis & Trockenes
+  if(/nudeln|spaghetti|penne|fusilli|hörnchen|reis|spätzle|mehl|röstzwiebeln|linsen.*trocken|tellerlinsen|grieß|pudding/.test(n)) return "trocken";
+  // Konserven & Haltbares (Dosen, passierte Tomaten, Hülsenfrüchte aus Dose, Kokosmilch)
+  if(/passierte tomaten|gehackte tomaten|tomatenmark|dose|kokosmilch|kidneybohnen|kichererbsen|\bmais\b|linsen|brühe|gemüsebrühe|kompott/.test(n)) return "konserve";
+  // Öl, Gewürze & Soßen
+  if(/öl|olivenöl|salz|pfeffer|oregano|majoran|muskat|lorbeer|curry|paprikapulver|kreuzkümmel|sojasauce|essig|ketchup|senf|gewürz|kräuter|schnittlauch|gewürzgurken|zucker|zimt/.test(n)) return "gewuerz";
+  return "sonst";
+}
+
+/* ---- Stufe 9: Unterkategorien NUR für die Anzeige innerhalb "Kühlregal" ----
+   Rein optische Untergliederung in der "Nach Laden"-Ansicht (der große
+   Kühlregal-Bereich war unübersichtlich lang). Keine Auswirkung auf
+   kategorieFuer(), das Datenmodell oder die Ladenkategorie selbst — Zutaten
+   landen weiterhin genau wie vorher als eine Gruppe "kuehl", werden dort aber
+   zusätzlich nach dieser Logik in Unterabschnitte sortiert. */
+const KUEHL_UNTERKATEGORIEN = [
+  { id:"fleischwurst", label:"Fleisch & Wurst" },
+  { id:"milchkaese",   label:"Milchprodukte & Käse" },
+  { id:"fertig",        label:"Fertigprodukte" },
+  { id:"eier",          label:"Eier" },
+  { id:"sonst_kuehl",   label:"Sonstiges" },
+];
+function kuehlUnterkategorieFuer(name){
+  const n=name.toLowerCase();
+  if(/hackfleisch|hack\b|rinderhack|fleisch\b|würst|saiten|wiener|brühwurst|hot-dog-würstchen|schinken|salami|wurst/.test(n)) return "fleischwurst";
+  if(/käse|mozzarella|sahne|kochcreme|\bmilch\b|butter|joghurt|quark|skyr/.test(n)) return "milchkaese";
+  if(/maultaschen|tortellini/.test(n)) return "fertig";
+  if(/\bei\b|eier/.test(n)) return "eier";
+  return "sonst_kuehl";
+}
+
+const STORE_KEY="kuechenplaner_sf2026_v1";
+function loadStore(){ try{ const r=localStorage.getItem(STORE_KEY); return r?JSON.parse(r):null; }catch(e){ return null; } }
+function saveStore(d){ try{ localStorage.setItem(STORE_KEY, JSON.stringify(d)); }catch(e){} }
+
+/* ---- Gericht-Karte ---- */
+function GerichtKarte(props){
+  const g=props.g, personen=props.personen, onAdd=props.onAdd, hinzugefuegt=props.hinzugefuegt;
+  const notiz=props.notiz||"", onNotizChange=props.onNotizChange;
+  const istNachtisch=!!props.istNachtisch;
+  const [offen,setOffen]=useState(false);
+  const [warumOffen,setWarumOffen]=useState(false);
+  // Stufe 4: wählbare Mengen-Einheit je Zutat, nur für Nachtisch-Karten und nur bei
+  // Zutaten mit hinterlegtem z.altU (kuratierte "unpraktische" Fälle, z. B. Puddingpulver/
+  // Grieß/Zimt). Zeigt bei aktiver Alternative statt der berechneten Menge einen kurzen
+  // Packungsgrößen-Hinweis. Rein informativ — was beim Hinzufügen zur Einkaufsliste
+  // landet, bleibt unverändert die exakte Gramm-/ml-Menge (g.zutaten), damit die
+  // Zusammenzählung über mehrere Gerichte hinweg konsistent bleibt.
+  const [einheitAlt,setEinheitAlt]=useState({});
+  // Alle Zutaten sind standardmäßig ausgewählt (angehakt). Ein Eintrag wird nur dann
+  // als "abgewählt" behandelt, wenn er explizit auf false gesetzt wurde — so bleibt
+  // "alles an" der Default, ganz ohne die Zutatenliste vorab durchzuzählen.
+  const [checked,setChecked]=useState({});
+  // "alt"-Gruppen verhalten sich wie Radiobuttons: nur eine Zutat der Gruppe ist
+  // gleichzeitig ausgewählt (z. B. Quark ODER Skyr). Ohne "alt" bleibt das normale
+  // Checkbox-Verhalten (alles einzeln an-/abwählbar, Default an) unverändert.
+  const istAusgewaehlt=(i)=>{
+    if(checked[i]!==undefined) return checked[i];
+    const item=g.zutaten[i];
+    if(item.alt){ return g.zutaten.findIndex(z=>z.alt===item.alt)===i; }
+    return true;
+  };
+  const toggleCheck=(i)=>setChecked(p=>{
+    const n=Object.assign({},p);
+    const item=g.zutaten[i];
+    if(item.alt){
+      g.zutaten.forEach((z,j)=>{ if(z.alt===item.alt) n[j]=(j===i); });
+    } else {
+      n[i]=!istAusgewaehlt(i);
+    }
+    return n;
+  });
+  const chip=(bg,ring,text)=>({background:bg,boxShadow:"inset 0 0 0 1px "+ring,color:text,fontSize:"11px",fontWeight:500,padding:"3px 9px",borderRadius:"999px"});
+
+  const tags=[h("span",{style:chip(g.level==="einfach"?"var(--emerald-bg)":"var(--amber-bg)",g.level==="einfach"?"var(--emerald-ring)":"var(--amber-ring)",g.level==="einfach"?"var(--emerald-text)":"var(--amber-text)")}, g.level==="einfach"?"Einfach":"Mittel")];
+  if(g.veg) tags.push(h("span",{style:Object.assign(chip("var(--green-bg)","var(--green-ring)","var(--green-text)"),{display:"inline-flex",alignItems:"center",gap:"4px"})}, icon("leaf",12), "Vegetarisch möglich"));
+  if(g.grill) tags.push(h("span",{style:Object.assign(chip("var(--orange-bg)","var(--orange-ring)","var(--orange-text)"),{display:"inline-flex",alignItems:"center",gap:"4px"})}, icon("flame",12), "Grillen"));
+  if(g.ofen) tags.push(h("span",{style:chip("var(--chip)","var(--ring2)","var(--chipText)")}, "Backofen nötig"));
+
+  const kopf=h("button",{onClick:()=>setOffen(o=>!o),
+    style:{width:"100%",textAlign:"left",padding:"16px 18px",display:"flex",alignItems:"center",gap:"14px",background:"transparent",border:"none",cursor:"pointer",color:"inherit"}},
+    h("div",{style:{flex:"none",width:"44px",height:"44px",borderRadius:"12px",background:"var(--primary)",color:"var(--primaryText)",display:"grid",placeItems:"center",fontWeight:600,fontSize:"14px"}}, String(g.nr).padStart(2,"0")),
+    h("div",{style:{minWidth:0,flex:1}},
+      h("h3",{style:{fontSize:"16px",fontWeight:600,lineHeight:1.25,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}, g.name),
+      h("div",{style:{display:"flex",gap:"6px",marginTop:"6px",flexWrap:"wrap"}}, tags)
+    ),
+    h("span",{style:{flex:"none",color:"var(--text3)",fontSize:"20px",transform:offen?"rotate(180deg)":"none",transition:"transform .2s",lineHeight:0,display:"inline-flex"}}, Ic.chevron())
+  );
+
+  let body=null;
+  if(offen){
+    let ausgewaehlt=0, relevant=0;
+    g.zutaten.forEach((z,i)=>{ if(z.u==="frei") return; relevant++; if(istAusgewaehlt(i)) ausgewaehlt++; });
+    const liste=g.zutaten.map((z,i)=>{
+      const f=formatMenge(z.m*personen, z.u); const ist=istAusgewaehlt(i);
+      const zeigtAlt=istNachtisch && z.altU && !!einheitAlt[i];
+      const mengeAnzeige=zeigtAlt
+        ? h("span",{style:{fontSize:"11px",fontWeight:500,color:"var(--text3)",textAlign:"right",maxWidth:"130px"}}, z.altHinweis)
+        : h("span",{style:{fontSize:"14px",fontWeight:f.frei?600:700,fontVariantNumeric:"tabular-nums",whiteSpace:"nowrap",color:!ist?"var(--text3)":f.frei?"var(--text3)":"var(--text)"}}, f.text);
+      return h("li",{},
+        h("button",{onClick:()=>toggleCheck(i),
+          style:{width:"100%",display:"flex",alignItems:"center",gap:"10px",padding:"9px 4px",borderRadius:"10px",border:"none",background:"transparent",cursor:"pointer",textAlign:"left",color:"inherit"}},
+          h("span",{style:{flex:"none",width:"22px",height:"22px",borderRadius:z.alt?"999px":"7px",display:"grid",placeItems:"center",background:ist?"var(--primary)":"var(--card)",boxShadow:"inset 0 0 0 "+(ist?"0":"1.5px")+" "+(ist?"var(--primary)":"var(--ring2)"),color:"var(--primaryText)",fontSize:"14px"}}, ist?Ic.check(3):null),
+          h("span",{style:{flex:1,fontSize:"14px",textDecoration:ist?"none":"line-through",color:ist?"var(--text)":"var(--text3)"}},
+            z.n, z.alt?h("span",{style:{fontSize:"10.5px",color:"var(--text3)",marginLeft:"6px",fontWeight:500,textDecoration:"none"}}, "· Alternative"):null,
+            zutatAllergenChips(z)
+          ),
+          istNachtisch&&z.altU?h(EinheitUmschalter,{basisU:z.u,altU:z.altU,aktiv:zeigtAlt,onChange:(v)=>setEinheitAlt(p=>Object.assign({},p,{[i]:v}))}):null,
+          mengeAnzeige
+        )
+      );
+    });
+    const schritte=g.schritte.map((s,i)=>h("li",{style:{display:"flex",gap:"12px",fontSize:"13px",color:"var(--text2)",lineHeight:1.5}},
+      h("span",{style:{flex:"none",width:"20px",height:"20px",borderRadius:"999px",background:"var(--chip)",color:"var(--chipText)",display:"grid",placeItems:"center",fontSize:"11px",fontWeight:600,marginTop:"2px"}}, i+1),
+      h("span",{}, s)));
+
+    body=h("div",{style:{padding:"4px 18px 20px",borderTop:"1px solid var(--ring)"}},
+      h("div",{style:{display:"flex",gap:"16px",fontSize:"12px",color:"var(--text2)",margin:"12px 0 16px"}},
+        h("span",{style:{display:"inline-flex",alignItems:"center",gap:"6px"}}, icon("clock",14), g.zeit),
+        h("span",{style:{display:"inline-flex",alignItems:"center",gap:"6px"}}, icon("users",14), personen+" Pers."),
+        h("span",{style:{display:"inline-flex",alignItems:"center",gap:"6px"}}, icon("chef",14), g.level==="einfach"?"Einfach":"Mittel")
+      ),
+      h("button",{onClick:()=>onAdd(g, g.zutaten.filter((z,i)=>istAusgewaehlt(i))),
+        style:{width:"100%",display:"flex",alignItems:"center",justifyContent:"center",gap:"8px",padding:"12px",borderRadius:"12px",border:"none",cursor:"pointer",marginBottom:"16px",fontSize:"14px",fontWeight:600,
+          background:hinzugefuegt?"var(--emerald-bg)":"var(--primary)",color:hinzugefuegt?"var(--emerald-text)":"var(--primaryText)",boxShadow:hinzugefuegt?"inset 0 0 0 1px var(--emerald-ring)":"none"}},
+        hinzugefuegt?icon("check",16,null,null,2.5):icon("cart",16),
+        hinzugefuegt?("Auf der Liste — für "+personen+" Pers. aktualisieren"):("Zur Einkaufsliste hinzufügen ("+personen+" Pers.)")
+      ),
+      allergenBox(g.zutaten),
+      h("div",{style:{marginBottom:"16px"}},
+        h("label",{style:{display:"flex",alignItems:"center",gap:"6px",fontSize:"11px",fontWeight:700,letterSpacing:".06em",textTransform:"uppercase",color:"var(--text2)",marginBottom:"6px"}}, icon("bulb",13), "Notiz für dieses Gericht"),
+        h("textarea",{value:notiz,"data-focus-id":"notiz-"+g.nr,placeholder:"z. B. „Reminder! Wir haben noch Zwiebeln vom Vortag übrig“ …",
+          onInput:e=>onNotizChange&&onNotizChange(e.target.value),
+          rows:2,
+          style:{width:"100%",padding:"10px 12px",borderRadius:"10px",background:"var(--bg)",outline:"1px solid var(--ring)",border:"none",fontSize:"13px",color:"var(--text)",resize:"vertical",fontFamily:"inherit"}})
+      ),
+      h("div",{style:{marginBottom:"16px"}},
+        h("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"10px"}},
+          h("h4",{style:{fontSize:"11px",fontWeight:700,letterSpacing:".06em",textTransform:"uppercase",color:"var(--primary)"}}, "Zutaten · "+personen+" Pers."),
+          h("span",{style:{fontSize:"11px",color:"var(--text3)",fontWeight:500}}, ausgewaehlt+"/"+relevant+" ausgewählt")
+        ),
+        h("p",{style:{fontSize:"11.5px",color:"var(--text3)",marginBottom:"8px"}}, "Alles ist vorab angehakt. Was ihr nicht braucht, hier abwählen — nur Angehaktes landet auf der Einkaufsliste."),
+        h("ul",{style:{listStyle:"none"}}, liste)
+      ),
+      h("div",{style:{borderRadius:"12px",background:"var(--amber-bg)",boxShadow:"inset 0 0 0 1px var(--amber-ring)",padding:"14px",marginBottom:"16px"}},
+        h("div",{style:{display:"flex",alignItems:"center",gap:"8px",marginBottom:"4px"}},
+          icon("alert",16,"var(--amber-icon)",{flex:"none"},2.5),
+          h("span",{style:{fontSize:"11px",fontWeight:700,letterSpacing:".03em",textTransform:"uppercase",color:"var(--amber-text)"}}, "Achtung — unbedingt beachten")
+        ),
+        h("p",{style:{fontSize:"13px",color:"var(--amber-text)",lineHeight:1.5,paddingLeft:"24px"}}, g.hygiene)
+      ),
+      h("div",{style:{marginBottom:"12px"}},
+        h("h4",{style:{fontSize:"11px",fontWeight:700,letterSpacing:".06em",textTransform:"uppercase",color:"var(--text2)",marginBottom:"10px"}}, "Zubereitung"),
+        h("ol",{style:{listStyle:"none",display:"flex",flexDirection:"column",gap:"10px"}}, schritte)
+      ),
+      h("div",{style:{borderTop:"1px solid var(--ring)",paddingTop:"12px"}},
+        h("button",{onClick:()=>setWarumOffen(w=>!w),
+          style:{display:"flex",alignItems:"center",gap:"8px",fontSize:"12px",fontWeight:500,color:"var(--text3)",background:"transparent",border:"none",cursor:"pointer",padding:0}},
+          icon("info",14), "Warum hygienisch unbedenklich?",
+          h("span",{style:{transform:warumOffen?"rotate(180deg)":"none",transition:"transform .2s",lineHeight:0,display:"inline-flex",fontSize:"14px"}}, Ic.chevron())
+        ),
+        warumOffen?h("p",{style:{fontSize:"13px",color:"var(--text2)",lineHeight:1.5,marginTop:"10px",paddingLeft:"22px"}}, g.warum):null
+      ),
+      // Schließen-Button am Ende der Karte — spart das Zurück-Swipen zur Kopfzeile bei
+      // langen Rezepten (Zutaten + Zubereitungsschritte).
+      h("button",{onClick:()=>setOffen(false),
+        style:{width:"100%",display:"flex",alignItems:"center",justifyContent:"center",gap:"6px",padding:"9px 4px",marginTop:"14px",borderRadius:"9px",border:"none",cursor:"pointer",background:"var(--chip)",color:"var(--text2)",fontSize:"11.5px",fontWeight:600}},
+        h("span",{style:{display:"inline-flex",lineHeight:0,fontSize:"13px",transform:"rotate(180deg)"}}, Ic.chevron()),
+        "Karte zuklappen"
+      )
+    );
+  }
+  return h("div",{style:{background:"var(--card)",borderRadius:"16px",boxShadow:"var(--shadow)",overflow:"hidden",outline:"1px solid var(--ring)"}}, kopf, body);
+}
+
+/* ---- Aufklappbare Rubrik (Akkordeon-Baustein) ---- */
+function AkkordeonSection(props){
+  const emoji=props.emoji, titel=props.titel, offen=props.offen, onToggle=props.onToggle, badge=props.badge, children=props.children;
+  // Schließen-Button am Ende der aufgeklappten Rubrik — spart das Zurück-Swipen zur
+  // Kopfzeile bei langen Rubriken (Ersteinkauf, Frühstück & Vesper, Shop-Einkauf, …).
+  const schliessenButton=offen?h("button",{onClick:onToggle,
+    style:{width:"100%",display:"flex",alignItems:"center",justifyContent:"center",gap:"6px",padding:"9px 4px",borderRadius:"9px",border:"none",cursor:"pointer",background:"var(--chip)",color:"var(--text2)",fontSize:"11.5px",fontWeight:600}},
+    h("span",{style:{display:"inline-flex",lineHeight:0,fontSize:"13px",transform:"rotate(180deg)"}}, Ic.chevron()),
+    "Rubrik zuklappen"
+  ):null;
+  return h("div",{style:{background:"var(--card)",borderRadius:"16px",boxShadow:"var(--shadow)",overflow:"hidden",outline:"1px solid var(--ring)"}},
+    h("button",{onClick:onToggle,
+      style:{width:"100%",textAlign:"left",padding:"16px 18px",display:"flex",alignItems:"center",gap:"12px",background:"transparent",border:"none",cursor:"pointer",color:"inherit"}},
+      h("span",{style:{fontSize:"22px",lineHeight:1,flex:"none"}}, emoji),
+      h("span",{style:{flex:1,fontSize:"15.5px",fontWeight:700}}, titel),
+      badge?h("span",{style:{flex:"none",fontSize:"11px",fontWeight:700,background:"var(--primary)",color:"var(--primaryText)",borderRadius:"999px",padding:"2px 9px"}}, badge):null,
+      h("span",{style:{flex:"none",color:"var(--text3)",fontSize:"20px",transform:offen?"rotate(180deg)":"none",transition:"transform .2s",lineHeight:0,display:"inline-flex"}}, Ic.chevron())
+    ),
+    offen?h("div",{style:{padding:"2px 18px 20px",borderTop:"1px solid var(--ring)",display:"flex",flexDirection:"column",gap:"12px",paddingTop:"14px"}}, children, schliessenButton):null
+  );
+}
+
+/* ---- Einkaufs- & Essensplaner-Tab: 7 aufklappbare Rubriken ----
+   1) Ersteinkauf  2) Frühstück & Vesper  3) Mittags-Snacks/Reisesnacks
+   4) Shop-Einkauf  4b) Getränke (Stufe 3, bündelt Kaffee/Tee/Kaffeefilter +
+   Fanta/Spezi/Zitronen-Eistee/Durstlöscher)  5) Nachtisch
+   6) Gerichte & Rezepte (Hauptmahlzeiten) */
+function PlanerTab(props){
+  const gefiltert=props.gefiltert, personen=props.personen, hinzugefuegtNrs=props.hinzugefuegtNrs;
+  const addGericht=props.addGericht, addNachtisch=props.addNachtisch;
+  const addErsteinkauf=props.addErsteinkauf, addFruehstueck=props.addFruehstueck, addMittagssnacks=props.addMittagssnacks, addShop=props.addShop, addGetraenke=props.addGetraenke;
+  const notizen=props.notizen, setNotizFuer=props.setNotizFuer;
+  const rubrikNotizen=props.rubrikNotizen||{}, setRubrikNotiz=props.setRubrikNotiz;
+  const ersteinkaufEigene=props.ersteinkaufEigene||[], addErsteinkaufEigen=props.addErsteinkaufEigen, removeErsteinkaufEigen=props.removeErsteinkaufEigen;
+
+  const [offen,setOffen]=useState({ersteinkauf:false,fruehstueck:false,mittagssnacks:false,shop:false,getraenke:false,nachtisch:false,gerichte:true});
+  const toggle=(k)=>setOffen(p=>Object.assign({},p,{[k]:!p[k]}));
+  const stepBtn={width:"32px",height:"32px",borderRadius:"9px",background:"var(--chip)",color:"var(--text)",border:"none",display:"grid",placeItems:"center",cursor:"pointer",fontSize:"14px"};
+  const addBtnStyle=(added)=>({width:"100%",padding:"11px",borderRadius:"11px",border:"none",cursor:"pointer",
+    background:added?"var(--emerald-bg)":"var(--primary)",color:added?"var(--emerald-text)":"var(--primaryText)",
+    boxShadow:added?"inset 0 0 0 1px var(--emerald-ring)":"none",
+    fontSize:"13.5px",fontWeight:600,display:"flex",alignItems:"center",justifyContent:"center",gap:"8px"});
+
+  // Kurze "Hinzugefügt"-Rückmeldung für die Sammel-Buttons (Ersteinkauf/Frühstück/
+  // Mittags-Snacks/Shop) — wir springen bewusst NICHT mehr automatisch zur
+  // Einkaufsliste, damit man in der Planung bleiben kann. Wechsel zur Einkaufsliste
+  // passiert nur noch manuell über den Reiter.
+  const [ekAdded,setEkAdded]=useState(false);
+  const [fvAdded,setFvAdded]=useState(false);
+  const [msAdded,setMsAdded]=useState(false);
+  const [shopAdded,setShopAdded]=useState(false);
+  const [gtAdded,setGtAdded]=useState(false);
+  const kurzBestaetigen=(setter)=>{ setter(true); setTimeout(()=>setter(false), 2000); };
+
+  // Freies Notizfeld oben in jeder Rubrik — rein zum Merken/Sortieren (z. B. Shop-Bestellwünsche
+  // notieren, ohne sie sofort einzeln in die Einkaufsliste zu tragen). Wird dauerhaft in
+  // localStorage gespeichert, geht also beim Schließen des Browsers nicht verloren.
+  const notizFeld=(key, platzhalter)=>h("div",{},
+    h("label",{style:{display:"flex",alignItems:"center",gap:"6px",fontSize:"10.5px",fontWeight:700,letterSpacing:".05em",textTransform:"uppercase",color:"var(--text3)",marginBottom:"5px"}}, icon("bulb",12), "Notiz zu dieser Rubrik"),
+    h("textarea",{value:rubrikNotizen[key]||"","data-focus-id":"rubriknotiz-"+key,
+      placeholder:platzhalter||"z. B. Bestellwünsche, Erinnerungen …",
+      onInput:e=>setRubrikNotiz&&setRubrikNotiz(key,e.target.value),
+      rows:2,
+      style:{width:"100%",padding:"9px 11px",borderRadius:"10px",background:"var(--bg)",outline:"1px solid var(--ring)",border:"none",fontSize:"12.5px",color:"var(--text)",resize:"vertical",fontFamily:"inherit"}})
+  );
+
+  /* ---- 1) Ersteinkauf: feste Mengen, manuell überschreibbar, NICHT personenskaliert.
+     Zusätzlich frei ergänzbar über ein kleines Formular — eigene Positionen werden
+     dauerhaft gespeichert und erscheinen unterhalb der festen Liste. ---- */
+  const arbeitsListe=ERSTEINKAUF.map((it,i)=>({key:"fix"+i,n:it.n,m:it.m,u:it.u,altU:it.altU,altHinweis:it.altHinweis,a:it.a,ap:it.ap,fix:true}))
+    .concat(ersteinkaufEigene.map(it=>({key:"eig-"+it.id,n:it.n,m:it.m,u:it.u,fix:false,id:it.id})));
+  const ekDefaultMengen=()=>{ const m={}; ERSTEINKAUF.forEach((it,i)=>{ m["fix"+i]=it.m; }); return m; };
+  const [ekMengen,setEkMengen]=useState(ekDefaultMengen);
+  const [ekChecked,setEkChecked]=useState({});
+  const [ekEinheitAlt,setEkEinheitAlt]=useState({});
+  const ekReset=()=>{ setEkChecked({}); setEkMengen(ekDefaultMengen()); setEkEinheitAlt({}); };
+  const ekIst=(key)=>ekChecked[key]!==false;
+  const ekToggle=(key)=>setEkChecked(p=>Object.assign({},p,{[key]:!ekIst(key)}));
+  const ekSetMenge=(key,v)=>setEkMengen(p=>Object.assign({},p,{[key]:v}));
+  const ekMengeFuer=(row)=> ekMengen[row.key]!==undefined ? ekMengen[row.key] : row.m;
+  const ekEinheitFuer=(row)=> row.altU && ekEinheitAlt[row.key] ? row.altU : row.u;
+  // Angehakte, aktuell eingestellte Positionen (Menge/Einheit wie gerade im Formular) — gemeinsame
+  // Grundlage für "zur Einkaufsliste hinzufügen", Text-Teilen UND Datei-Export (Stufe 7), damit
+  // alle drei Wege immer exakt dieselbe Auswahl verwenden.
+  const ekListeAktuell=()=>arbeitsListe.map(row=>({n:row.n,m:Number(ekMengeFuer(row))||0,u:ekEinheitFuer(row),a:row.a,ap:row.ap,sel:ekIst(row.key)})).filter(z=>z.sel&&z.m>0).map(z=>({n:z.n,m:z.m,u:z.u,a:z.a,ap:z.ap}));
+  const ekUebernehmen=()=>{
+    const liste=ekListeAktuell();
+    if(liste.length===0) return;
+    addErsteinkauf(liste);
+    kurzBestaetigen(setEkAdded);
+  };
+  // Stufe 7: Ersteinkauf teilen/exportieren (Text fürs Küchenteam) + Datei-Export/Import,
+  // damit eine zweite Person ohne Sync exakt dieselbe Liste in ihrer eigenen App vorfindet.
+  const [ekExportHinweis,setEkExportHinweis]=useState("");
+  const [ekImportOffen,setEkImportOffen]=useState(false);
+  const [ekImportHinweis,setEkImportHinweis]=useState("");
+  const ekBauText=()=>{
+    const liste=ekListeAktuell();
+    let txt="🧽 ERSTEINKAUF (Grundausstattung) — für "+personen+" Personen\n\n";
+    liste.forEach(z=>{ const f=formatMenge(z.m,z.u); txt+="• "+z.n+" — "+f.text+"\n"; });
+    txt+="\n— erstellt mit dem Küchenplaner";
+    return txt;
+  };
+  const ekTextTeilen=()=>{
+    if(ekListeAktuell().length===0){ setEkExportHinweis("Erst mindestens eine Position anhaken."); return; }
+    teilenAusfuehren(ekBauText(), setEkExportHinweis);
+  };
+  const ekDateiExportieren=async ()=>{
+    const liste=ekListeAktuell();
+    if(liste.length===0){ setEkExportHinweis("Erst mindestens eine Position anhaken."); return; }
+    const daten={typ:"kuechenplaner-ersteinkauf",version:1,erstelltAm:new Date().toISOString(),personen:personen,positionen:liste};
+    const json=JSON.stringify(daten,null,2);
+    const dateiname="Ersteinkauf-Sommerfreizeit.json";
+    try{
+      if(window.File && navigator.canShare){
+        const datei=new File([json],dateiname,{type:"application/json"});
+        if(navigator.canShare({files:[datei]})){
+          await navigator.share({files:[datei],title:"Ersteinkauf Sommerfreizeit",text:"Ersteinkaufsliste zum Importieren im Küchenplaner"});
+          setEkExportHinweis("Geteilt.");
+          return;
+        }
+      }
+    }catch(e){ if(e && e.name==="AbortError") return; }
+    try{
+      const blob=new Blob([json],{type:"application/json"});
+      const url=URL.createObjectURL(blob);
+      const a=document.createElement("a");
+      a.href=url; a.download=dateiname; document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(()=>URL.revokeObjectURL(url),1000);
+      setEkExportHinweis("Als Datei heruntergeladen — jetzt z. B. per WhatsApp als Dokument verschicken.");
+    }catch(e){
+      setEkExportHinweis("Datei-Export klappt in diesem Browser nicht — bitte „Als Text teilen“ nutzen.");
+    }
+  };
+  const ekImportVerarbeiten=(text)=>{
+    let daten;
+    try{ daten=JSON.parse(text); }
+    catch(e){ setEkImportHinweis("Kein lesbares JSON — bitte die unveränderte Export-Datei verwenden."); return; }
+    if(!daten || daten.typ!=="kuechenplaner-ersteinkauf" || !Array.isArray(daten.positionen)){
+      setEkImportHinweis("Das ist keine Ersteinkauf-Export-Datei aus diesem Küchenplaner.");
+      return;
+    }
+    const liste=daten.positionen.map(p=>({
+      n:String((p&&p.n)||"").trim(),
+      m:Number(p&&p.m)||0,
+      u:(p&&p.u)||"stk",
+      a:Array.isArray(p&&p.a)?p.a:undefined,
+      ap:(p&&p.ap)?true:undefined
+    })).filter(p=>p.n && p.m>0);
+    if(liste.length===0){ setEkImportHinweis("Die Datei enthält keine gültigen Positionen."); return; }
+    addErsteinkauf(liste);
+    setEkImportHinweis("✓ "+liste.length+" Position(en) direkt in die Einkaufsliste importiert (Tab „Einkauf“ → Ersteinkauf).");
+  };
+  const ekDateiEingelesen=(e)=>{
+    const datei=e.target.files && e.target.files[0];
+    if(!datei) return;
+    const reader=new FileReader();
+    reader.onload=()=>ekImportVerarbeiten(String(reader.result||""));
+    reader.onerror=()=>setEkImportHinweis("Datei konnte nicht gelesen werden.");
+    reader.readAsText(datei);
+    e.target.value="";
+  };
+  const ekZeilen=arbeitsListe.map(row=>{
+    const ist=ekIst(row.key);
+    const altAktiv=!!ekEinheitAlt[row.key];
+    return h("li",{},
+      h("div",{style:{display:"flex",alignItems:"center",gap:"10px",padding:"7px 2px"}},
+        h("button",{onClick:()=>ekToggle(row.key),
+          style:{flex:"none",width:"22px",height:"22px",borderRadius:"7px",display:"grid",placeItems:"center",background:ist?"var(--primary)":"var(--card)",boxShadow:"inset 0 0 0 "+(ist?"0":"1.5px")+" "+(ist?"var(--primary)":"var(--ring2)"),color:"var(--primaryText)",border:"none",cursor:"pointer",fontSize:"14px"}}, ist?Ic.check(3):null),
+        h("span",{style:{flex:1,fontSize:"13.5px",textDecoration:ist?"none":"line-through",color:ist?"var(--text)":"var(--text3)"}}, row.n, zutatAllergenChips(row)),
+        h("input",{type:"number",value:ekMengeFuer(row),disabled:!ist,"data-focus-id":"ek-menge-"+row.key,onInput:e=>ekSetMenge(row.key,e.target.value),
+          style:{width:"64px",height:"32px",textAlign:"right",padding:"0 8px",borderRadius:"8px",background:"var(--bg)",outline:"1px solid var(--ring)",border:"none",fontSize:"13px",color:ist?"var(--text)":"var(--text3)"}}),
+        row.altU?h(EinheitUmschalter,{basisU:row.u,altU:row.altU,aktiv:altAktiv,onChange:(v)=>setEkEinheitAlt(p=>Object.assign({},p,{[row.key]:v}))})
+          :h("span",{style:{flex:"none",width:"24px",fontSize:"11.5px",color:"var(--text3)"}}, row.u),
+        row.fix?null:h("button",{onClick:()=>removeErsteinkaufEigen&&removeErsteinkaufEigen(row.id),title:"Eigene Position löschen",
+          style:{flex:"none",width:"26px",height:"26px",borderRadius:"7px",border:"none",background:"transparent",color:"var(--text3)",cursor:"pointer",display:"grid",placeItems:"center",fontSize:"13px"}}, Ic.trash())
+      ),
+      row.altU&&altAktiv?h("div",{style:{fontSize:"10.5px",color:"var(--text3)",padding:"0 2px 6px 34px"}}, row.altHinweis):null
+    );
+  });
+  const [eigName,setEigName]=useState(""), [eigMenge,setEigMenge]=useState(""), [eigEinheit,setEigEinheit]=useState("stk");
+  const eigHinzufuegen=()=>{
+    if(!eigName.trim()) return;
+    addErsteinkaufEigen&&addErsteinkaufEigen(eigName, eigMenge, eigEinheit);
+    setEigName(""); setEigMenge(""); setEigEinheit("stk");
+  };
+  const ersteinkaufSection=h(Fragment,{},
+    notizFeld("ersteinkauf","z. B. Sonderwünsche fürs Erstsortiment …"),
+    h("div",{style:{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:"10px"}},
+      h("p",{style:{fontSize:"12.5px",color:"var(--text2)",lineHeight:1.5,flex:1}}, "Einmaliger Grundeinkauf zu Beginn der Freizeit — feste Mengen für ca. 35 Personen/7 Tage, unabhängig vom Personen-Regler. Zahl bei Bedarf direkt überschreiben."),
+      h("button",{onClick:ekReset,title:"Häkchen und Mengen auf Standard zurücksetzen",
+        style:{flex:"none",display:"inline-flex",alignItems:"center",gap:"5px",padding:"5px 10px",borderRadius:"999px",border:"none",cursor:"pointer",background:"var(--chip)",color:"var(--text2)",fontSize:"11px",fontWeight:600,whiteSpace:"nowrap"}}, icon("reset",11), "Reset")
+    ),
+    h("ul",{style:{listStyle:"none",display:"flex",flexDirection:"column"}}, ekZeilen),
+    h("div",{style:{display:"flex",gap:"6px",flexWrap:"wrap",padding:"10px 2px",borderTop:"1px solid var(--ring)",marginTop:"2px"}},
+      h("input",{type:"text",placeholder:"Eigene Position, z. B. Grillanzünder",value:eigName,"data-focus-id":"eig-name",onInput:e=>setEigName(e.target.value),
+        style:{flex:"1 1 160px",height:"34px",padding:"0 10px",borderRadius:"8px",background:"var(--bg)",outline:"1px solid var(--ring)",border:"none",fontSize:"13px",color:"var(--text)"}}),
+      h("input",{type:"number",placeholder:"Menge",value:eigMenge,"data-focus-id":"eig-menge",onInput:e=>setEigMenge(e.target.value),
+        style:{width:"70px",height:"34px",padding:"0 8px",borderRadius:"8px",background:"var(--bg)",outline:"1px solid var(--ring)",border:"none",fontSize:"13px",color:"var(--text)"}}),
+      h("select",{value:eigEinheit,onInput:e=>setEigEinheit(e.target.value),onChange:e=>setEigEinheit(e.target.value),
+        style:{height:"34px",padding:"0 6px",borderRadius:"8px",background:"var(--bg)",outline:"1px solid var(--ring)",border:"none",fontSize:"13px",color:"var(--text)"}},
+        ["stk","g","ml"].map(u=>h("option",{value:u},u))),
+      h("button",{onClick:eigHinzufuegen,
+        style:{flex:"none",height:"34px",padding:"0 12px",borderRadius:"8px",border:"none",cursor:"pointer",background:"var(--chip)",color:"var(--chipText)",fontSize:"12.5px",fontWeight:600}}, "+ Position")
+    ),
+    h("button",{onClick:ekUebernehmen,style:addBtnStyle(ekAdded)}, ekAdded?icon("check",15,null,null,2.5):icon("cart",15), ekAdded?"Zur Einkaufsliste hinzugefügt":"Ersteinkauf zur Einkaufsliste hinzufügen"),
+
+    // Stufe 7: Ersteinkauf ans Küchenteam weitergeben — als lesbarer WhatsApp-/Kopier-Text
+    // UND als JSON-Datei (exakte Wiederherstellung ohne Sync, s. STATUS.md).
+    h("div",{style:{display:"flex",flexDirection:"column",gap:"8px",paddingTop:"2px"}},
+      h("div",{style:{display:"flex",gap:"8px",flexWrap:"wrap"}},
+        h("button",{onClick:ekTextTeilen,
+          style:{flex:"1 1 160px",display:"inline-flex",alignItems:"center",justifyContent:"center",gap:"7px",padding:"10px 12px",borderRadius:"10px",border:"none",cursor:"pointer",background:"var(--chip)",color:"var(--chipText)",fontSize:"12.5px",fontWeight:600}},
+          icon("share",14), "Als Text teilen"),
+        h("button",{onClick:ekDateiExportieren,
+          style:{flex:"1 1 160px",display:"inline-flex",alignItems:"center",justifyContent:"center",gap:"7px",padding:"10px 12px",borderRadius:"10px",border:"none",cursor:"pointer",background:"var(--chip)",color:"var(--chipText)",fontSize:"12.5px",fontWeight:600}},
+          icon("download",14), "Als Datei exportieren")
+      ),
+      ekExportHinweis?h("p",{style:{fontSize:"11.5px",color:"var(--text3)",lineHeight:1.4}}, ekExportHinweis):null,
+      h("p",{style:{fontSize:"10.5px",color:"var(--text3)",lineHeight:1.4}}, "„Als Text teilen“ ist zum Lesen/WhatsApp gedacht. Für einen exakten Import auf einem anderen Gerät bitte „Als Datei exportieren“ nutzen.")
+    ),
+
+    // Stufe 7: Gegenstück — Ersteinkauf-Datei einer anderen Person einlesen. Landet direkt
+    // (1:1) in der Einkaufsliste, technisch der einfachste Weg (nutzt addErsteinkauf, wie der
+    // Button oben) — kein separater Zwischenschritt im Planer nötig.
+    h("div",{style:{borderRadius:"12px",background:"var(--chip)",padding:"12px 14px",display:"flex",flexDirection:"column",gap:"8px"}},
+      h("button",{onClick:()=>setEkImportOffen(o=>!o),
+        style:{display:"flex",alignItems:"center",gap:"7px",background:"transparent",border:"none",padding:0,cursor:"pointer",fontSize:"11.5px",fontWeight:700,letterSpacing:".03em",textTransform:"uppercase",color:"var(--text2)"}},
+        icon("upload",13), "Ersteinkauf von anderem Gerät importieren",
+        h("span",{style:{marginLeft:"auto",display:"inline-flex",transform:ekImportOffen?"rotate(180deg)":"none",transition:"transform .15s"}}, icon("chevron",13))
+      ),
+      ekImportOffen?h(Fragment,{},
+        h("p",{style:{fontSize:"11.5px",color:"var(--text3)",lineHeight:1.4}}, "Datei einer anderen Person auswählen — die Positionen landen direkt in der Einkaufsliste, exakt wie übergeben."),
+        h("input",{type:"file",accept:"application/json,.json",onChange:ekDateiEingelesen,
+          style:{fontSize:"12px",color:"var(--text2)"}}),
+        ekImportHinweis?h("p",{style:{fontSize:"11.5px",color:"var(--text2)",lineHeight:1.4}}, ekImportHinweis):null
+      ):null
+    )
+  );
+
+  /* ---- 2) Frühstück & Vesper: taeglich = proPerson×Personen×Tage, vorrat = proPerson×Personen.
+     Die berechneten Mengen sind nur ein VORSCHLAG — jedes Feld ist frei editierbar, bevor man
+     übernimmt (z. B. wenn nicht jede Person ein Brötchen UND ein Baguettestück braucht). Ändert
+     sich Personen oder Tage, werden alle Vorschläge neu berechnet (manuelle Anpassungen also am
+     besten erst danach vornehmen). ---- */
+  const [fvTage,setFvTage]=useState(2);
+  const fvComputeDefaults=()=>{ const m={}; FRUEHSTUECK.forEach((it,i)=>{ const roh=it.typ==="taeglich"?it.proPerson*personen*fvTage:it.proPerson*personen; m[i]=Math.round(roh*100)/100; }); return m; };
+  const [fvMengen,setFvMengen]=useState(fvComputeDefaults);
+  const [fvChecked,setFvChecked]=useState({});
+  const [fvEinheitAlt,setFvEinheitAlt]=useState({});
+  const fvIst=(i)=>fvChecked[i]!==false;
+  const fvToggle=(i)=>setFvChecked(p=>Object.assign({},p,{[i]:!fvIst(i)}));
+  const fvSetMenge=(i,v)=>setFvMengen(p=>Object.assign({},p,{[i]:v}));
+  const fvEinheitFuer=(it,i)=> it.altU && fvEinheitAlt[i] ? it.altU : it.u;
+  useEffect(()=>{ setFvMengen(fvComputeDefaults()); }, [personen, fvTage]);
+  const fvUebernehmen=()=>{
+    const liste=FRUEHSTUECK.map((it,i)=>({n:it.n,m:Number(fvMengen[i])||0,u:fvEinheitFuer(it,i),a:it.a,ap:it.ap,sel:fvIst(i)})).filter(z=>z.sel&&z.m>0).map(z=>({n:z.n,m:z.m,u:z.u,a:z.a,ap:z.ap}));
+    if(liste.length===0) return;
+    addFruehstueck(liste, fvTage);
+    kurzBestaetigen(setFvAdded);
+  };
+  const fvZeilen=FRUEHSTUECK.map((it,i)=>{
+    const ist=fvIst(i);
+    const altAktiv=!!fvEinheitAlt[i];
+    return h("li",{},
+      h("div",{style:{display:"flex",alignItems:"center",gap:"10px",padding:"7px 2px"}},
+        h("button",{onClick:()=>fvToggle(i),
+          style:{flex:"none",width:"22px",height:"22px",borderRadius:"7px",display:"grid",placeItems:"center",background:ist?"var(--primary)":"var(--card)",boxShadow:"inset 0 0 0 "+(ist?"0":"1.5px")+" "+(ist?"var(--primary)":"var(--ring2)"),color:"var(--primaryText)",border:"none",cursor:"pointer",fontSize:"14px"}}, ist?Ic.check(3):null),
+        h("span",{style:{flex:1,minWidth:0}},
+          h("div",{style:{fontSize:"13.5px",textDecoration:ist?"none":"line-through",color:ist?"var(--text)":"var(--text3)"}}, it.n, zutatAllergenChips(it)),
+          it.typ==="vorrat"?h("div",{style:{fontSize:"10.5px",color:"var(--text3)"}}, "reicht für mehrere Tage — prüfen, ob noch da"):null
+        ),
+        h("input",{type:"number",value:fvMengen[i],disabled:!ist,"data-focus-id":"fv-menge-"+i,onInput:e=>fvSetMenge(i,e.target.value),
+          style:{width:"68px",height:"32px",textAlign:"right",padding:"0 8px",borderRadius:"8px",background:"var(--bg)",outline:"1px solid var(--ring)",border:"none",fontSize:"13px",color:ist?"var(--text)":"var(--text3)"}}),
+        it.altU?h(EinheitUmschalter,{basisU:it.u,altU:it.altU,aktiv:altAktiv,onChange:(v)=>setFvEinheitAlt(p=>Object.assign({},p,{[i]:v}))})
+          :h("span",{style:{flex:"none",width:"24px",fontSize:"11.5px",color:"var(--text3)"}}, it.u)
+      ),
+      it.altU&&altAktiv?h("div",{style:{fontSize:"10.5px",color:"var(--text3)",padding:"0 2px 6px 34px"}}, it.altHinweis):null
+    );
+  });
+  const fruehstueckSection=h(Fragment,{},
+    notizFeld("fruehstueck","z. B. diese Woche weniger Brötchen, dafür mehr Brot …"),
+    h("div",{style:{display:"flex",alignItems:"center",gap:"10px",background:"var(--chip)",borderRadius:"12px",padding:"8px 12px",flexWrap:"wrap"}},
+      h("span",{style:{fontSize:"12px",fontWeight:600,color:"var(--text2)"}}, "Für wie viele Tage einkaufen?"),
+      h("button",{style:stepBtn,onClick:()=>setFvTage(t=>Math.max(1,t-1))}, Ic.minus(2.5)),
+      h("span",{style:{fontSize:"15px",fontWeight:700,minWidth:"18px",textAlign:"center"}}, fvTage),
+      h("button",{style:stepBtn,onClick:()=>setFvTage(t=>Math.min(7,t+1))}, Ic.plus(2.5)),
+      h("span",{style:{fontSize:"11px",color:"var(--text3)"}}, "· "+personen+" Pers. (oben einstellbar)")
+    ),
+    h("p",{style:{fontSize:"11.5px",color:"var(--text3)",lineHeight:1.5}}, "„Täglich“-Positionen werden mit Personen × Tage berechnet, „Vorrat“-Positionen (z. B. Müsli, Marmelade) bleiben gleich. Das sind Vorschläge — jede Zahl ist direkt editierbar, z. B. wenn nicht jede Person ein Brötchen braucht. Änderst du Personen/Tage, werden alle Vorschläge neu berechnet."),
+    h("ul",{style:{listStyle:"none",display:"flex",flexDirection:"column"}}, fvZeilen),
+    h("button",{onClick:fvUebernehmen,style:addBtnStyle(fvAdded)}, fvAdded?icon("check",15,null,null,2.5):icon("cart",15), fvAdded?"Zur Einkaufsliste hinzugefügt":"Frühstück & Vesper zur Einkaufsliste hinzufügen")
+  );
+
+  /* ---- 3) Mittags-Snacks/Reisesnacks: für Ausflugstage — proPerson × Personen × Anlässe,
+     alle Mengen ebenfalls frei editierbar (gleiches Prinzip wie Frühstück). ---- */
+  const [msAnlaesse,setMsAnlaesse]=useState(1);
+  const msComputeDefaults=()=>{ const m={}; MITTAGSSNACKS.forEach((it,i)=>{ m[i]=Math.round(it.proPerson*personen*msAnlaesse*100)/100; }); return m; };
+  const [msMengen,setMsMengen]=useState(msComputeDefaults);
+  const [msChecked,setMsChecked]=useState({});
+  const msIst=(i)=>msChecked[i]!==false;
+  const msToggle=(i)=>setMsChecked(p=>Object.assign({},p,{[i]:!msIst(i)}));
+  const msSetMenge=(i,v)=>setMsMengen(p=>Object.assign({},p,{[i]:v}));
+  useEffect(()=>{ setMsMengen(msComputeDefaults()); }, [personen, msAnlaesse]);
+  const msUebernehmen=()=>{
+    const liste=MITTAGSSNACKS.map((it,i)=>({n:it.n,m:Number(msMengen[i])||0,u:it.u,a:it.a,ap:it.ap,sel:msIst(i)})).filter(z=>z.sel&&z.m>0).map(z=>({n:z.n,m:z.m,u:z.u,a:z.a,ap:z.ap}));
+    if(liste.length===0) return;
+    addMittagssnacks(liste, msAnlaesse);
+    kurzBestaetigen(setMsAdded);
+  };
+  const msZeilen=MITTAGSSNACKS.map((it,i)=>{
+    const ist=msIst(i);
+    return h("li",{},
+      h("div",{style:{display:"flex",alignItems:"center",gap:"10px",padding:"7px 2px"}},
+        h("button",{onClick:()=>msToggle(i),
+          style:{flex:"none",width:"22px",height:"22px",borderRadius:"7px",display:"grid",placeItems:"center",background:ist?"var(--primary)":"var(--card)",boxShadow:"inset 0 0 0 "+(ist?"0":"1.5px")+" "+(ist?"var(--primary)":"var(--ring2)"),color:"var(--primaryText)",border:"none",cursor:"pointer",fontSize:"14px"}}, ist?Ic.check(3):null),
+        h("span",{style:{flex:1,fontSize:"13.5px",textDecoration:ist?"none":"line-through",color:ist?"var(--text)":"var(--text3)"}}, it.n, zutatAllergenChips(it)),
+        h("input",{type:"number",value:msMengen[i],disabled:!ist,"data-focus-id":"ms-menge-"+i,onInput:e=>msSetMenge(i,e.target.value),
+          style:{width:"68px",height:"32px",textAlign:"right",padding:"0 8px",borderRadius:"8px",background:"var(--bg)",outline:"1px solid var(--ring)",border:"none",fontSize:"13px",color:ist?"var(--text)":"var(--text3)"}}),
+        h("span",{style:{flex:"none",width:"24px",fontSize:"11.5px",color:"var(--text3)"}}, it.u)
+      )
+    );
+  });
+  const mittagssnacksSection=h(Fragment,{},
+    notizFeld("mittagssnacks","z. B. nur für den Ausflugstag am Mittwoch …"),
+    h("div",{style:{display:"flex",alignItems:"center",gap:"10px",background:"var(--chip)",borderRadius:"12px",padding:"8px 12px",flexWrap:"wrap"}},
+      h("span",{style:{fontSize:"12px",fontWeight:600,color:"var(--text2)"}}, "Für wie viele Anlässe (z. B. Ausflugstage)?"),
+      h("button",{style:stepBtn,onClick:()=>setMsAnlaesse(t=>Math.max(1,t-1))}, Ic.minus(2.5)),
+      h("span",{style:{fontSize:"15px",fontWeight:700,minWidth:"18px",textAlign:"center"}}, msAnlaesse),
+      h("button",{style:stepBtn,onClick:()=>setMsAnlaesse(t=>Math.min(7,t+1))}, Ic.plus(2.5)),
+      h("span",{style:{fontSize:"11px",color:"var(--text3)"}}, "· "+personen+" Pers. (oben einstellbar)")
+    ),
+    h("p",{style:{fontSize:"11.5px",color:"var(--text3)",lineHeight:1.5}}, "Für Ausflugstage/unterwegs — nicht jeder braucht alles, einfach abwählen bzw. die Zahl direkt anpassen."),
+    h("ul",{style:{listStyle:"none",display:"flex",flexDirection:"column"}}, msZeilen),
+    h("button",{onClick:msUebernehmen,style:addBtnStyle(msAdded)}, msAdded?icon("check",15,null,null,2.5):icon("cart",15), msAdded?"Zur Einkaufsliste hinzugefügt":"Mittags-Snacks zur Einkaufsliste hinzufügen")
+  );
+
+  /* ---- 4) Shop-Einkauf: komplett manuelle Mengen ---- */
+  const [shopMengen,setShopMengen]=useState({});
+  const shopSetMenge=(i,v)=>setShopMengen(p=>Object.assign({},p,{[i]:v}));
+  const shopUebernehmen=()=>{
+    const liste=SHOP.map((it,i)=>({n:it.n,m:Number(shopMengen[i])||0,u:it.u,a:it.a,ap:it.ap})).filter(z=>z.m>0);
+    if(liste.length===0) return;
+    addShop(liste);
+    setShopMengen({});
+    kurzBestaetigen(setShopAdded);
+  };
+  const shopZeilen=SHOP.map((it,i)=>
+    h("li",{},
+      h("div",{style:{display:"flex",alignItems:"center",gap:"10px",padding:"7px 2px"}},
+        h("span",{style:{flex:1,fontSize:"13.5px",color:"var(--text)"}}, it.n, zutatAllergenChips(it)),
+        h("input",{type:"number",placeholder:"0",value:shopMengen[i]||"","data-focus-id":"shop-menge-"+i,onInput:e=>shopSetMenge(i,e.target.value),
+          style:{width:"64px",height:"32px",textAlign:"right",padding:"0 8px",borderRadius:"8px",background:"var(--bg)",outline:"1px solid var(--ring)",border:"none",fontSize:"13px",color:"var(--text)"}}),
+        h("span",{style:{flex:"none",width:"24px",fontSize:"11.5px",color:"var(--text3)"}}, it.u)
+      )
+    )
+  );
+  const shopSection=h(Fragment,{},
+    notizFeld("shop","z. B. Shop-Team wünscht sich 2 Sorten Fanta …"),
+    h("div",{style:{borderRadius:"12px",background:"var(--amber-bg)",boxShadow:"inset 0 0 0 1px var(--amber-ring)",padding:"10px 14px",display:"flex",gap:"9px"}},
+      icon("info",15,"var(--amber-icon)",{flex:"none",marginTop:"1px"}),
+      h("p",{style:{fontSize:"12.5px",color:"var(--amber-text)",lineHeight:1.5}}, "Fragt vorher das Shop-Team, was ihr einkaufen sollt. Shop-Einkäufe laufen ganz normal mit den Lebensmitteleinkäufen — kein separater Kassenzettel.")
+    ),
+    h("p",{style:{fontSize:"11.5px",color:"var(--text3)"}}, "Menge selbst eintragen — nur Positionen mit einer Zahl über 0 landen auf der Einkaufsliste."),
+    h("ul",{style:{listStyle:"none",display:"flex",flexDirection:"column"}}, shopZeilen),
+    h("button",{onClick:shopUebernehmen,style:addBtnStyle(shopAdded)}, shopAdded?icon("check",15,null,null,2.5):icon("cart",15), shopAdded?"Zur Einkaufsliste hinzugefügt":"Shop-Einkauf übernehmen")
+  );
+
+  /* ---- 4b) Getränke: bündelt Kaffee/Tee/Kaffeefilter (proPerson-Vorschlag, wie
+     Frühstück, aber ohne Tage-Bezug — reine Vorratsmenge je Person) und
+     Fanta/Spezi/Zitronen-Eistee/Durstlöscher (komplett manuell, wie Shop) in einer
+     Rubrik. Reine Planer-Bündelung — die Laden-Kategorie ("Nach Laden") bleibt über
+     kategorieFuer() unverändert gesteuert (Namen bewusst identisch gelassen). ---- */
+  const gtComputeDefaults=()=>{ const m={}; GETRAENKE.forEach((it,i)=>{ if(it.proPerson!==undefined){ m[i]=Math.round(it.proPerson*personen*100)/100; } }); return m; };
+  const [gtMengen,setGtMengen]=useState(gtComputeDefaults);
+  const [gtChecked,setGtChecked]=useState({});
+  const [gtEinheitAlt,setGtEinheitAlt]=useState({});
+  const gtIst=(i)=>gtChecked[i]!==false;
+  const gtToggle=(i)=>setGtChecked(p=>Object.assign({},p,{[i]:!gtIst(i)}));
+  const gtSetMenge=(i,v)=>setGtMengen(p=>Object.assign({},p,{[i]:v}));
+  const gtEinheitFuer=(it,i)=> it.altU && gtEinheitAlt[i] ? it.altU : it.u;
+  useEffect(()=>{ setGtMengen(prev=>Object.assign({}, prev, gtComputeDefaults())); }, [personen]);
+  const gtUebernehmen=()=>{
+    const liste=GETRAENKE.map((it,i)=>{
+      const computed=it.proPerson!==undefined;
+      return {n:it.n,m:Number(gtMengen[i])||0,u:gtEinheitFuer(it,i),a:it.a,ap:it.ap,sel:computed?gtIst(i):true};
+    }).filter(z=>z.sel&&z.m>0).map(z=>({n:z.n,m:z.m,u:z.u,a:z.a,ap:z.ap}));
+    if(liste.length===0) return;
+    addGetraenke(liste);
+    kurzBestaetigen(setGtAdded);
+  };
+  const gtZeilen=GETRAENKE.map((it,i)=>{
+    const computed=it.proPerson!==undefined;
+    if(computed){
+      const ist=gtIst(i);
+      const altAktiv=!!gtEinheitAlt[i];
+      return h("li",{},
+        h("div",{style:{display:"flex",alignItems:"center",gap:"10px",padding:"7px 2px"}},
+          h("button",{onClick:()=>gtToggle(i),
+            style:{flex:"none",width:"22px",height:"22px",borderRadius:"7px",display:"grid",placeItems:"center",background:ist?"var(--primary)":"var(--card)",boxShadow:"inset 0 0 0 "+(ist?"0":"1.5px")+" "+(ist?"var(--primary)":"var(--ring2)"),color:"var(--primaryText)",border:"none",cursor:"pointer",fontSize:"14px"}}, ist?Ic.check(3):null),
+          h("span",{style:{flex:1,fontSize:"13.5px",textDecoration:ist?"none":"line-through",color:ist?"var(--text)":"var(--text3)"}}, it.n, zutatAllergenChips(it)),
+          h("input",{type:"number",value:gtMengen[i],disabled:!ist,"data-focus-id":"gt-menge-"+i,onInput:e=>gtSetMenge(i,e.target.value),
+            style:{width:"68px",height:"32px",textAlign:"right",padding:"0 8px",borderRadius:"8px",background:"var(--bg)",outline:"1px solid var(--ring)",border:"none",fontSize:"13px",color:ist?"var(--text)":"var(--text3)"}}),
+          it.altU?h(EinheitUmschalter,{basisU:it.u,altU:it.altU,aktiv:altAktiv,onChange:(v)=>setGtEinheitAlt(p=>Object.assign({},p,{[i]:v}))})
+            :h("span",{style:{flex:"none",width:"24px",fontSize:"11.5px",color:"var(--text3)"}}, it.u)
+        ),
+        it.altU&&altAktiv?h("div",{style:{fontSize:"10.5px",color:"var(--text3)",padding:"0 2px 6px 34px"}}, it.altHinweis):null
+      );
+    }
+    return h("li",{},
+      h("div",{style:{display:"flex",alignItems:"center",gap:"10px",padding:"7px 2px"}},
+        h("span",{style:{flex:1,fontSize:"13.5px",color:"var(--text)"}}, it.n, zutatAllergenChips(it)),
+        h("input",{type:"number",placeholder:"0",value:gtMengen[i]||"","data-focus-id":"gt-menge-"+i,onInput:e=>gtSetMenge(i,e.target.value),
+          style:{width:"64px",height:"32px",textAlign:"right",padding:"0 8px",borderRadius:"8px",background:"var(--bg)",outline:"1px solid var(--ring)",border:"none",fontSize:"13px",color:"var(--text)"}}),
+        h("span",{style:{flex:"none",width:"24px",fontSize:"11.5px",color:"var(--text3)"}}, it.u)
+      )
+    );
+  });
+  const getraenkeSection=h(Fragment,{},
+    notizFeld("getraenke","z. B. diese Woche mehr Eistee, weniger Kaffee …"),
+    h("p",{style:{fontSize:"11.5px",color:"var(--text3)",lineHeight:1.5}}, "Kaffee, Kaffeefilter und Tee sind Mengen-Vorschläge auf Basis der Personenzahl (direkt editierbar, wie bei Frühstück). Fanta, Spezi, Zitronen-Eistee und Durstlöscher werden wie im Shop-Einkauf manuell eingetragen — nur Positionen mit einer Zahl über 0 landen auf der Einkaufsliste."),
+    h("ul",{style:{listStyle:"none",display:"flex",flexDirection:"column"}}, gtZeilen),
+    h("button",{onClick:gtUebernehmen,style:addBtnStyle(gtAdded)}, gtAdded?icon("check",15,null,null,2.5):icon("cart",15), gtAdded?"Zur Einkaufsliste hinzugefügt":"Getränke zur Einkaufsliste hinzufügen")
+  );
+
+  /* ---- 5) Nachtisch: gleiches Kartenschema wie die Hauptgerichte ---- */
+  const nachtischSection=h(Fragment,{},
+    notizFeld("nachtisch","z. B. Erdbeeren nur solange Vorrat reicht …"),
+    h("div",{style:{display:"flex",flexDirection:"column",gap:"10px"}},
+      NACHTISCH.map(nt=>h(GerichtKarte,{g:nt,personen:personen,onAdd:addNachtisch,hinzugefuegt:!!hinzugefuegtNrs[nt.nr],
+        istNachtisch:true,
+        notiz:notizen[nt.nr]||"",onNotizChange:(txt)=>setNotizFuer(nt.nr,txt)}))
+    )
+  );
+
+  /* ---- 6) Gerichte & Rezepte: bestehender Inhalt, unverändert in Logik ---- */
+  const gerichteSection=h(Fragment,{},
+    notizFeld("gerichte","z. B. diese Woche kein Grillabend, Wetter prüfen …"),
+    h("div",{style:{borderRadius:"12px",background:"var(--emerald-bg)",boxShadow:"inset 0 0 0 1px var(--emerald-ring)",padding:"12px 16px",display:"flex",gap:"10px"}},
+      icon("info",16,"var(--primary)",{flex:"none",marginTop:"2px"}),
+      h("p",{style:{fontSize:"13px",color:"var(--emerald-text)",lineHeight:1.5}}, "Mengen sind solide Hauptgericht-Portionen pro Person (deckt hungrige Teenager ab, Puffer bei jüngeren Kindern). Es bleiben Richtwerte — nach 2 Tagen prüfen, wie hungrig die Gruppe ist, und ggf. nachjustieren.")
+    ),
+    gefiltert.map(g=>h(GerichtKarte,{g:g,personen:personen,onAdd:addGericht,hinzugefuegt:!!hinzugefuegtNrs[g.nr],
+      notiz:notizen[g.nr]||"",onNotizChange:(txt)=>setNotizFuer(g.nr,txt)})),
+    gefiltert.length===0?h("div",{style:{textAlign:"center",padding:"64px 0",color:"var(--text3)",fontSize:"14px"}}, "Kein Gericht gefunden. Suchbegriff ändern."):null
+  );
+
+  return h("div",{style:{display:"flex",flexDirection:"column",gap:"12px"}},
+    h(AkkordeonSection,{emoji:"🧽",titel:"Ersteinkauf",offen:offen.ersteinkauf,onToggle:()=>toggle("ersteinkauf")}, ersteinkaufSection),
+    h(AkkordeonSection,{emoji:"🥐",titel:"Frühstück & Vesper",offen:offen.fruehstueck,onToggle:()=>toggle("fruehstueck")}, fruehstueckSection),
+    h(AkkordeonSection,{emoji:"🥨",titel:"Mittags-Snacks/Reisesnacks",offen:offen.mittagssnacks,onToggle:()=>toggle("mittagssnacks")}, mittagssnacksSection),
+    h(AkkordeonSection,{emoji:"🍬",titel:"Shop-Einkauf",offen:offen.shop,onToggle:()=>toggle("shop")}, shopSection),
+    h(AkkordeonSection,{emoji:"🥤",titel:"Getränke",offen:offen.getraenke,onToggle:()=>toggle("getraenke")}, getraenkeSection),
+    h(AkkordeonSection,{emoji:"🍨",titel:"Nachtisch",offen:offen.nachtisch,onToggle:()=>toggle("nachtisch")}, nachtischSection),
+    h(AkkordeonSection,{emoji:"🍲",titel:"Gerichte & Rezepte (Hauptmahlzeiten)",offen:offen.gerichte,onToggle:()=>toggle("gerichte")}, gerichteSection)
+  );
+}
+
+// Stufe 6: gemeinsame Teilen-Ausführung (native Share-Sheet → Zwischenablage → WhatsApp-Link),
+// von "Nach Laden" UND "Nach Gericht" genutzt, damit die Logik nicht doppelt gepflegt wird.
+async function teilenAusfuehren(text, setHinweis){
+  try{
+    if(navigator.share){
+      await navigator.share({title:"Einkaufsliste Sommerfreizeit", text:text});
+      setHinweis("");
+    } else if(navigator.clipboard && navigator.clipboard.writeText){
+      await navigator.clipboard.writeText(text);
+      setHinweis("In die Zwischenablage kopiert — jetzt in WhatsApp einfügen.");
+    } else {
+      // Letzter Fallback: WhatsApp-Link direkt
+      window.open("https://wa.me/?text="+encodeURIComponent(text), "_blank");
+    }
+  }catch(e){
+    // Nutzer hat abgebrochen o. Ä. — kein harter Fehler
+    if(e && e.name!=="AbortError"){
+      try{ await navigator.clipboard.writeText(text); setHinweis("In die Zwischenablage kopiert — jetzt in WhatsApp einfügen."); }catch(_){}
+    }
+  }
+}
+
+/* ---- Einkaufs-Tab ---- */
+function EinkaufsTab(props){
+  const eintraege=props.eintraege, extra=props.extra, setExtra=props.setExtra;
+  const checkState=props.checkState, setCheckState=props.setCheckState;
+  const removeGericht=props.removeGericht;
+  const resetHaken=props.resetHaken;
+  const clearGerichte=props.clearGerichte, clearExtra=props.clearExtra;
+  const modus=props.modus, setModus=props.setModus;
+  const neuText=props.neuText, setNeuText=props.setNeuText;
+  const neuKat=props.neuKat, setNeuKat=props.setNeuKat;
+  const personen=props.personen;
+  const notizen=props.notizen||{};
+
+  // Welche Bereiche sind zum Teilen ausgewählt (nach Kategorie-id)
+  const [teilenSel,setTeilenSel]=useState({});
+  const [teilenHinweis,setTeilenHinweis]=useState("");
+  const toggleTeilen=(katId)=>setTeilenSel(p=>{const n=Object.assign({},p);n[katId]=!n[katId];return n;});
+  // Stufe 8: Ladenkategorien in "Nach Laden" einzeln auf-/zuklappbar (Accordion).
+  // Default: alle zu (undefined === zu). offenKats merkt sich, welche der User pro
+  // Sitzung selbst aufgeklappt hat (wie teilenSel: kein localStorage, nur laufende Sitzung).
+  const [offenKats,setOffenKats]=useState({});
+  const toggleAccordion=(katId)=>setOffenKats(p=>{const n=Object.assign({},p);n[katId]=!n[katId];return n;});
+
+  const toggle=(key)=>setCheckState(p=>{const n=Object.assign({},p);n[key]=!n[key];return n;});
+  const addExtra=()=>{
+    // Fallback: falls der State-Wert (z. B. nach Einfügen/Paste) noch nicht angekommen
+    // ist, direkt aus dem Eingabefeld lesen, damit nie ein Eintrag verlorengeht.
+    let t=(neuText||"").trim();
+    if(!t){
+      const el=document.querySelector('[data-focus-id="extra-input"]');
+      if(el) t=(el.value||"").trim();
+    }
+    if(!t) return;
+    if(!neuKat) return;
+    const kat=neuKat;
+    setExtra(p=>p.concat([{id:"x"+Date.now()+Math.random().toString(36).slice(2,6), text:t, kat:kat, done:false}]));
+    setNeuText("");
+  };
+  const toggleExtra=(id)=>setExtra(p=>p.map(e=>e.id===id?Object.assign({},e,{done:!e.done}):e));
+  const removeExtra=(id)=>setExtra(p=>p.filter(e=>e.id!==id));
+  const katLabel=(id)=>{ const k=KATEGORIEN.find(x=>x.id===id); return k?k.label:"Sonstiges"; };
+
+  const hatGerichte=eintraege.length>0;
+  const hatExtra=extra.length>0;
+  const leer = !hatGerichte && !hatExtra;
+
+  // Checkbox-Zeile (wiederverwendbar)
+  const zeile=(key,name,rechts,istFrei,all)=>{
+    const ist=!!checkState[key];
+    return h("li",{},
+      h("button",{onClick:()=>toggle(key),
+        style:{width:"100%",display:"flex",alignItems:"center",gap:"12px",padding:"9px 4px",borderRadius:"10px",border:"none",background:"transparent",cursor:"pointer",textAlign:"left",color:"inherit"}},
+        h("span",{style:{flex:"none",width:"22px",height:"22px",borderRadius:"7px",display:"grid",placeItems:"center",background:ist?"var(--primary)":"var(--card)",boxShadow:"inset 0 0 0 "+(ist?"0":"1.5px")+" "+(ist?"var(--primary)":"var(--ring2)"),color:"var(--primaryText)",fontSize:"14px"}}, ist?Ic.check(3):null),
+        h("span",{style:{flex:1,fontSize:"14px",textDecoration:ist?"line-through":"none",color:ist?"var(--text3)":"var(--text)"}}, name, all?zutatAllergenChips(all):null),
+        rechts?h("span",{style:{fontSize:"14px",fontWeight:istFrei?600:700,fontVariantNumeric:"tabular-nums",whiteSpace:"nowrap",color:ist?"var(--text3)":istFrei?"var(--text3)":"var(--text)"}}, rechts):null
+      )
+    );
+  };
+
+  // ---- Die zwei großen Umschalt-Buttons (beide im Grün) ----
+  const umschalter=h("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px",marginBottom:"16px"}},
+    [["getrennt","book","Nach Gericht","Zutaten je Essen — getrennt"],
+     ["laden","route","Nach Laden","Ladenreihenfolge im Discounter"]].map(mo=>{
+      const aktiv=modus===mo[0];
+      return h("button",{onClick:()=>setModus(mo[0]),
+        style:{display:"flex",flexDirection:"column",alignItems:"flex-start",gap:"5px",padding:"14px 16px",borderRadius:"14px",border:"none",cursor:"pointer",textAlign:"left",
+          background:aktiv?"var(--primary)":"var(--card)",
+          color:aktiv?"var(--primaryText)":"var(--text2)",
+          outline:aktiv?"none":"1px solid var(--ring)",
+          boxShadow:aktiv?"0 6px 18px -4px var(--primary), 0 2px 6px rgba(0,0,0,.12)":"var(--shadow)",
+          transition:"all .15s"}},
+        h("span",{style:{display:"inline-flex",alignItems:"center",gap:"8px",fontSize:"15px",fontWeight:700}},
+          icon(mo[1],18), mo[2]),
+        h("span",{style:{fontSize:"11.5px",fontWeight:500,opacity:aktiv?.92:.8,lineHeight:1.35}}, mo[3])
+      );
+    })
+  );
+
+  let inhalt;
+  if(leer){
+    inhalt=h("div",{style:{textAlign:"center",padding:"56px 20px",color:"var(--text3)"}},
+      h("div",{style:{marginBottom:"8px",display:"flex",justifyContent:"center"}}, icon("cart",40,"var(--text3)")),
+      h("p",{style:{fontSize:"15px",fontWeight:600,color:"var(--text2)"}}, "Die Einkaufsliste ist noch leer"),
+      h("p",{style:{fontSize:"13px",marginTop:"4px",maxWidth:"42ch",marginLeft:"auto",marginRight:"auto"}}, "Im Tab „Gerichte\u201c ein Essen öffnen und „Zur Einkaufsliste hinzufügen\u201c tippen. Sonstige Einkäufe unten direkt eintippen.")
+    );
+  } else if(modus==="getrennt"){
+    // ----- Nach Gericht: Gericht-Blöcke + eigener Block "Sonstige Einkäufe" -----
+    // Stufe 6: Teilen auch hier möglich — Auswahl je Gericht (Key = ein.id) + eigener Key für "Sonstige Einkäufe"
+    const extraKey="__extra__";
+    const teilenBoxFuer=(selektiert,onClick)=>h("button",{onClick:onClick,title:"Zum Teilen auswählen",
+      style:{flex:"none",display:"inline-flex",alignItems:"center",gap:"5px",height:"30px",padding:"0 9px",borderRadius:"9px",border:"none",cursor:"pointer",
+        background:selektiert?"var(--primary)":"var(--chip)",
+        color:selektiert?"var(--primaryText)":"var(--text2)",
+        boxShadow:selektiert?"none":"inset 0 0 0 1px var(--ring)"}},
+      selektiert?h("span",{style:{flex:"none",width:"16px",height:"16px",borderRadius:"5px",display:"grid",placeItems:"center",background:"var(--primaryText)",color:"var(--primary)",fontSize:"11px"}}, Ic.check(3)):icon("share",13),
+      h("span",{style:{fontSize:"11px",fontWeight:700}}, "teilen")
+    );
+    const gerichtBloecke=eintraege.map(ein=>{
+      const zeilen=ein.zutaten.filter(z=>z.u!=="frei").map((z,i)=>{
+        const f=formatMenge(z.m, z.u);
+        return zeile(ein.id+":"+i, z.n, f.text, false, z);
+      });
+      const notiz=ein.nr!=null?notizen[ein.nr]:null;
+      return h("div",{style:{background:"var(--card)",borderRadius:"14px",boxShadow:"var(--shadow)",outline:"1px solid var(--ring)",overflow:"hidden"}},
+        h("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"12px 16px",borderBottom:"1px solid var(--ring)"}},
+          h("div",{style:{minWidth:0}},
+            h("div",{style:{fontSize:"14px",fontWeight:600,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}, ein.gericht),
+            h("div",{style:{fontSize:"11.5px",color:"var(--text3)",marginTop:"1px"}}, ein.hinweis||(ein.personen+" Personen"))
+          ),
+          h("div",{style:{flex:"none",display:"flex",alignItems:"center",gap:"6px"}},
+            teilenBoxFuer(!!teilenSel[ein.id], ()=>toggleTeilen(ein.id)),
+            h("button",{onClick:()=>removeGericht(ein.id),
+              style:{flex:"none",width:"32px",height:"32px",borderRadius:"8px",border:"none",cursor:"pointer",background:"transparent",color:"var(--text3)",display:"grid",placeItems:"center",fontSize:"15px"}}, Ic.trash())
+          )
+        ),
+        notiz?h("div",{style:{margin:"10px 16px 0",padding:"7px 10px",borderRadius:"8px",background:"var(--amber-bg)",boxShadow:"inset 0 0 0 1px var(--amber-ring)",fontSize:"12px",color:"var(--amber-text)",fontStyle:"italic"}}, "📝 "+notiz):null,
+        h("ul",{style:{listStyle:"none",padding:"6px 12px 10px"}}, zeilen)
+      );
+    });
+
+    // eigener, klar getrennter Block für selbst eingetippte Einkäufe
+    const extraAusgewaehlt = hatExtra && !!teilenSel[extraKey];
+    const extraBlock = hatExtra ? h("div",{style:{background:"var(--card)",borderRadius:"14px",boxShadow:"var(--shadow)",outline:"1px solid var(--ring)",overflow:"hidden"}},
+      h("div",{style:{display:"flex",alignItems:"center",gap:"8px",padding:"12px 16px",borderBottom:"1px solid var(--ring)",background:"var(--chip)"}},
+        icon("cart",15,"var(--text2)",{flex:"none"}),
+        h("span",{style:{fontSize:"12px",fontWeight:700,letterSpacing:".05em",textTransform:"uppercase",color:"var(--text2)"}}, "Sonstige Einkäufe"),
+        h("div",{style:{marginLeft:"auto",display:"flex",alignItems:"center",gap:"8px"}},
+          h("span",{style:{fontSize:"11px",color:"var(--text3)",fontWeight:600}}, extra.length+" Stk"),
+          teilenBoxFuer(extraAusgewaehlt, ()=>toggleTeilen(extraKey))
+        )
+      ),
+      h("ul",{style:{listStyle:"none",padding:"6px 12px 10px"}},
+        extra.map(e=>h("li",{},
+          h("div",{style:{display:"flex",alignItems:"center",gap:"12px",padding:"9px 4px"}},
+            h("button",{onClick:()=>toggleExtra(e.id),
+              style:{flex:"none",width:"22px",height:"22px",borderRadius:"7px",display:"grid",placeItems:"center",background:e.done?"var(--primary)":"var(--card)",boxShadow:"inset 0 0 0 "+(e.done?"0":"1.5px")+" "+(e.done?"var(--primary)":"var(--ring2)"),color:"var(--primaryText)",border:"none",cursor:"pointer",fontSize:"14px"}}, e.done?Ic.check(3):null),
+            h("span",{style:{flex:1,minWidth:0}},
+              h("div",{style:{fontSize:"14px",textDecoration:e.done?"line-through":"none",color:e.done?"var(--text3)":"var(--text)"}}, e.text),
+              h("div",{style:{fontSize:"11px",color:"var(--text3)",marginTop:"1px"}}, katLabel(e.kat))
+            ),
+            h("button",{onClick:()=>removeExtra(e.id),
+              style:{flex:"none",width:"30px",height:"30px",borderRadius:"8px",border:"none",cursor:"pointer",background:"transparent",color:"var(--text3)",display:"grid",placeItems:"center",fontSize:"14px"}}, Ic.trash())
+          )
+        ))
+      )
+    ) : null;
+
+    // Sammel-Teilen-Leiste für "Nach Gericht" (Stufe 6, analog "Nach Laden")
+    const auswahlEintraege=eintraege.filter(ein=>teilenSel[ein.id]);
+    const anzahlSel=auswahlEintraege.length+(extraAusgewaehlt?1:0);
+    const baueTeilenText=()=>{
+      let txt="🛒 Einkauf Sommerfreizeit — für "+personen+" Personen\n";
+      auswahlEintraege.forEach(ein=>{
+        txt+="\n"+ein.gericht.toUpperCase()+"\n";
+        ein.zutaten.filter(z=>z.u!=="frei").forEach(z=>{
+          const f=formatMenge(z.m,z.u);
+          txt+="• "+z.n+" — "+f.text+"\n";
+        });
+      });
+      if(extraAusgewaehlt){
+        txt+="\nSONSTIGE EINKÄUFE\n";
+        extra.forEach(e=>{ txt+="• "+e.text+"\n"; });
+      }
+      txt+="\n— erstellt mit dem Küchenplaner";
+      return txt;
+    };
+    const teilen=()=>teilenAusfuehren(baueTeilenText(), setTeilenHinweis);
+    const teilenLeiste = anzahlSel>0 ? h("div",{style:{position:"sticky",top:"8px",zIndex:5,display:"flex",flexDirection:"column",gap:"8px",background:"var(--primary)",borderRadius:"14px",padding:"12px 14px",boxShadow:"0 8px 22px -6px var(--primary), 0 2px 8px rgba(0,0,0,.18)"}},
+      h("div",{style:{display:"flex",alignItems:"center",gap:"10px"}},
+        h("button",{onClick:teilen,
+          style:{flex:1,display:"inline-flex",alignItems:"center",justifyContent:"center",gap:"8px",height:"44px",borderRadius:"11px",border:"none",cursor:"pointer",background:"var(--primaryText)",color:"var(--primary)",fontSize:"15px",fontWeight:700}},
+          icon("share",17,null,null,2.4), anzahlSel===1?"1 Position teilen":(anzahlSel+" Positionen teilen")),
+        h("button",{onClick:()=>{setTeilenSel({});setTeilenHinweis("");},
+          style:{flex:"none",height:"44px",padding:"0 14px",borderRadius:"11px",border:"none",cursor:"pointer",background:"rgba(255,255,255,.16)",color:"var(--primaryText)",fontSize:"13px",fontWeight:600}}, "Abwählen")
+      ),
+      teilenHinweis?h("p",{style:{fontSize:"12px",color:"var(--primaryText)",opacity:.95,lineHeight:1.4,textAlign:"center"}}, teilenHinweis):null
+    ) : null;
+    const hinweisBox=h("div",{style:{borderRadius:"12px",background:"var(--emerald-bg)",boxShadow:"inset 0 0 0 1px var(--emerald-ring)",padding:"10px 14px",display:"flex",gap:"9px",alignItems:"flex-start"}},
+      icon("book",15,"var(--primary)",{flex:"none",marginTop:"2px"}),
+      h("p",{style:{fontSize:"12.5px",color:"var(--emerald-text)",lineHeight:1.5}}, "Zutaten getrennt nach Essen. Tipp: Gerichte (und ggf. „Sonstige Einkäufe“) oben rechts anhaken und gesammelt per WhatsApp & Co. teilen.")
+    );
+
+    inhalt=h("div",{style:{display:"flex",flexDirection:"column",gap:"12px"}}, hinweisBox, teilenLeiste, gerichtBloecke, extraBlock);
+
+  } else {
+    // ----- Nach Laden: Rezeptzutaten + Extras gemeinsam nach Kategorie -----
+    const map={};
+    eintraege.forEach(ein=>ein.zutaten.forEach(z=>{
+      if(z.u==="frei") return;
+      const key=z.n+"|"+z.u;
+      if(!map[key]) map[key]={n:z.n,u:z.u,m:0,kat:kategorieFuer(z.n),extra:false,a:z.a,ap:z.ap};
+      map[key].m+=z.m;
+    }));
+    const items=Object.keys(map).map(k=>map[k]);
+    // Extra-Einträge mit ihrer GEWÄHLTEN Kategorie einsortieren
+    const extraItems=extra.map(e=>({n:e.text,u:"x",m:0,kat:e.kat||"sonst",extra:true,id:e.id,done:e.done}));
+
+    const gruppen=KATEGORIEN.map(kat=>{
+      const drin=items.filter(it=>it.kat===kat.id).sort((a,b)=>a.n.localeCompare(b.n,"de"));
+      const drinExtra=extraItems.filter(it=>it.kat===kat.id).sort((a,b)=>a.n.localeCompare(b.n,"de"));
+      return {kat, drin:drin.concat(drinExtra)};
+    }).filter(g=>g.drin.length>0);
+
+    // --- Teilen: Text aus ausgewählten Bereichen bauen + native Teilen-Funktion ---
+    const anzahlSel=gruppen.filter(g=>teilenSel[g.kat.id]).length;
+    const baueTeilenText=()=>{
+      const gewaehlt=gruppen.filter(g=>teilenSel[g.kat.id]);
+      let txt="🛒 Einkauf Sommerfreizeit — für "+personen+" Personen\n";
+      gewaehlt.forEach(g=>{
+        txt+="\n"+(g.kat.kalt?"❄️ ":"")+g.kat.label.toUpperCase()+(g.kat.kalt?"  (zuletzt holen)":"")+"\n";
+        g.drin.forEach(z=>{
+          if(z.extra){ txt+="• "+z.n+"\n"; }
+          else { const f=formatMenge(z.m,z.u); txt+="• "+z.n+" — "+f.text+"\n"; }
+        });
+      });
+      txt+="\n— erstellt mit dem Küchenplaner";
+      return txt;
+    };
+    const teilen=()=>teilenAusfuehren(baueTeilenText(), setTeilenHinweis);
+
+    // Sammel-Teilen-Leiste (nur wenn mind. 1 Bereich gewählt)
+    const teilenLeiste = anzahlSel>0 ? h("div",{style:{position:"sticky",top:"8px",zIndex:5,display:"flex",flexDirection:"column",gap:"8px",background:"var(--primary)",borderRadius:"14px",padding:"12px 14px",boxShadow:"0 8px 22px -6px var(--primary), 0 2px 8px rgba(0,0,0,.18)"}},
+      h("div",{style:{display:"flex",alignItems:"center",gap:"10px"}},
+        h("button",{onClick:teilen,
+          style:{flex:1,display:"inline-flex",alignItems:"center",justifyContent:"center",gap:"8px",height:"44px",borderRadius:"11px",border:"none",cursor:"pointer",background:"var(--primaryText)",color:"var(--primary)",fontSize:"15px",fontWeight:700}},
+          icon("share",17,null,null,2.4), anzahlSel===1?"1 Bereich teilen":(anzahlSel+" Bereiche teilen")),
+        h("button",{onClick:()=>{setTeilenSel({});setTeilenHinweis("");},
+          style:{flex:"none",height:"44px",padding:"0 14px",borderRadius:"11px",border:"none",cursor:"pointer",background:"rgba(255,255,255,.16)",color:"var(--primaryText)",fontSize:"13px",fontWeight:600}}, "Abwählen")
+      ),
+      teilenHinweis?h("p",{style:{fontSize:"12px",color:"var(--primaryText)",opacity:.95,lineHeight:1.4,textAlign:"center"}}, teilenHinweis):null
+    ) : null;
+
+    inhalt=h("div",{style:{display:"flex",flexDirection:"column",gap:"12px"}},
+      h("div",{style:{borderRadius:"12px",background:"var(--emerald-bg)",boxShadow:"inset 0 0 0 1px var(--emerald-ring)",padding:"10px 14px",display:"flex",gap:"9px",alignItems:"flex-start"}},
+        icon("route",15,"var(--primary)",{flex:"none",marginTop:"2px"}),
+        h("p",{style:{fontSize:"12.5px",color:"var(--emerald-text)",lineHeight:1.5}}, "Sortiert nach typischem Laden-Laufweg (Discounter wie Lidl): erst Frisches und Trockenware, dann Konserven, Süßes und Getränke, zuletzt Kühl- und Tiefkühlware. Tipp: Bereiche oben rechts anhaken und gesammelt per WhatsApp & Co. teilen.")
+      ),
+      teilenLeiste,
+      gruppen.length===0?h("div",{style:{background:"var(--card)",borderRadius:"14px",boxShadow:"var(--shadow)",outline:"1px solid var(--ring)",padding:"16px",color:"var(--text3)",fontSize:"13px"}}, "Noch nichts auf der Liste."):
+      gruppen.map(gr=>{
+        const kalt=gr.kat.kalt;
+        const selektiert=!!teilenSel[gr.kat.id];
+        const eingeklappt=!offenKats[gr.kat.id];
+        // Eine Zeile bauen (Rezeptzutat ODER eigener Extra-Eintrag) — unverändert
+        // gegenüber vor Stufe 9, nur aus der .map()-Kette in eine Hilfsfunktion
+        // gezogen, damit sowohl der normale Weg als auch die Kühlregal-Unter-
+        // gliederung (unten) dieselbe Zeilen-Logik nutzen.
+        const baueZeile=(z)=>{
+          if(z.extra){
+            const ist=!!z.done;
+            return h("li",{},
+              h("div",{style:{width:"100%",display:"flex",alignItems:"center",gap:"12px",padding:"9px 4px"}},
+                h("button",{onClick:()=>toggleExtra(z.id),
+                  style:{flex:"none",width:"22px",height:"22px",borderRadius:"7px",display:"grid",placeItems:"center",background:ist?"var(--primary)":"var(--card)",boxShadow:"inset 0 0 0 "+(ist?"0":"1.5px")+" "+(ist?"var(--primary)":"var(--ring2)"),color:"var(--primaryText)",border:"none",cursor:"pointer",fontSize:"14px"}}, ist?Ic.check(3):null),
+                h("span",{style:{flex:1,fontSize:"14px",textDecoration:ist?"line-through":"none",color:ist?"var(--text3)":"var(--text)"}}, z.n),
+                h("span",{style:{flex:"none",fontSize:"10px",fontWeight:600,color:"var(--text3)",background:"var(--chip)",borderRadius:"999px",padding:"2px 7px"}}, "eigen")
+              )
+            );
+          }
+          const key="laden:"+z.n+"|"+z.u; const f=formatMenge(z.m,z.u);
+          return zeile(key, z.n, f.text, false, z);
+        };
+        // Stufe 9: nur im Kühlregal zusätzlich in Unterabschnitte gliedern
+        // (Fleisch & Wurst / Milchprodukte & Käse / Fertigprodukte / Eier /
+        // Sonstiges) — alle anderen Kategorien bleiben eine flache Liste.
+        let zeilen;
+        if(gr.kat.id==="kuehl"){
+          zeilen=[];
+          KUEHL_UNTERKATEGORIEN.forEach(sub=>{
+            const subItems=gr.drin.filter(z=>kuehlUnterkategorieFuer(z.n)===sub.id);
+            if(subItems.length===0) return;
+            zeilen.push(h("li",{style:{listStyle:"none",padding:"10px 4px 2px",fontSize:"10.5px",fontWeight:700,letterSpacing:".05em",textTransform:"uppercase",color:"var(--text3)"}}, sub.label));
+            subItems.forEach(z=>zeilen.push(baueZeile(z)));
+          });
+        } else {
+          zeilen=gr.drin.map(baueZeile);
+        }
+        // Header inkl. Teilen-Checkbox rechts
+        const teilenBox=h("button",{onClick:()=>toggleTeilen(gr.kat.id),title:"Diesen Bereich zum Teilen auswählen",
+          style:{flex:"none",display:"inline-flex",alignItems:"center",gap:"5px",height:"30px",padding:"0 9px",borderRadius:"9px",border:"none",cursor:"pointer",
+            background:selektiert?"var(--primary)":"var(--chip)",
+            color:selektiert?"var(--primaryText)":"var(--text2)",
+            boxShadow:selektiert?"none":"inset 0 0 0 1px var(--ring)"}},
+          selektiert?h("span",{style:{flex:"none",width:"16px",height:"16px",borderRadius:"5px",display:"grid",placeItems:"center",background:"var(--primaryText)",color:"var(--primary)",fontSize:"11px"}}, Ic.check(3)):icon("share",13),
+          h("span",{style:{fontSize:"11px",fontWeight:700}}, "teilen")
+        );
+        // Klickbarer Kopfbereich (Label + Zähler + Chevron) zum Auf-/Zuklappen dieser
+        // Kategorie — eigenständiger Button neben teilenBox, damit beide Klickflächen
+        // nicht ineinander verschachtelt sind.
+        const accordionKopf=h("button",{onClick:()=>toggleAccordion(gr.kat.id),title:eingeklappt?"Bereich aufklappen":"Bereich zuklappen",
+          style:{flex:1,minWidth:0,display:"flex",alignItems:"center",gap:"6px",background:"transparent",border:"none",cursor:"pointer",color:"inherit",padding:0,textAlign:"left"}},
+          kalt?icon("snow",14,"var(--cold-text)",{flex:"none"},2.2):null,
+          h("span",{style:{fontSize:"11.5px",fontWeight:700,letterSpacing:".04em",textTransform:"uppercase",color:kalt?"var(--cold-text)":"var(--text2)",minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",flex:"0 1 auto"}}, gr.kat.label),
+          kalt?h("span",{style:{flex:"none",fontSize:"9.5px",fontWeight:700,color:"var(--cold-text)",background:"var(--cold-chip)",borderRadius:"999px",padding:"2px 6px",whiteSpace:"nowrap"}}, "zuletzt"):null,
+          h("span",{style:{flex:"none",fontSize:"10.5px",fontWeight:600,color:"var(--text3)",background:"var(--chip)",borderRadius:"999px",padding:"2px 7px"}}, String(gr.drin.length)),
+          h("span",{style:{flex:"none",color:"var(--text3)",fontSize:"16px",transform:eingeklappt?"none":"rotate(180deg)",transition:"transform .2s",lineHeight:0,display:"inline-flex"}}, Ic.chevron())
+        );
+        // Schließen-Button am Ende der aufgeklappten Liste — spart das Zurück-Swipen
+        // zur Kopfzeile bei langen Kategorien (z. B. Kühlregal, Konserven).
+        const schliessenButton=eingeklappt?null:h("button",{onClick:()=>toggleAccordion(gr.kat.id),
+          style:{width:"calc(100% - 24px)",margin:"0 12px 10px",display:"flex",alignItems:"center",justifyContent:"center",gap:"6px",padding:"9px 4px",borderRadius:"9px",border:"none",cursor:"pointer",background:"var(--chip)",color:"var(--text2)",fontSize:"11.5px",fontWeight:600}},
+          h("span",{style:{display:"inline-flex",lineHeight:0,fontSize:"13px",transform:"rotate(180deg)"}}, Ic.chevron()),
+          "Bereich zuklappen"
+        );
+        return h("div",{style:{background:"var(--card)",borderRadius:"14px",boxShadow:"var(--shadow)",overflow:"hidden",
+          outline:"1px solid "+(selektiert?"var(--primary)":(kalt?"var(--cold-ring)":"var(--ring)"))}},
+          h("div",{style:{display:"flex",alignItems:"center",gap:"6px",padding:"10px 10px 10px 14px",borderBottom:eingeklappt?"none":"1px solid "+(kalt?"var(--cold-ring)":"var(--ring)"),
+            background:kalt?"var(--cold-bg)":"transparent"}},
+            accordionKopf,
+            teilenBox
+          ),
+          eingeklappt?null:h("ul",{style:{listStyle:"none",padding:"6px 12px 4px"}}, zeilen),
+          schliessenButton
+        );
+      })
+    );
+  }
+
+  // ---- Eingabemaske für sonstige Einkäufe (mit Pflicht-Kategorie) ----
+  const eingabe=h("div",{style:{background:"var(--card)",borderRadius:"14px",boxShadow:"var(--shadow)",outline:"1px solid var(--ring)",overflow:"hidden",marginTop:"16px"}},
+    h("div",{style:{padding:"12px 16px",borderBottom:"1px solid var(--ring)",fontSize:"12px",fontWeight:700,letterSpacing:".06em",textTransform:"uppercase",color:"var(--text2)"}}, "Sonstigen Einkauf hinzufügen"),
+    h("div",{style:{padding:"14px 16px"}},
+      h("div",{style:{display:"flex",flexDirection:"column",gap:"10px"}},
+        h("input",{type:"text",value:neuText||"","data-focus-id":"extra-input",placeholder:"z. B. Apfel, Cornflakes, Spülmittel…",
+          onInput:e=>setNeuText(e.target.value),
+          onKeydown:e=>{ if(e.key==="Enter") addExtra(); },
+          style:{width:"100%",height:"44px",padding:"0 14px",borderRadius:"11px",background:"var(--bg)",outline:"1px solid var(--ring)",border:"none",fontSize:"14px",color:"var(--text)",minWidth:0}}),
+        h("select",{value:neuKat||"",
+          onChange:e=>setNeuKat(e.target.value),
+          style:{width:"100%",height:"44px",padding:"0 12px",borderRadius:"11px",background:"var(--bg)",outline:"1px solid "+((neuKat)?"var(--ring)":"var(--amber-ring)"),border:"none",fontSize:"14px",color:neuKat?"var(--text)":"var(--text3)",appearance:"none","-webkit-appearance":"none",cursor:"pointer",minWidth:0}},
+          [h("option",{value:"",disabled:true}, "Kategorie wählen … (Pflicht)")].concat(
+            KATEGORIEN.map(k=>h("option",{value:k.id}, k.label))
+          )
+        ),
+        h("button",{onClick:addExtra,disabled:!neuKat||!(neuText||"").trim(),
+          style:{width:"100%",height:"44px",padding:"0 18px",borderRadius:"11px",border:"none",cursor:(!neuKat||!(neuText||"").trim())?"not-allowed":"pointer",
+            background:(!neuKat||!(neuText||"").trim())?"var(--chip)":"var(--primary)",
+            color:(!neuKat||!(neuText||"").trim())?"var(--text3)":"var(--primaryText)",
+            display:"inline-flex",alignItems:"center",justifyContent:"center",gap:"7px",fontSize:"14px",fontWeight:600}},
+          icon("add",16,null,null,2.5), "Hinzufügen"),
+        (!neuKat)?h("p",{style:{fontSize:"11.5px",color:"var(--text3)",lineHeight:1.4,paddingLeft:"2px"}}, "Bitte eine Kategorie wählen — danach landet der Artikel in der „Nach Laden\u201c-Ansicht automatisch an der richtigen Stelle."):null
+      )
+    )
+  );
+
+  // ---- Getrennte Leeren-Buttons ----
+  const hatHaken = Object.keys(checkState).some(k=>checkState[k]) || extra.some(e=>e.done);
+  const leerLeiste = (hatGerichte||hatExtra) ? h("div",{style:{display:"flex",gap:"8px",flexWrap:"wrap",marginTop:"16px",justifyContent:"flex-end"}},
+    hatHaken?h("button",{onClick:resetHaken,title:"Nur die Häkchen zurücksetzen — Liste bleibt erhalten",
+      style:{display:"inline-flex",alignItems:"center",gap:"6px",padding:"8px 13px",borderRadius:"10px",border:"none",cursor:"pointer",background:"transparent",color:"var(--text3)",fontSize:"12.5px",fontWeight:600,boxShadow:"inset 0 0 0 1px var(--ring)"}}, icon("reset",14), "Häkchen zurücksetzen"):null,
+    hatGerichte?h("button",{onClick:clearGerichte,
+      style:{display:"inline-flex",alignItems:"center",gap:"6px",padding:"8px 13px",borderRadius:"10px",border:"none",cursor:"pointer",background:"transparent",color:"var(--text3)",fontSize:"12.5px",fontWeight:600,boxShadow:"inset 0 0 0 1px var(--ring)"}}, icon("trash",14), "Gerichte leeren"):null,
+    hatExtra?h("button",{onClick:clearExtra,
+      style:{display:"inline-flex",alignItems:"center",gap:"6px",padding:"8px 13px",borderRadius:"10px",border:"none",cursor:"pointer",background:"transparent",color:"var(--text3)",fontSize:"12.5px",fontWeight:600,boxShadow:"inset 0 0 0 1px var(--ring)"}}, icon("trash",14), "Sonstige leeren"):null
+  ) : null;
+
+  return h("div",{}, umschalter, inhalt, eingabe, leerLeiste);
+}
+
+/* ---- Regel-Karte (8 Küchenregeln) ---- */
+function RegelKarte(props){
+  const r=props.r;
+  const [offen,setOffen]=useState(false);
+  return h("div",{style:{background:"var(--card)",borderRadius:"16px",boxShadow:"var(--shadow)",overflow:"hidden",outline:"1px solid var(--violet-ring)"}},
+    h("button",{onClick:()=>setOffen(o=>!o),
+      style:{width:"100%",textAlign:"left",padding:"16px 18px",display:"flex",alignItems:"center",gap:"14px",background:"transparent",border:"none",cursor:"pointer",color:"inherit"}},
+      h("div",{style:{flex:"none",width:"40px",height:"40px",borderRadius:"11px",background:"var(--violet)",color:"var(--violetText)",display:"grid",placeItems:"center",fontWeight:700,fontSize:"17px"}}, String(r.nr)),
+      h("div",{style:{flex:"none",fontSize:"22px",lineHeight:1}}, r.emoji),
+      h("div",{style:{minWidth:0,flex:1}},
+        h("h3",{style:{fontSize:"16px",fontWeight:700,lineHeight:1.25,color:"var(--text)"}}, r.titel),
+        offen?null:h("p",{style:{fontSize:"12.5px",color:"var(--text3)",marginTop:"3px",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}, r.kern)
+      ),
+      h("span",{style:{flex:"none",color:"var(--violet)",fontSize:"20px",transform:offen?"rotate(180deg)":"none",transition:"transform .2s",lineHeight:0,display:"inline-flex"}}, Ic.chevron())
+    ),
+    offen?h("div",{style:{padding:"0 18px 18px"}},
+      h("p",{style:{fontSize:"14px",fontWeight:600,color:"var(--text)",lineHeight:1.45,marginBottom:"10px"}}, r.kern),
+      h("ul",{style:{listStyle:"none",display:"flex",flexDirection:"column",gap:"8px"}},
+        r.punkte.map(p=>h("li",{style:{display:"flex",gap:"9px",alignItems:"flex-start"}},
+          h("span",{style:{flex:"none",color:"var(--violet)",marginTop:"3px",fontSize:"12px",display:"inline-flex"}}, Ic.arrowRight(2.5)),
+          h("span",{style:{fontSize:"13.5px",color:"var(--text2)",lineHeight:1.45}}, p)
+        ))
+      )
+    ):null
+  );
+}
+
+/* ---- Tab: Die 8 Küchenregeln ---- */
+function RegelnTab(){
+  return h("div",{style:{display:"flex",flexDirection:"column",gap:"12px"}},
+    // Intro-Box (Lila, wie Aushang)
+    h("div",{style:{borderRadius:"16px",background:"var(--violet-bg)",boxShadow:"inset 0 0 0 1px var(--violet-ring)",borderLeft:"4px solid var(--violet)",padding:"14px 16px",display:"flex",gap:"11px"}},
+      h("span",{style:{flex:"none",fontSize:"18px",lineHeight:1.3}}, "💜"),
+      h("p",{style:{fontSize:"13.5px",color:"var(--violet-text)",lineHeight:1.5}},
+        "Wir kochen für Kinder – die sind besonders empfindlich. Diese 8 Regeln reichen, wenn alle sie einhalten. ",
+        h("strong",{}, "Im Zweifel: nachfragen oder lassen."))
+    ),
+    REGELN.map(r=>h(RegelKarte,{r:r})),
+    // Goldene Regel unten
+    h("div",{style:{borderRadius:"16px",background:"var(--violet)",color:"var(--violetText)",padding:"16px 18px",textAlign:"center",marginTop:"2px"}},
+      h("div",{style:{fontSize:"14.5px",fontWeight:700,lineHeight:1.4}}, "🏆 Goldene Regel: Lieber einmal zu viel nachgefragt als ein krankes Kind."),
+      h("div",{style:{fontSize:"11.5px",opacity:.85,marginTop:"5px"}}, "Ausführliche Fassung mit Unterschrift: siehe Hygiene-Belehrung (Word-Dokument).")
+    ),
+    h("p",{style:{fontSize:"11px",color:"var(--text3)",textAlign:"center",lineHeight:1.5,padding:"4px 8px 0"}},
+      "Grundlage: § 42/43 IfSG, LMHV, LMIV · Quellen BfR & LGL Bayern. Tippe eine Regel an für die Details.")
+  );
+}
+
+/* ---- Tipps-Karte (Abschnittskarte mit Stichpunkten) ---- */
+function TippsKarte(props){
+  const t=props.t;
+  return h("div",{style:{background:"var(--card)",borderRadius:"16px",boxShadow:"var(--shadow)",outline:"1px solid var(--ring)",padding:"18px"}},
+    h("div",{style:{display:"flex",alignItems:"center",gap:"10px",marginBottom:"12px"}},
+      h("span",{style:{flex:"none",fontSize:"20px",lineHeight:1}}, t.emoji),
+      h("h3",{style:{fontSize:"15px",fontWeight:700,color:"var(--text)"}}, t.titel)
+    ),
+    h("ul",{style:{listStyle:"none",display:"flex",flexDirection:"column",gap:"9px"}},
+      t.punkte.map(p=>h("li",{style:{display:"flex",gap:"9px",alignItems:"flex-start"}},
+        h("span",{style:{flex:"none",color:"var(--violet)",marginTop:"3px",fontSize:"12px",display:"inline-flex"}}, Ic.arrowRight(2.5)),
+        h("span",{style:{fontSize:"13.5px",color:"var(--text2)",lineHeight:1.5}}, parseInline(p))
+      ))
+    )
+  );
+}
+
+/* ---- Tab: Tipps ---- */
+function TippsTab(){
+  return h("div",{style:{display:"flex",flexDirection:"column",gap:"12px"}},
+    h("div",{style:{borderRadius:"16px",background:"var(--violet-bg)",boxShadow:"inset 0 0 0 1px var(--violet-ring)",borderLeft:"4px solid var(--violet)",padding:"14px 16px",display:"flex",gap:"11px"}},
+      h("span",{style:{flex:"none",fontSize:"18px",lineHeight:1.3}}, "💡"),
+      h("p",{style:{fontSize:"13.5px",color:"var(--violet-text)",lineHeight:1.5}},
+        "Erfahrungen aus vergangenen Freizeiten — bewährte Kniffe für Einkauf und Küche.")
+    ),
+    TIPPS.map(t=>h(TippsKarte,{t:t}))
+  );
+}
+
+/* ---- Tab: TN-Berücksichtigung ---- */
+function TNTab(props){
+  const tn=props.tn, setTN=props.setTN;
+  const setNormal=(v)=>setTN(p=>Object.assign({},p,{normal:Math.max(0,Math.min(500,isNaN(v)?0:v))}));
+  const setVeggie=(v)=>setTN(p=>Object.assign({},p,{veggie:Math.max(0,Math.min(500,isNaN(v)?0:v))}));
+  const [name,setName]=useState("");
+  const [sel,setSel]=useState({});
+  const toggleSel=(a)=>setSel(p=>{const n=Object.assign({},p);n[a]=!n[a];return n;});
+  const addAllergiker=()=>{
+    let nm=(name||"").trim();
+    if(!nm){ const el=document.querySelector('[data-focus-id="allerg-name"]'); if(el) nm=(el.value||"").trim(); }
+    const allergene=Object.keys(sel).filter(k=>sel[k]);
+    if(!nm && allergene.length===0) return;
+    setTN(p=>Object.assign({},p,{allergiker:(p.allergiker||[]).concat([{id:"a"+Date.now()+Math.random().toString(36).slice(2,5),name:nm||"(ohne Name)",allergene:allergene}])}));
+    setName(""); setSel({});
+  };
+  const removeAllergiker=(id)=>setTN(p=>Object.assign({},p,{allergiker:(p.allergiker||[]).filter(a=>a.id!==id)}));
+
+  const normal=tn.normal||0, veggie=tn.veggie||0, allergiker=tn.allergiker||[];
+  const gesamt=normal+veggie;
+
+  const stepBtn={width:"34px",height:"34px",flex:"none",borderRadius:"10px",background:"var(--chip)",color:"var(--text)",border:"none",display:"grid",placeItems:"center",cursor:"pointer",fontSize:"15px"};
+
+  const zaehler=(label,icon_,val,setter,farbBg,farbRing,farbText)=>h("div",{style:{flex:"1 1 0",minWidth:0,background:"var(--card)",borderRadius:"16px",boxShadow:"var(--shadow)",outline:"1px solid var(--ring)",padding:"14px",display:"flex",flexDirection:"column",gap:"12px"}},
+    h("div",{style:{display:"flex",alignItems:"center",gap:"8px",minWidth:0}},
+      h("div",{style:{flex:"none",width:"30px",height:"30px",borderRadius:"9px",background:farbBg,boxShadow:"inset 0 0 0 1px "+farbRing,color:farbText,display:"grid",placeItems:"center",fontSize:"15px"}}, icon_),
+      h("span",{style:{fontSize:"13.5px",fontWeight:600,color:"var(--text)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",minWidth:0}}, label)
+    ),
+    h("div",{style:{display:"flex",alignItems:"center",justifyContent:"center",gap:"6px"}},
+      h("button",{style:stepBtn,onClick:()=>setter(val-1)}, Ic.minus(2.5)),
+      h("input",{type:"number",value:val,onInput:e=>setter(parseInt(e.target.value||"0",10)),
+        style:{width:"50px",flex:"none",height:"40px",textAlign:"center",fontSize:"21px",fontWeight:700,color:"var(--text)",background:"transparent",border:"none",outline:"none"}}),
+      h("button",{style:stepBtn,onClick:()=>setter(val+1)}, Ic.plus(2.5))
+    )
+  );
+
+  return h("div",{style:{display:"flex",flexDirection:"column",gap:"14px"}},
+    // Übersicht oben
+    h("div",{style:{borderRadius:"16px",background:"var(--violet)",color:"var(--violetText)",padding:"18px 20px"}},
+      h("div",{style:{fontSize:"12px",fontWeight:600,letterSpacing:".06em",textTransform:"uppercase",opacity:.85,marginBottom:"6px"}}, "Auf einen Blick"),
+      h("div",{style:{display:"flex",flexWrap:"wrap",gap:"16px 24px",alignItems:"baseline"}},
+        h("div",{}, h("span",{style:{fontSize:"30px",fontWeight:800}}, gesamt), h("span",{style:{fontSize:"13px",opacity:.85,marginLeft:"6px"}}, "Essen gesamt")),
+        h("div",{}, h("span",{style:{fontSize:"22px",fontWeight:700}}, normal), h("span",{style:{fontSize:"13px",opacity:.85,marginLeft:"5px"}}, "normal")),
+        h("div",{}, h("span",{style:{fontSize:"22px",fontWeight:700}}, veggie), h("span",{style:{fontSize:"13px",opacity:.85,marginLeft:"5px"}}, "vegetarisch")),
+        h("div",{}, h("span",{style:{fontSize:"22px",fontWeight:700}}, allergiker.length), h("span",{style:{fontSize:"13px",opacity:.85,marginLeft:"5px"}}, "Allergiker"))
+      )
+    ),
+    // Zähler
+    h("div",{style:{display:"flex",gap:"12px"}},
+      zaehler("Essen normal", icon("utensils",16), normal, setNormal, "var(--emerald-bg)","var(--emerald-ring)","var(--emerald-text)"),
+      zaehler("Vegetarisch", icon("leaf",16), veggie, setVeggie, "var(--green-bg)","var(--green-ring)","var(--green-text)")
+    ),
+    // Allergiker-Bereich
+    h("div",{style:{background:"var(--card)",borderRadius:"16px",boxShadow:"var(--shadow)",outline:"1px solid var(--ring)",overflow:"hidden"}},
+      h("div",{style:{display:"flex",alignItems:"center",gap:"9px",padding:"14px 16px",borderBottom:"1px solid var(--ring)",background:"var(--amber-bg)"}},
+        icon("alert",16,"var(--amber-icon)",{flex:"none"},2.5),
+        h("span",{style:{fontSize:"12.5px",fontWeight:700,letterSpacing:".04em",textTransform:"uppercase",color:"var(--amber-text)"}}, "Allergien – immer sichtbar halten")
+      ),
+      // Liste bestehender Allergiker (nur wenn vorhanden)
+      allergiker.length>0?h("ul",{style:{listStyle:"none",padding:"8px 12px 4px"}},
+        allergiker.map(a=>h("li",{style:{display:"flex",alignItems:"flex-start",gap:"12px",padding:"10px 6px",borderBottom:"1px solid var(--ring)"}},
+          h("div",{style:{flex:"none",width:"30px",height:"30px",borderRadius:"9px",background:"var(--violet-bg)",color:"var(--violet)",display:"grid",placeItems:"center",fontSize:"14px",boxShadow:"inset 0 0 0 1px var(--violet-ring)"}}, icon("user",15)),
+          h("div",{style:{flex:1,minWidth:0}},
+            h("div",{style:{fontSize:"15px",fontWeight:700,color:"var(--text)"}}, a.name),
+            a.allergene.length>0?h("div",{style:{display:"flex",flexWrap:"wrap",gap:"5px",marginTop:"5px"}},
+              a.allergene.map(al=>h("span",{style:{fontSize:"11px",fontWeight:600,background:"var(--amber-bg)",color:"var(--amber-text)",boxShadow:"inset 0 0 0 1px var(--amber-ring)",borderRadius:"999px",padding:"3px 9px"}}, al))
+            ):h("div",{style:{fontSize:"12px",color:"var(--text3)",marginTop:"3px"}}, "keine Allergene angegeben")
+          ),
+          h("button",{onClick:()=>removeAllergiker(a.id),
+            style:{flex:"none",width:"32px",height:"32px",borderRadius:"9px",border:"none",cursor:"pointer",background:"transparent",color:"var(--text3)",display:"grid",placeItems:"center",fontSize:"15px"}}, Ic.trash())
+        ))
+      ):h("div",{style:{padding:"16px",fontSize:"13px",color:"var(--text3)",textAlign:"center"}}, "Noch keine Allergiker eingetragen. Erfahrungsgemäß meist nur 1–2 – die aber unbedingt erfassen."),
+      // Eingabe
+      h("div",{style:{padding:"14px 16px",background:"var(--bg)"}},
+        h("input",{type:"text",value:name,"data-focus-id":"allerg-name",placeholder:"Vorname des Kindes",
+          onInput:e=>setName(e.target.value),
+          style:{width:"100%",height:"44px",padding:"0 14px",borderRadius:"11px",background:"var(--card)",outline:"1px solid var(--ring)",border:"none",fontSize:"14px",color:"var(--text)",marginBottom:"10px"}}),
+        h("div",{style:{fontSize:"11.5px",fontWeight:600,color:"var(--text3)",marginBottom:"8px"}}, "Allergene anklicken:"),
+        h("div",{style:{display:"flex",flexWrap:"wrap",gap:"7px",marginBottom:"12px"}},
+          ALLERGENE.map(a=>{
+            const an=!!sel[a];
+            return h("button",{onClick:()=>toggleSel(a),
+              style:{display:"inline-flex",alignItems:"center",gap:"5px",padding:"7px 11px",borderRadius:"999px",border:"none",cursor:"pointer",fontSize:"12.5px",fontWeight:600,
+                background:an?"var(--violet)":"var(--card)",color:an?"var(--violetText)":"var(--text2)",
+                boxShadow:an?"none":"inset 0 0 0 1px var(--ring2)"}},
+              an?icon("check",12,null,null,3):null, a);
+          })
+        ),
+        h("button",{onClick:addAllergiker,
+          style:{width:"100%",height:"46px",borderRadius:"12px",border:"none",cursor:"pointer",background:"var(--violet)",color:"var(--violetText)",
+            display:"inline-flex",alignItems:"center",justifyContent:"center",gap:"7px",fontSize:"14px",fontWeight:700}},
+          icon("add",16,null,null,2.5), "Allergiker hinzufügen")
+      )
+    ),
+    // Datenschutz-Hinweis
+    h("div",{style:{borderRadius:"12px",background:"var(--violet-bg)",boxShadow:"inset 0 0 0 1px var(--violet-ring)",padding:"12px 14px",display:"flex",gap:"9px"}},
+      icon("info",15,"var(--violet)",{flex:"none",marginTop:"2px"}),
+      h("p",{style:{fontSize:"12px",color:"var(--violet-text)",lineHeight:1.5}},
+        "Bitte nur ",h("strong",{},"Vornamen")," eintragen – mehr braucht die Küche nicht. Die Daten bleiben ",
+        h("strong",{},"nur auf diesem Gerät")," (kein Versand, keine Cloud) und müssen von jeder Person selbst gepflegt werden.")
+    )
+  );
+}
+
+/* ---- Tab: Zuständigkeiten & Verantwortung ---- */
+function ZustaendigTab(props){
+  const zAufgaben=props.zAufgaben||{}, setZAufgaben=props.setZAufgaben;
+  const toggle=(i)=>setZAufgaben(p=>{const n=Object.assign({},p); n[i]=!n[i]; return n;});
+  const [offenInfo,setOffenInfo]=useState({});
+  const toggleInfo=(i)=>setOffenInfo(p=>{const n=Object.assign({},p); n[i]=!n[i]; return n;});
+  const erledigt=AUFGABEN.filter((_,i)=>zAufgaben[i]).length;
+
+  const aufgabenListe=h("ul",{style:{listStyle:"none",display:"flex",flexDirection:"column",gap:"2px"}},
+    AUFGABEN.map((txt,i)=>{
+      const ist=!!zAufgaben[i];
+      return h("li",{key:i},
+        h("button",{onClick:()=>toggle(i),
+          style:{width:"100%",display:"flex",alignItems:"flex-start",gap:"12px",padding:"11px 6px",borderRadius:"10px",border:"none",background:"transparent",cursor:"pointer",textAlign:"left",color:"inherit"}},
+          h("span",{style:{flex:"none",width:"22px",height:"22px",marginTop:"1px",borderRadius:"7px",display:"grid",placeItems:"center",background:ist?"var(--violet)":"var(--card)",boxShadow:"inset 0 0 0 "+(ist?"0":"1.5px")+" "+(ist?"var(--violet)":"var(--ring2)"),color:"var(--violetText)",fontSize:"14px"}}, ist?Ic.check(3):null),
+          h("span",{style:{flex:1,fontSize:"14px",lineHeight:1.5,textDecoration:ist?"line-through":"none",color:ist?"var(--text3)":"var(--text)"}}, parseInline(txt))
+        )
+      );
+    })
+  );
+
+  return h("div",{style:{display:"flex",flexDirection:"column",gap:"20px"}},
+    // ✅ Deine Aufgaben
+    h("div",{},
+      h("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"4px 2px 10px",gap:"10px"}},
+        h("h2",{style:{fontSize:"15px",fontWeight:700,color:"var(--text)"}}, "✅ Deine Aufgaben"),
+        h("div",{style:{display:"flex",alignItems:"center",gap:"8px"}},
+          h("span",{style:{fontSize:"12px",fontWeight:700,color:"var(--violet-text)",background:"var(--violet-bg)",boxShadow:"inset 0 0 0 1px var(--violet-ring)",borderRadius:"999px",padding:"3px 10px"}}, erledigt+"/"+AUFGABEN.length),
+          erledigt>0?h("button",{onClick:()=>setZAufgaben({}),title:"Alle Häkchen zurücksetzen",
+            style:{display:"inline-flex",alignItems:"center",gap:"5px",padding:"5px 10px",borderRadius:"999px",border:"none",cursor:"pointer",background:"var(--chip)",color:"var(--text2)",fontSize:"11.5px",fontWeight:600}}, icon("reset",12), "Zurücksetzen"):null
+        )
+      ),
+      h("div",{style:{background:"var(--card)",borderRadius:"16px",boxShadow:"var(--shadow)",outline:"1px solid var(--ring)",padding:"6px 10px"}}, aufgabenListe)
+    ),
+    // ℹ️ Gut zu wissen
+    h("div",{},
+      h("h2",{style:{fontSize:"15px",fontWeight:700,color:"var(--text)",padding:"4px 2px 10px"}}, "ℹ️ Gut zu wissen"),
+      h("div",{style:{display:"flex",flexDirection:"column",gap:"10px"}},
+        ZUSTAENDIG_INFO.map((k,i)=>{
+          const offen=!!offenInfo[i];
+          return h("div",{key:i,style:{background:"var(--card)",borderRadius:"16px",boxShadow:"var(--shadow)",outline:"1px solid var(--violet-ring)",overflow:"hidden"}},
+            h("button",{onClick:()=>toggleInfo(i),
+              style:{width:"100%",textAlign:"left",padding:"14px 16px",display:"flex",alignItems:"center",gap:"12px",background:"transparent",border:"none",cursor:"pointer",color:"inherit"}},
+              h("span",{style:{flex:"none",fontSize:"19px",lineHeight:1}}, k.emoji),
+              h("span",{style:{flex:1,fontSize:"14.5px",fontWeight:700,color:"var(--text)"}}, k.titel),
+              h("span",{style:{flex:"none",color:"var(--violet)",fontSize:"18px",transform:offen?"rotate(180deg)":"none",transition:"transform .2s",lineHeight:0,display:"inline-flex"}}, Ic.chevron())
+            ),
+            offen?h("div",{style:{padding:"0 16px 16px"}},
+              h("ul",{style:{listStyle:"none",display:"flex",flexDirection:"column",gap:"8px"}},
+                k.punkte.map(p=>h("li",{style:{display:"flex",gap:"9px",alignItems:"flex-start"}},
+                  h("span",{style:{flex:"none",color:"var(--violet)",marginTop:"3px",fontSize:"12px",display:"inline-flex"}}, Ic.arrowRight(2.5)),
+                  h("span",{style:{fontSize:"13.5px",color:"var(--text2)",lineHeight:1.5}}, parseInline(p))
+                ))
+              )
+            ):null
+          );
+        })
+      )
+    )
+  );
+}
+
+/* ---- Dashboard (Startseite) ---- */
+function Dashboard(props){
+  const go=props.go, eintraege=props.eintraege, extra=props.extra, tn=props.tn, zAufgaben=props.zAufgaben||{};
+  const anzahlEinkauf=(eintraege?eintraege.length:0)+(extra?extra.length:0);
+  const tnGesamt=((tn&&tn.normal)||0)+((tn&&tn.veggie)||0);
+  const tnAllerg=(tn&&tn.allergiker?tn.allergiker.length:0);
+  const zErledigt=AUFGABEN.filter((_,i)=>zAufgaben[i]).length;
+
+  const kachel=(id,ic,titel,text,sub,akzentBg,akzentText)=>h("button",{onClick:()=>go(id),
+    style:{textAlign:"left",background:"var(--card)",borderRadius:"18px",boxShadow:"var(--shadow)",outline:"1px solid var(--ring)",padding:"20px",cursor:"pointer",border:"none",
+      display:"flex",flexDirection:"column",gap:"12px",minHeight:"150px",color:"inherit"}},
+    h("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between"}},
+      h("div",{style:{flex:"none",width:"48px",height:"48px",borderRadius:"14px",background:akzentBg,color:akzentText,display:"grid",placeItems:"center",fontSize:"22px"}}, ic),
+      sub?h("span",{style:{fontSize:"11px",fontWeight:700,background:akzentBg,color:akzentText,borderRadius:"999px",padding:"4px 10px"}}, sub):null
+    ),
+    h("div",{style:{flex:1}},
+      h("h3",{style:{fontSize:"17px",fontWeight:700,color:"var(--text)",marginBottom:"4px"}}, titel),
+      h("p",{style:{fontSize:"12.5px",color:"var(--text2)",lineHeight:1.45}}, text)
+    ),
+    h("span",{style:{display:"inline-flex",alignItems:"center",gap:"6px",fontSize:"13px",fontWeight:600,color:akzentText}}, "Öffnen", icon("arrowRight",14,null,null,2.5))
+  );
+
+  return h("div",{style:{display:"flex",flexDirection:"column",gap:"16px"}},
+    h("div",{style:{padding:"4px 2px 0"}},
+      h("h2",{style:{fontSize:"20px",fontWeight:700,color:"var(--text)"}}, "Was möchtest du tun?"),
+      h("p",{style:{fontSize:"13px",color:"var(--text3)",marginTop:"3px"}}, "Wähle einen Bereich – oder nutze oben die Reiter.")
+    ),
+    h("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit, minmax(220px, 1fr))",gap:"14px"}},
+      kachel("zustaendig", icon("chef",22), "Zuständigkeiten & Verantwortung", "Deine Aufgaben in der Küche – und was du sonst noch wissen solltest.", (zErledigt+"/"+AUFGABEN.length), "var(--violet-bg)","var(--violet-text)"),
+      kachel("tipps", icon("bulb",22), "Tipps", "Bewährte Kniffe aus vergangenen Freizeiten für Einkauf und Küche.", null, "var(--violet-bg)","var(--violet-text)"),
+      kachel("gerichte", icon("book",22), "Einkaufs- & Essensplaner", "Ersteinkauf, Frühstück & Vesper, Shop, Getränke, Nachtisch und "+GERICHTE.length+" erprobte Gerichte.", null, "var(--emerald-bg)","var(--emerald-text)"),
+      kachel("einkauf", icon("cart",22), "Einkaufsliste", "Zutaten sammeln, nach Laden sortieren und teilen.", anzahlEinkauf>0?(anzahlEinkauf+" drauf"):null, "var(--emerald-bg)","var(--emerald-text)"),
+      kachel("tn", icon("users",22), "TN-Berücksichtigung", "Wie viele essen normal/vegetarisch – und welche Allergien gelten.", tnGesamt>0?(tnGesamt+" Pers."+(tnAllerg>0?(" · "+tnAllerg+"⚠"):"")):null, "var(--violet-bg)","var(--violet-text)"),
+      kachel("regeln", icon("shield",22), "Die 8 Küchenregeln", "Die wichtigsten Hygieneregeln auf einen Blick.", null, "var(--violet-bg)","var(--violet-text)")
+    )
+  );
+}
+
+/* ---- App ---- */
+function App(){
+  const stored=loadStore();
+  const [tab,setTab]=useState("dashboard");
+  const [personen,setPersonen]=useState(stored&&stored.personen?stored.personen:35);
+  const [suche,setSuche]=useState("");
+  const [dark,setDark]=useState(stored&&stored.dark?true:false);
+  const [eintraege,setEintraege]=useState(stored&&stored.eintraege?stored.eintraege:[]);
+  const [extra,setExtra]=useState(stored&&stored.extra?stored.extra.map(e=>Object.assign({kat:"sonst"},e)):[]);
+  const [checkState,setCheckState]=useState(stored&&stored.checkState?stored.checkState:{});
+  const [tn,setTN]=useState(stored&&stored.tn?stored.tn:{normal:0,veggie:0,allergiker:[]});
+  const [zAufgaben,setZAufgaben]=useState(stored&&stored.zAufgaben?stored.zAufgaben:{});
+  const [modus,setModus]=useState("getrennt");
+  const [neuText,setNeuText]=useState("");
+  const [neuKat,setNeuKat]=useState("");
+  const [notizen,setNotizen]=useState(stored&&stored.notizen?stored.notizen:{});
+  const [rubrikNotizen,setRubrikNotizen]=useState(stored&&stored.rubrikNotizen?stored.rubrikNotizen:{});
+  const [ersteinkaufEigene,setErsteinkaufEigene]=useState(stored&&stored.ersteinkaufEigene?stored.ersteinkaufEigene:[]);
+
+  useEffect(()=>{ saveStore({personen,dark,eintraege,extra,checkState,tn,zAufgaben,notizen,rubrikNotizen,ersteinkaufEigene}); },[personen,dark,eintraege,extra,checkState,tn,zAufgaben,notizen,rubrikNotizen,ersteinkaufEigene]);
+  useEffect(()=>{
+    const root=document.documentElement;
+    if(dark) root.classList.add("dark"); else root.classList.remove("dark");
+    const meta=document.querySelector('meta[name="theme-color"]');
+    if(meta) meta.setAttribute("content", dark?"#0c0c0f":"#059669");
+  },[dark]);
+
+  const gefiltert=useMemo(()=>{
+    const q=(suche||"").trim().toLowerCase();
+    return q?GERICHTE.filter(g=>g.name.toLowerCase().indexOf(q)>=0):GERICHTE;
+  },[suche]);
+  const setP=(v)=>setPersonen(Math.max(1,Math.min(200,isNaN(v)?1:v)));
+
+  // Generischer Baustein: legt einen Eintrag unter fester id an oder aktualisiert ihn.
+  // Wird von allen 7 Rubriken genutzt (Hauptgerichte, Nachtisch, Ersteinkauf,
+  // Frühstück & Vesper, Mittags-Snacks, Shop-Einkauf, Getränke) — dieselbe Struktur, die die
+  // Einkaufsliste (Sortierung/"Nach Laden"/Teilen) unverändert schon immer verarbeitet.
+  // Kein automatischer Tab-Wechsel mehr — man bleibt bewusst im Planer und wechselt
+  // manuell zur Einkaufsliste, wenn man fertig ist.
+  const upsertEintrag=(id, felder)=>{
+    setEintraege(prev=>{
+      const idx=prev.findIndex(e=>e.id===id);
+      const neu=Object.assign({id:id}, felder);
+      if(idx>=0){ const c=prev.slice(); c[idx]=neu; return c; }
+      return prev.concat([neu]);
+    });
+  };
+  const addGericht=(g, ausgewaehlteZutaten)=>{
+    const basis=ausgewaehlteZutaten||g.zutaten;
+    const zutaten=basis.map(z=>({n:z.n,m:z.m*personen,u:z.u,a:z.a,ap:z.ap}));
+    upsertEintrag("g"+g.nr, {nr:g.nr, gericht:g.name, personen:personen, zutaten:zutaten});
+  };
+  const addNachtisch=(nt, ausgewaehlteZutaten)=>{
+    const basis=ausgewaehlteZutaten||nt.zutaten;
+    const zutaten=basis.map(z=>({n:z.n,m:z.m*personen,u:z.u,a:z.a,ap:z.ap}));
+    upsertEintrag("nt"+nt.nr, {nr:nt.nr, gericht:nt.name, personen:personen, zutaten:zutaten});
+  };
+  const addErsteinkauf=(zutatenListe)=>{
+    upsertEintrag("ek-ersteinkauf", {gericht:"Ersteinkauf (Grundausstattung)", personen:personen, zutaten:zutatenListe, hinweis:"Einmaliger Grundeinkauf — nicht personenskaliert"});
+  };
+  const addFruehstueck=(zutatenListe, tage)=>{
+    upsertEintrag("fv-fruehstueck", {gericht:"Frühstück & Vesper", personen:personen, zutaten:zutatenListe, hinweis:personen+" Pers. · "+tage+" Tage"});
+  };
+  const addMittagssnacks=(zutatenListe, anlaesse)=>{
+    upsertEintrag("ms-snacks", {gericht:"Mittags-Snacks/Reisesnacks", personen:personen, zutaten:zutatenListe, hinweis:personen+" Pers. · "+anlaesse+" Anlass/Anlässe"});
+  };
+  const addShop=(zutatenListe)=>{
+    upsertEintrag("shop-einkauf", {gericht:"Shop-Einkauf", personen:personen, zutaten:zutatenListe, hinweis:"Shop-Einkauf · manuell eingetragen"});
+  };
+  const addGetraenke=(zutatenListe)=>{
+    upsertEintrag("gt-getraenke", {gericht:"Getränke", personen:personen, zutaten:zutatenListe, hinweis:personen+" Pers. · teils Vorschlag, teils manuell"});
+  };
+  const setNotizFuer=(nr,text)=>setNotizen(prev=>Object.assign({},prev,{[nr]:text}));
+  const setRubrikNotiz=(key,text)=>setRubrikNotizen(prev=>Object.assign({},prev,{[key]:text}));
+  const addErsteinkaufEigen=(name,menge,einheit)=>{
+    if(!name||!name.trim()) return;
+    setErsteinkaufEigene(prev=>prev.concat([{id:"eig"+Date.now()+Math.random().toString(36).slice(2,7),n:name.trim(),m:Number(menge)||0,u:einheit||"stk"}]));
+  };
+  const removeErsteinkaufEigen=(id)=>setErsteinkaufEigene(prev=>prev.filter(it=>it.id!==id));
+  const removeGericht=(id)=>setEintraege(prev=>prev.filter(e=>e.id!==id));
+  const clearGerichte=()=>{ setEintraege([]); setCheckState({}); };
+  const clearExtra=()=>{ setExtra([]); };
+  const resetHaken=()=>{ setCheckState({}); setExtra(prev=>prev.map(e=>Object.assign({},e,{done:false}))); };
+
+  const hinzugefuegtNrs={}; eintraege.forEach(e=>hinzugefuegtNrs[e.nr]=true);
+  const stepBtnStyle={width:"38px",height:"38px",borderRadius:"10px",background:"var(--chip)",color:"var(--text)",border:"none",display:"grid",placeItems:"center",cursor:"pointer",fontSize:"16px"};
+  const anzahlBadge=eintraege.length+extra.length;
+  const TITEL={dashboard:"Küchenplaner",tipps:"Tipps",gerichte:"Einkaufs- & Essensplaner",einkauf:"Einkaufsliste",tn:"TN-Berücksichtigung",regeln:"Die 8 Küchenregeln",zustaendig:"Zuständigkeiten & Verantwortung"};
+  const titelFuerTab=TITEL[tab]||"Küchenplaner";
+
+  const header=h("header",{style:{background:"var(--bg2)",borderBottom:"1px solid var(--ring)"}},
+    h("div",{style:{maxWidth:"760px",margin:"0 auto",padding:"22px 20px 0"}},
+      h("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between"}},
+        h("button",{onClick:()=>setTab("dashboard"),title:"Zur Startseite",
+          style:{display:"flex",alignItems:"center",gap:"10px",background:"transparent",border:"none",cursor:"pointer",padding:0,color:"inherit"}},
+          h("div",{style:{width:"32px",height:"32px",borderRadius:"9px",background:"var(--primary)",display:"grid",placeItems:"center"}}, icon("utensils",18,"var(--primaryText)")),
+          h("span",{style:{fontSize:"11px",fontWeight:600,letterSpacing:".08em",textTransform:"uppercase",color:"var(--text3)"}}, "Küchenplaner Sommerfreizeit")
+        ),
+        h("button",{onClick:()=>setDark(d=>!d),
+          style:{width:"40px",height:"40px",borderRadius:"10px",background:"var(--chip)",color:"var(--text2)",border:"none",display:"grid",placeItems:"center",cursor:"pointer",fontSize:"18px"}}, dark?Ic.sun():Ic.moon())
+      ),
+      h("h1",{style:{fontSize:"24px",fontWeight:700,letterSpacing:"-.01em",marginTop:"16px"}}, titelFuerTab),
+      h("div",{style:{display:"flex",gap:"2px",marginTop:"16px",overflowX:"auto"}},
+        [["zustaendig","Zuständigkeiten","chef",null,"var(--violet)"],
+         ["tipps","Tipps","bulb",null,"var(--violet)"],
+         ["gerichte","Planer","list",null,"var(--primary)"],
+         ["einkauf","Einkauf","cart",anzahlBadge>0?anzahlBadge:null,"var(--primary)"],
+         ["tn","TN-Berücksichtigung","users",null,"var(--violet)"],
+         ["regeln","8 Küchenregeln","shield",null,"var(--violet)"]].map(t=>{
+          const aktiv=tab===t[0];
+          return h("button",{onClick:()=>setTab(t[0]),
+            style:{position:"relative",display:"inline-flex",alignItems:"center",gap:"7px",padding:"10px 13px",border:"none",background:"transparent",cursor:"pointer",whiteSpace:"nowrap",
+              fontSize:"13.5px",fontWeight:600,color:aktiv?t[4]:"var(--text3)",
+              borderBottom:"2px solid "+(aktiv?t[4]:"transparent"),marginBottom:"-1px"}},
+            icon(t[2],16), t[1],
+            t[3]?h("span",{style:{fontSize:"11px",fontWeight:700,background:t[4],color:"var(--primaryText)",borderRadius:"999px",padding:"1px 7px",minWidth:"18px",textAlign:"center"}}, t[3]):null
+          );
+        })
+      )
+    )
+  );
+
+  const steuer = tab==="gerichte" ? h("div",{style:{position:"sticky",top:0,zIndex:20,background:"var(--bg)",borderBottom:"1px solid var(--ring)",backdropFilter:"blur(8px)"}},
+    h("div",{style:{maxWidth:"760px",margin:"0 auto",padding:"12px 20px",display:"flex",alignItems:"center",gap:"12px",flexWrap:"wrap"}},
+      h("div",{style:{display:"flex",alignItems:"center",gap:"8px",background:"var(--card)",borderRadius:"12px",boxShadow:"var(--shadow)",outline:"1px solid var(--ring)",padding:"6px"}},
+        h("span",{style:{fontSize:"12px",fontWeight:500,color:"var(--text2)",paddingLeft:"8px",paddingRight:"2px",display:"inline-flex",alignItems:"center",gap:"6px"}}, icon("users",14), "Personen"),
+        h("button",{style:stepBtnStyle,onClick:()=>setP(personen-1)}, Ic.minus(2.5)),
+        h("input",{type:"number",value:personen,"data-focus-id":"pers-input",onInput:e=>setP(parseInt(e.target.value||"0",10)),
+          style:{width:"56px",height:"38px",textAlign:"center",fontSize:"18px",fontWeight:700,color:"var(--text)",background:"transparent",border:"none",outline:"none"}}),
+        h("button",{style:stepBtnStyle,onClick:()=>setP(personen+1)}, Ic.plus(2.5))
+      ),
+      h("div",{style:{position:"relative",flex:1,minWidth:"160px"}},
+        h("span",{style:{position:"absolute",left:"14px",top:"50%",transform:"translateY(-50%)",color:"var(--text3)",fontSize:"16px",lineHeight:0}}, Ic.search()),
+        h("input",{type:"search",value:suche,"data-focus-id":"suche-input",onInput:e=>setSuche(e.target.value),placeholder:"Gericht suchen…",
+          style:{width:"100%",height:"48px",paddingLeft:"40px",paddingRight:"16px",borderRadius:"12px",background:"var(--card)",outline:"1px solid var(--ring)",border:"none",fontSize:"14px",color:"var(--text)",boxShadow:"var(--shadow)"}})
+      )
+    )
+  ) : null;
+
+  let main;
+  if(tab==="dashboard"){
+    main=h("main",{style:{maxWidth:"760px",margin:"0 auto",padding:"20px"}},
+      h(Dashboard,{go:setTab,eintraege:eintraege,extra:extra,tn:tn,zAufgaben:zAufgaben})
+    );
+  } else if(tab==="tipps"){
+    main=h("main",{style:{maxWidth:"760px",margin:"0 auto",padding:"20px"}},
+      h(TippsTab,{})
+    );
+  } else if(tab==="gerichte"){
+    main=h("main",{style:{maxWidth:"760px",margin:"0 auto",padding:"20px"}},
+      h(PlanerTab,{gefiltert:gefiltert,personen:personen,hinzugefuegtNrs:hinzugefuegtNrs,
+        addGericht:addGericht,addNachtisch:addNachtisch,addErsteinkauf:addErsteinkauf,addFruehstueck:addFruehstueck,addMittagssnacks:addMittagssnacks,addShop:addShop,addGetraenke:addGetraenke,
+        notizen:notizen,setNotizFuer:setNotizFuer,rubrikNotizen:rubrikNotizen,setRubrikNotiz:setRubrikNotiz,
+        ersteinkaufEigene:ersteinkaufEigene,addErsteinkaufEigen:addErsteinkaufEigen,removeErsteinkaufEigen:removeErsteinkaufEigen})
+    );
+  } else if(tab==="einkauf"){
+    main=h("main",{style:{maxWidth:"760px",margin:"0 auto",padding:"20px"}},
+      h(EinkaufsTab,{eintraege:eintraege,extra:extra,setExtra:setExtra,checkState:checkState,setCheckState:setCheckState,removeGericht:removeGericht,clearGerichte:clearGerichte,clearExtra:clearExtra,resetHaken:resetHaken,modus:modus,setModus:setModus,neuText:neuText,setNeuText:setNeuText,neuKat:neuKat,setNeuKat:setNeuKat,personen:personen,notizen:notizen})
+    );
+  } else if(tab==="tn"){
+    main=h("main",{style:{maxWidth:"760px",margin:"0 auto",padding:"20px"}},
+      h(TNTab,{tn:tn,setTN:setTN})
+    );
+  } else if(tab==="regeln"){
+    main=h("main",{style:{maxWidth:"760px",margin:"0 auto",padding:"20px"}},
+      h(RegelnTab,{})
+    );
+  } else if(tab==="zustaendig"){
+    main=h("main",{style:{maxWidth:"760px",margin:"0 auto",padding:"20px"}},
+      h(ZustaendigTab,{zAufgaben:zAufgaben,setZAufgaben:setZAufgaben})
+    );
+  } else {
+    main=h("main",{style:{maxWidth:"760px",margin:"0 auto",padding:"20px"}},
+      h(Dashboard,{go:setTab,eintraege:eintraege,extra:extra,tn:tn,zAufgaben:zAufgaben})
+    );
+  }
+
+  const footer=h("footer",{style:{maxWidth:"760px",margin:"0 auto",padding:"24px 20px 40px",textAlign:"center"}},
+    h("p",{style:{fontSize:"12px",color:"var(--text3)",lineHeight:1.6}}, "Hygiene-Grundlage: kein rohes Hackfleisch, keine rohen Eier, keine Geflügelverarbeitung. Alle Speisen vollständig durcherhitzen (mind. 70 °C / 2 Min). Quellen: BfR & LGL Bayern. Details siehe Hygiene-Belehrung des Küchenteams.")
+  );
+
+  // Sichtbare Zurück-Leiste: auf jedem Nicht-Dashboard-Reiter gut mit dem
+  // Daumen erreichbar, damit man nicht auf das kleine Logo oben zielen muss.
+  const zurueck = tab!=="dashboard" ? h("div",{style:{maxWidth:"760px",margin:"0 auto",padding:"14px 20px 0"}},
+    h("button",{onClick:()=>setTab("dashboard"),
+      style:{display:"inline-flex",alignItems:"center",gap:"6px",padding:"9px 16px 9px 12px",borderRadius:"999px",border:"none",cursor:"pointer",background:"var(--chip)",color:"var(--text2)",fontSize:"13px",fontWeight:600}},
+      h("span",{style:{display:"inline-flex",fontSize:"15px",lineHeight:0,transform:"rotate(180deg)"}}, Ic.arrowRight(2.5)),
+      "Übersicht"
+    )
+  ) : null;
+
+  return h("div",{style:{minHeight:"100vh",background:"var(--bg)",color:"var(--text)"}}, header, zurueck, steuer, main, footer);
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(h(App));
+})();
+</script>
+
+
+</body></html>
