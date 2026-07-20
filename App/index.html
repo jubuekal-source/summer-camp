@@ -155,6 +155,14 @@
   details.det[open] summary::before{transform:rotate(90deg)}
   details.det .body{padding:0 14px 14px}
   details.det .body ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:7px;font-size:.9rem;color:var(--text)}
+  /* spec/20 (Akkordeon-Rework): core-Sections einer Rolle als aufklappbare Button-Akkordeons
+     (single-open via wireRoleAccordions()), optisch etwas kräftiger als die dezenten .det. */
+  .role-acc-group{margin-top:12px;display:flex;flex-direction:column;gap:8px}
+  .role-acc-group>details.role-acc{margin-top:0}
+  details.role-acc>summary{font-size:1rem;padding:14px}
+  details.role-acc[open]{border-color:var(--accent2)}
+  details.role-acc[open]>summary{border-bottom:1px solid var(--line)}
+  details.role-acc[open]>.body{padding-top:12px}
 
   .notes{margin-top:20px}
   .notes label{font-size:.82rem;color:var(--muted);font-weight:600;display:flex;align-items:center;gap:6px}
@@ -277,6 +285,42 @@
   .room-card-actions button{flex:1;padding:9px;border-radius:10px;border:1px dashed var(--line);
     background:none;color:var(--muted);font:inherit;font-weight:600;font-size:.82rem;cursor:pointer}
   .room-card-actions button:active{transform:scale(.97)}
+  .room-etage-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .room-etage-row label{font-size:.82rem;color:var(--muted);font-weight:600}
+  .room-etage-row input{flex:1;min-width:120px;padding:8px 10px;border-radius:10px;border:1px solid var(--line);
+    background:var(--card2);color:var(--text);font:inherit;font-size:.86rem}
+  .room-etage-row input:focus{border-color:var(--accent);outline:none}
+
+  /* Stufe 19 (spec/17): Etagen-Gruppierung + Lageplan */
+  .etage-filter{display:flex;flex-wrap:wrap;gap:6px;margin:2px 0 12px}
+  .etage-filter-chip{padding:6px 12px;border-radius:999px;border:1px solid var(--line);background:var(--card2);
+    color:var(--muted);font:inherit;font-weight:600;font-size:.8rem;cursor:pointer}
+  .etage-filter-chip.active{background:var(--accent);border-color:var(--accent);color:#fff}
+  .etage-card{margin-bottom:12px;border:1px solid var(--line);border-radius:14px;background:var(--card)}
+  .etage-card>summary{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-weight:700}
+  .etage-summary-label{font-weight:800;font-size:1rem}
+  .etage-summary-count{font-size:.74rem;color:var(--muted);background:var(--card2);
+    padding:2px 8px;border-radius:999px}
+  .etage-summary-actions{display:flex;gap:4px;margin-left:auto}
+  .etage-plan{margin:4px 0 14px}
+  .etage-plan-img{width:100%;border-radius:12px;border:1px solid var(--line);display:block;cursor:zoom-in}
+  .etage-plan-actions{display:flex;gap:8px;margin-top:8px}
+  .etage-plan-actions button{flex:1;padding:9px;border-radius:10px;border:1px dashed var(--line);
+    background:none;color:var(--muted);font:inherit;font-weight:600;font-size:.82rem;cursor:pointer}
+  .etage-plan-upload{width:100%;padding:14px;border-radius:12px;border:1px dashed var(--line);
+    background:var(--card2);color:var(--muted);font:inherit;font-weight:600;font-size:.86rem;cursor:pointer;margin:4px 0 14px}
+  .etage-plan-upload:active,.etage-plan-actions button:active{transform:scale(.99)}
+
+  /* spec/18: read-only TN-Info-Blatt */
+  .tninfo{display:flex;flex-direction:column;gap:2px}
+  .tninfo-row{display:flex;gap:10px;align-items:flex-start;padding:10px 2px;border-bottom:1px solid var(--line)}
+  .tninfo-row:last-child{border-bottom:none}
+  .tninfo-ic{font-size:1.05rem;flex:0 0 auto;line-height:1.4}
+  .tninfo-body{flex:1;min-width:0}
+  .tninfo-label{font-size:.72rem;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.02em}
+  .tninfo-val{font-size:.95rem;color:var(--text);margin-top:1px;overflow-wrap:break-word}
+  .tninfo-medi{margin-top:2px}
+  .tninfo-muted{color:var(--muted)}
 
   .tile-people{display:flex;flex-wrap:wrap;gap:4px 6px;margin-top:-2px}
   .tile-person{display:inline-flex;align-items:center;gap:4px;font-size:.74rem;color:var(--muted);font-weight:700;
@@ -328,8 +372,20 @@
     background:var(--red);color:#fff;font:inherit;font-weight:700;cursor:pointer}
   .staff-danger:active{transform:scale(.98)}
 
-  /* ---- TN-INFOS (Stufe 3, Layout-Überarbeitung Stufe 13/spec 11) ---- */
+  /* ---- TN-INFOS (Stufe 3, Layout-Überarbeitung Stufe 13/spec 11, TN-Umbau Stufe 16/spec 14) ---- */
   .tn-head h1{font-size:1.7rem;letter-spacing:-.4px}
+  /* Stufe 16 (spec/14 §2): Top-Cards, deutlich größer/prominenter als die Counter-Chips darunter. */
+  .tn-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:16px}
+  /* Stufe 17 (spec/16 §5a): Karten sind jetzt <button> (klickbarer Filter statt reiner Anzeige) —
+     font:inherit/cursor gegen die Browser-Button-Vorgaben, active-Zustand analog .tn-counter.active. */
+  .tn-stat{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+    padding:14px 6px;border-radius:16px;border:1px solid var(--line);background:var(--card);
+    font:inherit;cursor:pointer}
+  .tn-stat .ic{font-size:1.5rem;line-height:1}
+  .tn-stat .num{font-size:1.3rem;font-weight:800;line-height:1.3}
+  .tn-stat .lbl{font-size:.72rem;color:var(--muted);font-weight:700}
+  .tn-stat.active{border-color:var(--accent);background:rgba(255,107,74,.16);color:var(--text)}
+  .tn-stat:active{transform:scale(.96)}
   .tn-counters{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:0;flex:1;min-width:0}
   @media(min-width:420px){.tn-counters{grid-template-columns:repeat(4,minmax(0,1fr))}}
   .tn-counter{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
@@ -363,12 +419,20 @@
     margin-bottom:10px;cursor:pointer}
   .tn-card:active{transform:scale(.99)}
   .tn-card .name{font-weight:800;font-size:.98rem;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  /* Stufe 17 (spec/16 §1): Kopfzeile der TN-Karte — Name links, 🗑️ rechts. Eigene Klasse statt
+     .tn-card selbst umzustellen, damit die MA-Karten (nutzen ebenfalls .tn-card) unverändert bleiben. */
+  .tn-card-toprow{display:flex;align-items:center;justify-content:space-between;gap:8px}
   .tn-card .flags{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
   .tn-card .details{color:var(--muted);font-size:.84rem;margin-top:6px}
   .tn-badge{font-size:.72rem;background:var(--card2);border:1px solid var(--line);color:var(--muted);
     padding:2px 8px;border-radius:10px;font-weight:700}
   .tn-badge.warn{color:var(--accent2);border-color:#5a4422}
   .tn-empty, .medi-empty{color:var(--muted);font-size:.9rem;padding:14px 0;text-align:center}
+  /* Stufe 16 (spec/14 §7): mitschwebender Schließen-Pfeil, nur sichtbar wenn ein Akkordeon offen ist. */
+  .tn-floating-close{position:fixed;right:14px;top:50%;transform:translateY(-50%);z-index:40;
+    width:42px;height:42px;border-radius:50%;border:1px solid var(--line);background:var(--card);
+    color:var(--accent2);font-size:1.2rem;box-shadow:0 4px 14px rgba(0,0,0,.35);opacity:.92;cursor:pointer}
+  .tn-floating-close:active{transform:translateY(-50%) scale(.9)}
 
   .medi-card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px;
     margin-bottom:8px;cursor:pointer;display:flex;gap:10px;align-items:center}
@@ -581,31 +645,44 @@
       <p>Gesundheits- &amp; Sicherheitshinweise zu den Teilnehmenden</p>
     </header>
 
-    <!-- Zone A: Mini-Dashboard -->
-    <div style="display:flex;align-items:flex-start;gap:8px;margin-top:16px">
-      <div class="tn-counters" id="tnCounters"></div>
-      <button type="button" class="tn-info-btn" onclick="openTnLegend()" aria-label="Legende">ℹ️</button>
+    <!-- Top-Cards (Stufe 16, spec/14 §2; klickbar seit Stufe 17, spec/16 §5) -->
+    <div class="tn-stats" id="tnStats"></div>
+
+    <!-- Stufe 17 (spec/16 §5b): Liste zur angeklickten Top-Card (Suche + TN, ersetzt das entfernte
+         "Alle TN"-Akkordeon). Leer/versteckt, solange keine Top-Card aktiv ist (renderTnStatsList()). -->
+    <div id="tnStatsList" style="margin-top:8px"></div>
+
+    <button type="button" class="tn-add-btn" onclick="openTnSheet()" style="margin-top:14px">+ TN hinzufügen</button>
+
+    <!-- Akkordeon-Gruppe (Stufe 16, spec/14 §5): nur eines gleichzeitig offen (setupTnAccordions()).
+         Stufe 17 (spec/16 §5c): das frühere "👤 Alle TN"-Akkordeon entfällt ersatzlos — seine Funktion
+         übernehmen die klickbaren Top-Cards (#tnStatsList oben). Die Top-Card-Liste zählt dabei wie ein
+         weiteres Akkordeon (gegenseitig exklusiv, siehe setupTnAccordions/updateFloatingCollapse). -->
+    <div id="tnAccordions" style="margin-top:12px">
+      <details class="det" id="tnAccBesonderheiten">
+        <summary>⚠️ Besonderheiten &amp; Warnungen</summary>
+        <div class="body">
+          <div style="display:flex;align-items:flex-start;gap:8px">
+            <div class="tn-counters" id="tnCounters"></div>
+            <button type="button" class="tn-info-btn" onclick="openTnLegend()" aria-label="Legende">ℹ️</button>
+          </div>
+          <div id="tnBesonderheitenBody" style="margin-top:10px"></div>
+        </div>
+      </details>
+      <!-- 👥 Gruppen (Stufe 18, spec/15): editierbare Schnappschüsse (Alter/Geschlecht-Filter oder
+           Zufallsverteilung), reiht sich als letztes Element in #tnAccordions ein. -->
+      <details class="det" id="tnAccGruppen">
+        <summary>👥 Gruppen
+          <button type="button" class="team-icon-btn sm" style="margin-left:auto" onclick="event.preventDefault(); event.stopPropagation(); confirmDeleteAllGruppen()" aria-label="Alle Gruppen löschen">🗑️</button>
+        </summary>
+        <div class="body">
+          <button type="button" class="tn-add-btn" onclick="openGruppeCreateSheet()">+ Neue Gruppe erstellen</button>
+          <div id="gruppenList" style="margin-top:10px"></div>
+        </div>
+      </details>
     </div>
 
-    <!-- Suche + TN hinzufügen (spec/10 Punkt 5, hier laut spec/11 §5 direkt nach dem Dashboard) -->
-    <div class="searchbar" style="margin-top:14px"><input id="tnSearch" type="search" placeholder="🔍 Name suchen …" autocomplete="off" oninput="onTnSearch(this.value)"></div>
-    <button type="button" class="tn-add-btn" onclick="openTnSheet()">+ TN hinzufügen</button>
-
-    <!-- Zone B (Ansprechpersonen Zecken/Wunden) entfernt (Feedback 17.07.2026): jeder im Team ist
-         zuständig, eigene Ansprechperson dafür war überflüssig und unübersichtlich. -->
-
-    <!-- Zone C: TN-Liste -->
-    <div class="sec-h">Teilnehmende</div>
-    <div id="tnList"></div>
-
-    <!-- Medi-Plan als Akkordeon, Default zu (spec/11 §4) -->
-    <details class="det" style="margin-top:18px">
-      <summary id="mediSummary">💊 Medikamenten-Plan</summary>
-      <div class="body">
-        <div id="mediList"></div>
-        <button type="button" class="tn-add-btn" onclick="openMediSheet()">+ Medikamenten-Eintrag</button>
-      </div>
-    </details>
+    <button type="button" id="tnFloatingClose" class="tn-floating-close" onclick="tnCloseOpenAccordion()" aria-label="Akkordeon schließen" style="display:none">⌃</button>
 
     <div class="aside" style="margin-top:22px">🔒 Daten bleiben nur auf diesem Gerät. Details im TN-Ordner.</div>
   </div><!-- /view-tn -->
@@ -773,6 +850,13 @@
         <button type="button" class="staff-danger" style="width:100%;margin-top:6px" onclick="confirmDeleteAllStaff()">🗑️ Alle Mitarbeitenden löschen</button>
       </div>
     </div>
+    <!-- Stufe 17 (spec/16 §2): Sammel-Löschen für TN AUSSCHLIESSLICH hier, kein Sammel-Button im TN-View. -->
+    <div class="settings-block">
+      <div>
+        <label>Teilnehmende</label>
+        <button type="button" class="staff-danger" style="width:100%;margin-top:6px" onclick="confirmDeleteAllTn()">🗑️ Alle TN löschen</button>
+      </div>
+    </div>
     <div class="settings-block">
       <div>
         <label>⚠️ Alle Daten</label>
@@ -837,12 +921,14 @@ function teamDefaultSeed(){
 function defaultData(){
   return {
     schemaVersion: 1,
-    meta: { titelZusatz:"", zeitraum:"", stand:"", theme:"system", handyregelTeam:"", raeume:[], betten:{} },
+    meta: { titelZusatz:"", zeitraum:"", stand:"", theme:"system", handyregelTeam:"", raeume:[], betten:{},
+            etagen:{}, etagenOrder:[], etagenPlan:{} }, // Stufe 19 (spec/17): Etagen-Gruppierung + Lageplan-Bild je Etage
     staff: [],
     tn: [],
     medis: [],
     zust: {},
     ansprech: { zecken:[], wunden:[] },
+    gruppen: [], // Stufe 18 (spec/15): je Gruppe { id, titel, teamerIds:[], memberIds:[] } — editierbarer Schnappschuss
     wochenplan: {
       mo:{html:"",imgIds:[],datum:""}, di:{html:"",imgIds:[],datum:""}, mi:{html:"",imgIds:[],datum:""}, do:{html:"",imgIds:[],datum:""},
       fr:{html:"",imgIds:[],datum:""}, sa:{html:"",imgIds:[],datum:""}, so:{html:"",imgIds:[],datum:""}
@@ -862,6 +948,14 @@ function normalizeData(raw){
   // Migration (Stufe 14, spec/12): Bettenzahl je Zimmer als paralleles Map-Objekt { label: n }.
   // Fehlender Eintrag = Default (siehe raumBetten()), kein Zwang zur Migration alter Bestände nötig.
   if(!merged.meta.betten || typeof merged.meta.betten !== 'object' || Array.isArray(merged.meta.betten)) merged.meta.betten = {};
+  // Migration (Stufe 19, spec/17): Etagen-Gruppierung. Drei parallele Strukturen (KISS wie meta.betten):
+  //  - etagen:      { zimmerLabel: etageLabel }  Zuordnung Zimmer→Etage; fehlt = Gruppe "Ohne Etage"
+  //  - etagenOrder: [etageLabel, …]              Reihenfolge der Etagen (erlaubt auch leere Etagen)
+  //  - etagenPlan:  { etageLabel: bildId }        Lageplan-Bild je Etage (IndexedDB-ID, wie Wochenplan)
+  // Bestandsdaten (Zimmer ohne Etage) brechen nicht — sie landen in "Ohne Etage", Marco ordnet sie zu.
+  if(!merged.meta.etagen || typeof merged.meta.etagen !== 'object' || Array.isArray(merged.meta.etagen)) merged.meta.etagen = {};
+  if(!Array.isArray(merged.meta.etagenOrder)) merged.meta.etagenOrder = [];
+  if(!merged.meta.etagenPlan || typeof merged.meta.etagenPlan !== 'object' || Array.isArray(merged.meta.etagenPlan)) merged.meta.etagenPlan = {};
   // Migration (nachträgliche Vereinfachung nach Stufe 3): Ansprechperson Zecken/Wunden von
   // Einzel-ID auf Mehrfachauswahl (Array) umgestellt; Mitfahrt/TN-Infos gesamt entfallen.
   // Migration (Stufe 11): Ansprechperson Medikamenten-Plan (`ansprech.medis`) entfällt ersatzlos —
@@ -903,6 +997,29 @@ function normalizeData(raw){
       }
     });
   }
+  // Migration (Stufe 16, spec/14 §1): neue Felder geschlecht/allergien. Fehlt das Feld → ''
+  // (Bestands-TN NICHT automatisch auf 'w' setzen, das wäre Falschdaten — Default 'w' gilt
+  // nur beim Neu-Anlegen im Formular, siehe openTnSheet). Keine Medi-Datenwanderung nötig.
+  if(Array.isArray(merged.tn)){
+    merged.tn.forEach(t=>{
+      if(t.geschlecht === undefined) t.geschlecht = '';
+      if(t.allergien === undefined) t.allergien = '';
+    });
+  }
+  // Migration (Stufe 17, spec/16 §4a): neue MA-Felder für "frühere Abreise" (Freitext-Tag,
+  // jahresneutral statt Kalenderdatum). Fehlt das Feld → false/"" (kein Datenverlust).
+  if(Array.isArray(merged.staff)){
+    merged.staff.forEach(p=>{
+      if(p.abreise_frueher === undefined) p.abreise_frueher = false;
+      if(p.abreise_tag === undefined) p.abreise_tag = "";
+      // Migration (Stufe 15, spec/13): formales Rettungsschwimmerabzeichen (Silber), unabhängig
+      // von der bestehenden Team-Einschätzung `rettung_see`. Fehlt es → false (kein Datenverlust).
+      if(p.rettungsabzeichen === undefined) p.rettungsabzeichen = false;
+    });
+  }
+  // Migration (Stufe 18, spec/15): neues Top-Level-Array `gruppen` (editierbare Schnappschüsse,
+  // siehe defaultData()). Fehlt es oder ist kein Array (Alt-Daten vor Stufe 18) → leeres Array.
+  if(!Array.isArray(merged.gruppen)) merged.gruppen = [];
   return merged;
 }
 function getData(){
@@ -982,6 +1099,8 @@ async function collectWochenplanImages(){
   Object.values(d.wochenplan || {}).forEach(day=>{
     (day.imgIds || []).forEach(id=>ids.add(id));
   });
+  // Stufe 19 (spec/17): auch die Etagen-Lagepläne gehören in den Export-Snapshot.
+  Object.values(d.meta.etagenPlan || {}).forEach(id=>{ if(id) ids.add(id); });
   const images = {};
   for(const id of ids){
     const dataUrl = await imgGet(id);
@@ -1037,69 +1156,103 @@ function migrateOldKeys(){
 const ROLES = [
   {
     id:"tagesleitung", icon:"📣", title:"Tagesleitung", who:"alle, abwechselnd", color:"#FF6B4A",
-    /* Stufe 12 (spec/10 §6): reine Gliederung in Unterblöcke mit Überschriften, Text
-       unverändert. Überschriften sind ein Vorschlag — von Marco jederzeit anpassbar. */
+    /* spec/19 (Inhalts-Rework, Muster-Rolle): entlang des Tagesablaufs gegliedert — vor dem Essen →
+       beim Essen → nach dem Essen → über den Tag → abends. Icon-Überschriften je Phase. Text inhaltlich
+       unverändert, nur logisch/chronologisch neu sortiert und leicht geglättet. */
     core:[
-      {h:"📢 Ansagen bei den Mahlzeiten", items:[
-        "Ansagen vor & nach jedem Essen: Tagesplan vorstellen; sagen, was die Kids einpacken/anziehen sollen (Sonnenschutz, Trinken, Schuhe, Taschengeld, Rucksack …); Shop-Öffnungszeiten verkünden (falls Shop offen).",
-        "Essen offiziell beenden (alle bleiben sitzen) → Geschirr auf den Geschirrwagen sortieren, Abfall in den Eimer daneben (wie die Küche es vorbereitet), Küchendienst erinnern."
+      {h:"🌅 Vor jeder Mahlzeit ansagen", items:[
+        "Tagesplan vorstellen: Was steht heute an?",
+        "Was sollen die Kids einpacken/anziehen? (Sonnenschutz, Trinken, Schuhe, Taschengeld, Rucksack …)",
+        "Shop-Öffnungszeiten verkünden (falls der Shop offen ist).",
+        "Faustregel: Programm- & Ablauf-Infos erst NACH dem Essen ansagen — vorher gehen sie unter."
       ]},
-      {h:"🗂️ Tag koordinieren", items:[
-        "Tag koordinieren: Abläufe mit dem Team besprechen, Aufsicht klären, bei spontanen Änderungen Zuständige zuteilen, helfen wo nötig.",
-        "Anwesenheit bei Programm & Ausflügen prüfen (z. B. über die Zimmerzuständigen — kann delegiert werden)."
+      {h:"🍽️ Während & am Ende des Essens", items:[
+        "Vor warmen Mahlzeiten wird gebetet — du kannst jemanden fragen, der das übernimmt.",
+        "Essensausgabe organisieren (kann delegiert werden).",
+        "Essen offiziell beenden (alle bleiben sitzen) → Geschirr auf den Geschirrwagen, Abfall in den Eimer daneben (wie die Küche es vorbereitet), Küchendienst erinnern."
+      ]},
+      {h:"📣 Nach dem Essen ansagen", items:[
+        "Jetzt die Infos zu Programm & Abläufen ansagen (nicht vorher!).",
+        "Aktuelle Themen nur bei Bedarf ergänzen."
+      ]},
+      {h:"🗂️ Über den Tag koordinieren", items:[
+        "Abläufe mit dem Team besprechen, Aufsicht klären, bei spontanen Änderungen Zuständige zuteilen, helfen wo nötig.",
+        "Anwesenheit bei Programm & Ausflügen prüfen (z. B. über die Zimmerzuständigen — kann delegiert werden).",
+        "Ihr zwei Tagesleitungen habt das meiste Programm des Tages — ihr kennt es am besten.",
+        "Vieles hier ist delegierbar (Essensausgabe, Anwesenheitscheck, Gebet) — du musst nicht alles selbst machen, aber behalte den Überblick."
       ]},
       {h:"🌙 Abendabschluss", items:[
-        "Abendliche Reflexionsrunde moderieren (zügig & effektiv) → danach an die Tagesleitung des Folgetags übergeben."
+        "Abendliche Reflexionsrunde moderieren (zügig & effektiv).",
+        "Danach an die Tagesleitung des Folgetags übergeben."
       ]}
-    ],
-    details:[{items:[
-      "Meist haben die zwei Tagesleitungen das meiste Programm des Tages — sie kennen es am besten.",
-      "Essensausgabe an diesem Tag (kann delegiert werden). Vor warmen Mahlzeiten wird gebetet — du kannst jemanden fragen, der das übernimmt.",
-      "Infos zu Programm & Abläufen immer erst NACH dem Essen ansagen (sonst wird's vergessen!). Aktuelle Themen nur bei Bedarf."
-    ]}]
+    ]
   },
   {
     id:"planung", icon:"🗓️", title:"Tagesleitung Folgetag — Planung", who:"alle, abwechselnd", color:"#FF8A3D",
-    core:[{items:[
-      "Im Laufe des Tages den Folgetag mit allen Beteiligten planen (idealerweise gemeinsame Sitzung am Vortag).",
-      "Wochenplan ausfüllen: Aktivität mit Uhrzeit im Namen (z. B. „20:00–22:00 Kennenlernspiele“) + „Notes fürs Team“.",
-      "Programmpunkte-Datenbank ausfüllen — so klar, dass es in den Folgejahren direkt wiederverwendbar ist.",
-      "Tagesplan für die Kinder gestalten und am Morgen VOR dem Frühstück im Speisesaal aufhängen.",
-      "Nach der Reflexionsrunde die Teambesprechung moderieren, Planung vorstellen, Team einteilen & involvieren."
-    ]}],
-    details:[{items:[
-      "Ziel: die abendliche Planungsrunde auf wenige Minuten Übergabe verkürzen — der Plan steht bereits, es fließen nur noch Infos ans Team.",
-      "Aufsichtslücken im Programm aktiv klären und im Wochenplan festhalten.",
-      "Offene Punkte in der abendlichen Teambesprechung klären und festhalten.",
-      "Bist du nicht selbst fürs Programm zuständig: die Zuständigen rechtzeitig erinnern.",
-      "Tagesplan ansprechend & neugierig machend gestalten, aber nicht zu viel verraten.",
-      "→ in Notion: Wochenplan & Programmpunkte-Datenbank."
-    ]}]
+    /* spec/19 (Inhalts-Rework): chronologisch/thematisch gegliedert — über den Tag planen →
+       dokumentieren → Tagesplan für die Kinder → abends Teambesprechung. Inhalt unverändert,
+       nur umsortiert; Aufsichtslücken/„ansprechend gestalten“/offene Punkte zu ihren Blöcken gezogen. */
+    core:[
+      {h:"📝 Über den Tag: Folgetag planen", items:[
+        "Im Laufe des Tages den Folgetag mit allen Beteiligten planen (idealerweise gemeinsame Sitzung am Vortag).",
+        "Aufsichtslücken im Programm aktiv klären und im Wochenplan festhalten.",
+        "Bist du nicht selbst fürs Programm zuständig: die Zuständigen rechtzeitig erinnern."
+      ]},
+      {h:"🗒️ Im Wochenplan & in Notion dokumentieren", items:[
+        "Wochenplan ausfüllen: Aktivität mit Uhrzeit im Namen (z. B. „20:00–22:00 Kennenlernspiele“) + „Notes fürs Team“.",
+        "Programmpunkte-Datenbank ausfüllen — so klar, dass es in den Folgejahren direkt wiederverwendbar ist.",
+        "→ in Notion: Wochenplan & Programmpunkte-Datenbank."
+      ]},
+      {h:"📋 Tagesplan für die Kinder", items:[
+        "Tagesplan gestalten und am Morgen VOR dem Frühstück im Speisesaal aufhängen.",
+        "Ansprechend & neugierig machend gestalten, aber nicht zu viel verraten."
+      ]},
+      {h:"🌙 Abends: Teambesprechung moderieren", items:[
+        "Nach der Reflexionsrunde die Teambesprechung moderieren, Planung vorstellen, Team einteilen & involvieren.",
+        "Offene Punkte klären und festhalten.",
+        "Ziel: die abendliche Planungsrunde auf wenige Minuten Übergabe verkürzen — der Plan steht bereits, es fließen nur noch Infos ans Team."
+      ]}
+    ]
   },
   {
     id:"programm", icon:"🎯", title:"Programm-Verantwortliche", who:"alle, das ein oder andere Mal", color:"#FFB23E",
-    core:[{h:"1. verantwortliche Person", items:[
-      "Plane deinen Programmpunkt vollständig: Material besorgen, Team-Kommunikation, Auf-/Abbau bzw. örtliche Vorbereitung, Durchführung.",
-      "Moderiere/erkläre den Programmpunkt für die Gruppe (wenn nicht anders abgesprochen).",
-      "Sorge für die Aufsicht — selbst oder klar eingeteilt und kontrolliert.",
-      "Räum hinterher auf: Ort sauber & müllfrei, Material ordentlich zurück in den Teamer-Raum. Kann delegiert werden."
-    ]}],
-    details:[{items:[
-      "„Verantwortlich“ heißt nicht „alles allein machen“: teile Aufgaben mit der 2. Person — aber klar absprechen und vereinbaren.",
-      "2. verantwortliche Person: unterstützt bei allen Punkten und übernimmt in gemeinsamer Absprache Verantwortung."
-    ]}]
+    /* spec/20 (Inhalts-Rework): Vorbereiten → Durchführen → Nachbereiten + „gemeinsam verantwortlich“.
+       Marco-Korrektur (Team-Beschluss): keine „1./2. verantwortliche Person“ mehr — alle Verantwortlichen
+       sind gleichrangig. Details in die Sections gefaltet. (Zuständig-Zeile für diese Rolle ausgeblendet,
+       siehe openRole: alle sind mal dran, feste Zuweisung ergibt hier keinen Sinn.) */
+    core:[
+      {h:"🧩 Vorbereiten", items:[
+        "Plane deinen Programmpunkt vollständig: Material besorgen, Team-Kommunikation, Auf-/Abbau bzw. örtliche Vorbereitung, Durchführung."
+      ]},
+      {h:"🎤 Durchführen", items:[
+        "Moderiere/erkläre den Programmpunkt für die Gruppe (wenn nicht anders abgesprochen).",
+        "Sorge für die Aufsicht — selbst oder klar eingeteilt und kontrolliert."
+      ]},
+      {h:"🧹 Nachbereiten", items:[
+        "Räum hinterher auf: Ort sauber & müllfrei, Material ordentlich zurück in den Teamer-Raum. Kann delegiert werden."
+      ]},
+      {h:"🤝 Gemeinsam verantwortlich", items:[
+        "„Verantwortlich“ heißt nicht „alles allein machen“: Aufgaben klar untereinander aufteilen und absprechen.",
+        "Alle Verantwortlichen sind gleichrangig — ihr tragt die Verantwortung gemeinsam und stimmt euch ab."
+      ]}
+    ]
   },
   {
     id:"zimmer", icon:"🛏️", title:"Zimmer­zuständigkeit", who:"wird möglichst am 1. Abend festgelegt", color:"#F472B6",
-    core:[{items:[
-      "Kenne die Besonderheiten deiner Kids (Medikamente, Nichtschwimmer …) — kann übertragen werden.",
-      "Achte auf richtige Betreuung beim Baden & Einhaltung der Medikamenteneinnahme. Kann auch eine Medi-zuständige Person für alle übernehmen — am 1. Abend absprechen!",
-      "Erinnere deine Kids an Hygiene (Duschen, Aufräumen) und an die Nachtruhe.",
-      "Sei Ansprechperson bei Problemen (oder die Person aus dem Team mit dem besten Bezug)."
-    ]}],
-    details:[{items:[
-      "Eigene Notizen zu deinen Kids (z. B. „braucht Asthmaspray bei Ausflügen“) kannst du unten ins private Notizfeld schreiben — bleibt nur auf deinem Gerät."
-    ]}]
+    /* spec/20 (Inhalts-Rework): Inhalt des „🧭 Worauf muss ich achten?“-Akkordeons in Icon-Sections
+       gegliedert (rendert als Zwischenüberschriften IN dem Akkordeon, keine verschachtelten Akkordeons).
+       Zimmer-Übersicht unten bleibt unangetastet (spec/12). Details-Tipp in Section 2 eingefaltet. */
+    core:[
+      {h:"👦 Deine Kids kennen & betreuen", items:[
+        "Kenne die Besonderheiten deiner Kids (Medikamente, Nichtschwimmer …) — kann übertragen werden.",
+        "Achte auf richtige Betreuung beim Baden & Einhaltung der Medikamenteneinnahme. Kann auch eine Medi-zuständige Person für alle übernehmen — am 1. Abend absprechen!"
+      ]},
+      {h:"🌙 Alltag begleiten & ansprechbar sein", items:[
+        "Erinnere deine Kids an Hygiene (Duschen, Aufräumen) und an die Nachtruhe.",
+        "Sei Ansprechperson bei Problemen (oder die Person aus dem Team mit dem besten Bezug).",
+        "Eigene Notizen zu deinen Kids (z. B. „braucht Asthmaspray bei Ausflügen“) kannst du unten ins private Notizfeld schreiben — bleibt nur auf deinem Gerät."
+      ]}
+    ]
   },
   {
     id:"kueche", icon:"🧑‍🍳", title:"Küchenleitung & Verantwortliche", who:"noch offen", color:"#34d399",
@@ -1111,92 +1264,171 @@ const ROLES = [
   {
     id:"shop", icon:"🛒", title:"Shop & Wertsachen", who:"noch offen", color:"#60A5FA",
     intro:"Keine Bank mehr — zu viel Aufwand. Wir verwahren auf Wunsch nur den Geldbeutel der Kids sicher in einem abschließbaren Raum. Im Shop gibt es, was die Küche gekauft hat. Es geht um Symbolik, nicht um Einnahmen: fair bleiben, höchstens die Ausgaben decken.",
-    core:[{items:[
-      "Geldbeutel/Wertsachen der Kids auf Wunsch sicher im abschließbaren Raum verwahren.",
-      "Shop nach jeder warmen Mahlzeit öffnen (oder wie sinnvoll) — Öffnungszeiten IMMER der Tagesleitung mitteilen.",
-      "Preise selbst festlegen: entweder vom Küchenteam holen (Foto des Kassenzettels → auf den nächsten passenden Betrag aufrunden) oder vernünftig schätzen.",
-      "Fair bleiben: keine Einnahmen maximieren, höchstens die Ausgaben decken — nicht die Kinder abzocken.",
-      "Separaten Shop-Kassenzettel vom Küchenteam aufbewahren; verkaufte Artikel direkt streichen.",
-      "Am vorletzten Tag Einnahmen + Kassenzettel ans Küchenteam/Gesamtleitung zur Abrechnung geben.",
-      "Reste am letzten Abend dem Team zur Verfügung stellen."
-    ]}],
-    details:[{items:[
-      "Seit 2025 keine Wunschmöglichkeit mehr — es gibt nur, was da ist.",
-      "Details zur Verbuchung siehe 💰 Kassen-1×1 und Rolle „Küche“."
-    ]}]
+    /* spec/20 (Inhalts-Rework): Wertsachen → Shop öffnen → Preise/Fairness → Abrechnung. Details
+       eingefaltet; „Seit 2025“ entfernt (jahresneutral, Bedeutung bleibt). */
+    core:[
+      {h:"🔒 Wertsachen verwahren", items:[
+        "Geldbeutel/Wertsachen der Kids auf Wunsch sicher im abschließbaren Raum verwahren."
+      ]},
+      {h:"🛒 Shop öffnen", items:[
+        "Shop nach jeder warmen Mahlzeit öffnen (oder wie sinnvoll) — Öffnungszeiten IMMER der Tagesleitung mitteilen.",
+        "Keine Wunschmöglichkeit mehr — es gibt nur, was da ist."
+      ]},
+      {h:"🏷️ Preise & Fairness", items:[
+        "Preise selbst festlegen: entweder vom Küchenteam holen (Foto des Kassenzettels → auf den nächsten passenden Betrag aufrunden) oder vernünftig schätzen.",
+        "Fair bleiben: keine Einnahmen maximieren, höchstens die Ausgaben decken — nicht die Kinder abzocken."
+      ]},
+      {h:"🧾 Abrechnung & Abschluss", items:[
+        "Separaten Shop-Kassenzettel vom Küchenteam aufbewahren; verkaufte Artikel direkt streichen.",
+        "Am vorletzten Tag Einnahmen + Kassenzettel ans Küchenteam/Gesamtleitung zur Abrechnung geben.",
+        "Reste am letzten Abend dem Team zur Verfügung stellen.",
+        "Details zur Verbuchung siehe 💰 Kassen-1×1 und Rolle „Küche“."
+      ]}
+    ]
   },
   {
-    id:"ausflug", icon:"🚌", title:"Ausflugs- & Reiseverantwortliche", who:"noch offen", color:"#A78BFA",
-    core:[{items:[
-      "Bei Ausflügen sicherstellen: jemand hat den TN-Ordner (Versicherungskarten, Impfpässe …) UND das Erste-Hilfe-Set dabei.",
-      "Reiseverbindungen checken (An- & Abreise sowie Ausflug: Bus / Bahn / Fußweg).",
-      "Fahrkarten vorab organisieren, falls nötig.",
-      "Ausflugskasse verwalten & Eintritte / Zugfahrten bezahlen.",
-      "Belege sammeln & einzeln ins Kassenbuch kleben (siehe 💰 Kassen-1×1).",
-      "Am Ende Belege + Restbetrag an die Freizeitleitung übergeben — vorher Kasse prüfen!"
-    ]}],
-    details:[{items:[
-      "Bei größeren Gruppen die Buslinien vorab informieren.",
-      "Beim Check-In: sobald alle da sind, vom Check-In-Team melden lassen, wie viele VVS-Gruppenkarten noch zu kaufen sind."
-    ]}]
+    id:"ausflug", icon:"🚌", title:"Ausflugs- & Reise-Team", who:"noch offen", color:"#A78BFA",
+    /* spec/20 (Inhalts-Rework): Vorbereiten → Unterwegs-Sicherheit → Kasse & Belege. Details
+       eingefaltet. Titel gekürzt (Notiz Marco: „…verantwortliche“ lief über den Button-Rand). */
+    core:[
+      {h:"🧭 Vorbereiten", items:[
+        "Reiseverbindungen checken (An- & Abreise sowie Ausflug: Bus / Bahn / Fußweg).",
+        "Fahrkarten vorab organisieren, falls nötig.",
+        "Bei größeren Gruppen die Buslinien vorab informieren.",
+        "Beim Check-In: sobald alle da sind, vom Check-In-Team melden lassen, wie viele VVS-Gruppenkarten noch zu kaufen sind."
+      ]},
+      {h:"🎒 Unterwegs: Sicherheit", items:[
+        "Bei Ausflügen sicherstellen: jemand hat den TN-Ordner (Versicherungskarten, Impfpässe …) UND das Erste-Hilfe-Set dabei."
+      ]},
+      {h:"💶 Kasse & Belege", items:[
+        "Ausflugskasse verwalten & Eintritte / Zugfahrten bezahlen.",
+        "Belege sammeln & einzeln ins Kassenbuch kleben (siehe 💰 Kassen-1×1).",
+        "Am Ende Belege + Restbetrag an die Freizeitleitung übergeben — vorher Kasse prüfen!"
+      ]}
+    ]
   },
   {
     id:"hygiene", icon:"🧹", title:"Hygiene-Beauftragte", who:"noch offen", color:"#22D3EE",
-    core:[{items:[
-      "In den ersten Tagen einen Reinigungsplan erstellen (Toiletten, Badmülleimer, Eingangsbereich … wo sinnvoll) und Kids einteilen.",
-      "Umsetzung sicherstellen: Kids zur vereinbarten Zeit schicken und kontrollieren.",
-      "Dafür sorgen, dass Kids & Teamer ihren Dreck wieder wegmachen.",
-      "Badmülleimer regelmäßig leeren (kann delegiert werden); Papier-Handtücher & Seife bei Bedarf auffüllen.",
-      "Hygieneartikel-Bedarf (Handseife, Putzmittel …) ans Einkaufsteam melden.",
-      "Reinigungsplan (nach Hausordnung) für den Abreisetag erstellen und die Umsetzung managen."
-    ]}],
-    details:[{h:"Optional", items:[
-      "Zimmer-Sauberkeits-Wettbewerb organisieren.",
-      "Witzige Sanktionen bei Verstößen gegen die Hygiene-Regeln."
-    ]}]
+    /* spec/20 (Inhalts-Rework, Hygiene-Input Marco 20.07.2026): aus Marcos Hygiene-Leitfaden in
+       7 Icon-Sections gegliedert; bisherige App-Punkte (Reinigungsplan, Umsetzung/Kontrolle,
+       Badmülleimer, Material ans Einkauf, Abreisetag) sind eingemerged (kein Doppel). Der
+       Reinigungsplan (Kids-Plakat) steht als kopierbare Vorlage zum Übertragen auf Papierbögen. */
+    core:[
+      {h:"🎓 Vor der Freizeit", items:[
+        "Rechtzeitig vor der Freizeit einen Account auf der Online-Lern-Plattform anlegen und die gesetzliche Online-Hygieneschulung (Belehrung nach Infektionsschutzgesetz) absolvieren."
+      ]},
+      {h:"🛠️ Orga in den ersten Tagen", items:[
+        "Reinigungsplan finalisieren: Bereiche (WCs, Bäder, Flure, Eingang) festlegen und Kinder/Teamer in feste Dienste einteilen.",
+        "Material-Check: genug rote Lappen (WC) und blaue Lappen (Zimmer)? Reichen Seife & Papierhandtücher? Fehlendes sofort ans Einkaufsteam melden.",
+        "Kurz-Briefing der Kids: Hausschuhpflicht, Lüften, Geschirr-Regel.",
+        "Umsetzung sicherstellen: Kids zur vereinbarten Zeit schicken und kontrollieren; dafür sorgen, dass Kids & Teamer ihren Dreck wieder wegmachen."
+      ]},
+      {h:"🧾 Reinigungsplan-Vorlage (fürs Plakat)", items:[
+        "Übertragt diese Vorlage auf große Papierbögen und hängt sie für alle sichtbar auf. Pro Aufgabe eintragen: Intervall (z. B. 2× tägl., 1× tägl., alle 2 Tage) und Zuständig (Zimmer/Name); Mo–So nach Erledigung abhaken.",
+        "🚿 Bäder & WCs (Schmierinfektionen!):",
+        "🚽 WCs gründlich reinigen & desinfizieren (Klobrille, Spülknopf, Türklinken).",
+        "🧼 Flüssigseife & Papierhandtücher auffüllen.",
+        "🗑️ Badmülleimer leeren & auswaschen.",
+        "🛏️ Zimmer & Gemeinschaftsräume:",
+        "💨 3× täglich Stoßlüften (5–10 Min, Fenster ganz auf).",
+        "🛌 Betten lüften & auf feuchte Sachen kontrollieren.",
+        "🗑️ Zimmermülleimer leeren (Müllsäcke fest verschließen).",
+        "👟 Eingangsbereich/Schuhraum fegen (Hausschuhpflicht kontrollieren).",
+        "🍽️ Küche & Verpflegung (Zimmer-Kontrolle):",
+        "🥤 Trinkflaschen mit heißem Wasser & Spülmittel reinigen.",
+        "🍽️ Geschirr-Rücklauf kontrollieren (keine Essensreste im Zimmer).",
+        "🧺 Wäsche & Reinigungsmaterial:",
+        "🧺 Putzlappen/Wischbezüge bei mind. 60 °C waschen.",
+        "🧣 Trockenraum kontrollieren (keine feuchten Sachen im Schlafsack/Koffer).",
+        "🔐 Putzmittel sicher & kindersicher wegschließen."
+      ]},
+      {h:"⚠️ Haus-Hygiene-Regeln", items:[
+        "1️⃣ Lüften: mind. 3× täglich 5–10 Min stoßlüften (Fenster ganz auf, nicht kippen); Betten lüften, feuchte Sachen nur auf die Leine.",
+        "2️⃣ Bad & WC (kritisch für Schmierinfektionen): täglich gründlich reinigen & desinfizieren (Klobrille, Spülknopf, Waschbecken, Türklinken); eigene Lappen nur fürs WC (Rot = WC, Blau = Zimmer); Seife & Papierhandtücher immer aufgefüllt.",
+        "3️⃣ Schuhe aus: im Haus Hausschuhe/Socken; Straßen-, Wander- & nasse Schuhe bleiben im Eingangs-/Schuhraum.",
+        "4️⃣ Müll: Eimer in Zimmern, Bädern & Gemeinschaftsräumen täglich leeren; Säcke gut verschließen und sofort in die Außencontainer; Eimer regelmäßig auswaschen.",
+        "5️⃣ Reinigungsmaterial: Lappen nach Gebrauch zum Trocknen aufhängen (nie nass im Eimer); Lappen/Bezüge regelmäßig bei mind. 60 °C waschen; Chemie kindersicher wegschließen.",
+        "6️⃣ Wäsche trocken halten: nasse Kleidung/Handtücher sofort in den Trockenraum/auf die Leine; keine feuchten Sachen im Schlafsack oder geschlossenen Koffer.",
+        "7️⃣ Geschirr & Trinkflaschen: Flaschen täglich mit heißem Wasser & Spülmittel reinigen; benutztes Geschirr sofort in die Spülküche — keine Essensreste im Zimmer.",
+        "8️⃣ Barriere im Krankheitsfall: bei Erbrechen/Fieber/Durchfall sofort ins Isolier-/Krankenzimmer (Details im Krankheitsfall-Protokoll unten)."
+      ]},
+      {h:"🚨 Krankheitsfall: Barriere-Protokoll", items:[
+        "Tritt ein Krankheitsfall auf (Magen-Darm/Fieber), sofort diese Kette aktivieren:",
+        "Isolierung: erkrankte Person sofort ins vorbereitete Isolier-/Krankenzimmer bringen.",
+        "Eigenes WC: ein separates Klo ausschließlich für diese Person reservieren und beschildern.",
+        "Akut-Desinfektion: nach jeder Klo-Nutzung durch die erkrankte Person vollständige Flächendesinfektion durch ein Teammitglied.",
+        "Essen: Mahlzeiten aufs Zimmer bringen (Einweggeschirr nutzen oder danach separat spülen/kochen)."
+      ]},
+      {h:"🎉 Motivation & Praxis-Tipps", items:[
+        "„Goldener Putzeimer“-Award: täglicher Zimmer-Sauberkeits-Wettbewerb; das sauberste Zimmer bekommt abends einen Wanderpokal (oder die erste Reihe beim Essen/Kinoabend).",
+        "Kreative Sanktionen bei Verstößen (z. B. Straßenschuhe im Haus, Geschirr im Zimmer): Song vor der Gruppe zum Thema (z. B. „mit Hausschuhen im Haus …“) · beim nächsten Essen den Nachtisch servieren · als „Müll-Ritter“ 10 Min den Hof von Stöcken befreien."
+      ]},
+      {h:"🧹 Abreisetag", items:[
+        "Am vorletzten Tag einen separaten „Übergabe-Putzplan“ nach der Hausordnung des Gruppenhauses erstellen und die Umsetzung managen.",
+        "Kids in feste Stationen einteilen. Erst nach Abnahme durch das Hygiene-Team dürfen die Kids zum Abschlussspiel."
+      ]}
+    ]
   },
   {
     id:"video", icon:"🎬", title:"Video-Team", who:"noch offen", color:"#FB7185",
     intro:"Kein klassisches Marketing dieses Jahr. Ziel: ein toller Erinnerungsfilm (ca. 2 × 20 Min — Diashow + zusammengeschnittene Videos). Eine ansprechende 1–2-minütige Kurzversion für die Werbung im Folgejahr wäre ein super Bonus.",
-    core:[{items:[
-      "Genug schöne Fotos & Videos von Aktivitäten und Erlebnissen sammeln (alle MA helfen mit).",
-      "⚠️ Nur Bilder/Videos von TN verwenden, von denen ALLE Fotorechte vorliegen. Vor Verwendung Bild UND Hintergrund prüfen — niemand in dämlicher Position, keine beleidigenden Gesten.",
-      "Alle MA packen ihre Bilder & Videos per Link in die dafür vorgesehene Notion-Datenbank im gemeinsamen Workspace.",
-      "Das Video-Team zieht sich die Daten dort und erstellt nach der Freizeit den Film."
-    ]}],
-    details:[{items:[
-      "Infos & Tipps bei Bedarf bei Marco holen.",
-      "1–2-Min-Kurzversion für die Werbung nächstes Jahr wäre ein super Bonus.",
-      "→ in Notion: Video-Bibliothek & Linkplattform fürs Nachtreffen."
-    ]}]
+    /* spec/20 (Inhalts-Rework): Sammeln → Fotorechte → Film. Details eingefaltet; „1–2-Min-Kurzversion“
+       stand doppelt (schon im Intro) → entdoppelt. Name „Marco“ → „Freizeitleitung“ (jahres-/namensneutral). */
+    core:[
+      {h:"📸 Sammeln", items:[
+        "Genug schöne Fotos & Videos von Aktivitäten und Erlebnissen sammeln (alle MA helfen mit).",
+        "Alle MA packen ihre Bilder & Videos per Link in die dafür vorgesehene Notion-Datenbank im gemeinsamen Workspace.",
+        "→ in Notion: Video-Bibliothek & Linkplattform fürs Nachtreffen."
+      ]},
+      {h:"⚠️ Fotorechte beachten", items:[
+        "Nur Bilder/Videos von TN verwenden, von denen ALLE Fotorechte vorliegen. Vor Verwendung Bild UND Hintergrund prüfen — niemand in dämlicher Position, keine beleidigenden Gesten."
+      ]},
+      {h:"🎬 Film erstellen", items:[
+        "Das Video-Team zieht sich die Daten dort und erstellt nach der Freizeit den Film.",
+        "Infos & Tipps bei Bedarf bei der Freizeitleitung holen."
+      ]}
+    ]
   },
   {
     id:"checkin", icon:"📥", title:"Check-In-Team", who:"noch offen · 6 Personen", color:"#FACC15",
     intro:"Aufteilung: Check-In (2) · Check-In Medis (2) · Koffer verladen (2).",
-    core:[{h:"📥 Check-In (2 Personen)", items:[
-      "Kinder/Jugendliche herzlich begrüßen & auf der TN-Liste abhaken.",
-      "VVS-Fahrkarte da? Nein → Haken für Fahrkartenkauf setzen. Ja → daran erinnern, sie im Zug griffbereit zu haben.",
-      "Kopien (Impfpass, Versicherungskarte, Ausweis) einheften & in der TN-Liste abhaken.",
-      "Wichtige Eltern-Infos in der TN-Liste ergänzen (Medikamente, Krankheit …).",
-      "Kind zum Verlade-Team (beim Anhänger) schicken — Tagesrucksack behalten!",
-      "Wenn alle eingecheckt sind: den Ausflugsbeauftragten melden, wie viele VVS-Gruppenkarten noch zu kaufen sind.",
-      "Während der Zugfahrt: Kids auf die Zimmer verteilen (im Zimmerplan festhalten)."
-    ]}],
-    details:[{items:[
-      "Dieses Jahr ist das Haus sehr voll → bei der Zimmerverteilung bleibt vermutlich wenig Wahl; das Prinzip gilt aber.",
-      "Check-In Medis (2 Personen) und Koffer verladen (2 Personen): die genauen Aufgaben klären wir kurz vor dem eigentlichen Check-In.",
-      "→ in Notion: An- & Abreise + TN-Daten für Check-In."
-    ]}]
+    /* spec/20 (Inhalts-Rework): den langen Check-In-Block in Phasen gegliedert (Erfassen →
+       Weiterleiten → Zugfahrt) + eigene Section für die weiteren Rollen. Details eingefaltet. */
+    core:[
+      {h:"📥 Check-In (2 Personen): Begrüßen & erfassen", items:[
+        "Kinder/Jugendliche herzlich begrüßen & auf der TN-Liste abhaken.",
+        "VVS-Fahrkarte da? Nein → Haken für Fahrkartenkauf setzen. Ja → daran erinnern, sie im Zug griffbereit zu haben.",
+        "Kopien (Impfpass, Versicherungskarte, Ausweis) einheften & in der TN-Liste abhaken.",
+        "Wichtige Eltern-Infos in der TN-Liste ergänzen (Medikamente, Krankheit …)."
+      ]},
+      {h:"🧳 Weiterleiten", items:[
+        "Kind zum Verlade-Team (beim Anhänger) schicken — Tagesrucksack behalten!",
+        "Wenn alle eingecheckt sind: den Ausflugsbeauftragten melden, wie viele VVS-Gruppenkarten noch zu kaufen sind."
+      ]},
+      {h:"🚆 Während der Zugfahrt", items:[
+        "Kids auf die Zimmer verteilen (im Zimmerplan festhalten).",
+        "Ist das Haus sehr voll, bleibt bei der Zimmerverteilung vermutlich wenig Wahl — das Prinzip gilt aber."
+      ]},
+      {h:"👥 Weitere Rollen", items:[
+        "Check-In Medis (2 Personen) und Koffer verladen (2 Personen): die genauen Aufgaben klären wir kurz vor dem eigentlichen Check-In.",
+        "→ in Notion: An- & Abreise + TN-Daten für Check-In."
+      ]}
+    ]
   },
   {
     id:"kasse", icon:"💰", title:"Kassen-1×1", who:"gilt für Küche · Ausflug · Shop", color:"#F59E0B", info:true,
     intro:"Die gemeinsamen Regeln für alle Kassen. So bleibt die Buchhaltung übersichtlich und korrekt.",
-    core:[{items:[
-      "Belege einzeln (mit Klebestift!) aufkleben: Ein Beleg pro Seite/Kassenformular. Alle Kassenzettel und Fahrkarten/Zugtickets unbedingt aufheben — ohne Beleg/Ticket bekommen wir das Geld nicht zurück!",
-      "Ausnahme Fahrten: mehrere Gruppentickets vom selben Tag dürfen zusammen — Gesamtsumme extra aufführen.",
-      "Kasse prüfen: erhaltener Betrag − Ausgaben (eingeklebte Belege) = Restbetrag im Geldbeutel.",
-      "Am Ende: gesammelte Belege + Restbetrag an die Freizeit-/Gesamtleitung übergeben."
-    ]}]
+    /* spec/20 (Inhalts-Rework): in Belege → Kasse prüfen/übergeben gegliedert. */
+    core:[
+      {h:"🧾 Belege aufkleben", items:[
+        "Belege einzeln (mit Klebestift!) aufkleben: Ein Beleg pro Seite/Kassenformular. Alle Kassenzettel und Fahrkarten/Zugtickets unbedingt aufheben — ohne Beleg/Ticket bekommen wir das Geld nicht zurück!",
+        "Ausnahme Fahrten: mehrere Gruppentickets vom selben Tag dürfen zusammen — Gesamtsumme extra aufführen."
+      ]},
+      {h:"🧮 Kasse prüfen & übergeben", items:[
+        "Kasse prüfen: erhaltener Betrag − Ausgaben (eingeklebte Belege) = Restbetrag im Geldbeutel.",
+        "Am Ende: gesammelte Belege + Restbetrag an die Freizeit-/Gesamtleitung übergeben."
+      ]}
+    ]
   }
 ];
 
@@ -1210,11 +1442,22 @@ const MA_FLAGS = [
   {id:'kritisch', icon:'🆘', label:'Kritisch'},
   {id:'medis', icon:'💊', label:'Medis'}
 ];
+/* Stufe 17 (spec/16 §4d): Reihenfolge ⚠️ Besonderheiten -> 💊 Medis -> 🚙 Abreise -> 📵 Handy ->
+   🏊✅ Rettungsschwimmer (ans Ende). desc auch bei den neuen Einträgen mitgepflegt, falls später
+   eine Legende ergänzt wird (aktuell hat MA-Infos noch keine, siehe spec/16 §4d "kein Muss"). */
 const MA_COUNTERS = [
+  {id:'flags', icon:'⚠️', label:'Besonderheiten', desc:'MA mit eigenen Besonderheiten/Flags (siehe Kartendetails).',
+    match:p=>(p.flags||[]).length>0},
+  {id:'medis', icon:'💊', label:'Medis', desc:'MA mit dem Flag "Medis" (siehe Kartendetails).',
+    match:p=>(p.flags||[]).includes('medis')},
+  {id:'abreise', icon:'🚙', label:'Frühere Abreise', desc:'MA, die vor Ende der Freizeit abreisen.',
+    match:p=>!!p.abreise_frueher},
+  {id:'handy', icon:'📵', label:'Handy nachts', desc:'Eltern verlangen nächtliche Handy-Abgabe.',
+    match:p=>p.handyregel===true},
   {id:'rettung', icon:'🏊✅', label:'Rettungsschwimmer', desc:'Traut sich Badeaufsicht IM Wasser zu (Team-Einschätzung).',
     match:p=>p.rettung_see===true},
-  {id:'flags', icon:'⚠️', label:'Besonderheiten', desc:'MA mit eigenen Besonderheiten/Flags (siehe Kartendetails).',
-    match:p=>(p.flags||[]).length>0}
+  {id:'abzeichen', icon:'🏅', label:'Rettungsschwimmerabzeichen', desc:'Besitzt das Rettungsschwimmerabzeichen (Silber) — formaler Nachweis, unabhängig von der Team-Einschätzung.',
+    match:p=>!!p.rettungsabzeichen}
 ];
 let maFilter = null;
 
@@ -1305,11 +1548,23 @@ function rettungBadgeHTML(p){
     : 'Rettungsschwimmer: unbekannt (tippen für Ja)';
   return `<button type="button" class="ma-swim-btn state-${state}" onclick="event.stopPropagation();cycleRettung('${p.id}')" aria-label="${label}">🏊${icon}</button>`;
 }
+// Stufe 15 (spec/13): formales Abzeichen, unabhängig von der Team-Einschätzung rettungBadgeHTML() oben.
+// Statisches Badge (kein Toggle auf der Karte, Ändern nur im Detail-Sheet).
+function rettungsabzeichenBadgeHTML(p){
+  return p.rettungsabzeichen ? `<span class="tn-badge">🏅 Silber</span>` : '';
+}
 function maFlagBadgesHTML(p){
   return (p.flags||[]).map(f=>{
     const def = MA_FLAGS.find(x=>x.id===f);
     return def ? `<span class="tn-badge warn">${def.icon} ${esc(def.label)}</span>` : '';
   }).join('');
+}
+// Stufe 17 (spec/16 §4c): 📵/🚙 waren bisher gespeichert, aber nirgends auf der Karte sichtbar.
+function maExtraBadgesHTML(p){
+  let out = '';
+  if(p.handyregel===true) out += `<span class="tn-badge warn">📵 Handy nachts</span>`;
+  if(p.abreise_frueher) out += `<span class="tn-badge warn">🚙 ${esc(p.abreise_tag||'')}</span>`;
+  return out;
 }
 function cycleRettung(id){
   const d = getData();
@@ -1337,8 +1592,8 @@ function renderStaffList(){
   if(!list.length){ el.innerHTML = `<div class="staff-empty">Keine Treffer für diesen Filter.</div>`; return; }
   el.innerHTML = list.map(p=>`
     <div class="tn-card" onclick="openStaffMenu('${p.id}')">
-      <div class="name">${staffChip(p.id)}${rettungBadgeHTML(p)}</div>
-      <div class="flags">${maFlagBadgesHTML(p)}</div>
+      <div class="name">${staffChip(p.id)}${rettungBadgeHTML(p)}${rettungsabzeichenBadgeHTML(p)}</div>
+      <div class="flags">${maFlagBadgesHTML(p)}${maExtraBadgesHTML(p)}</div>
       ${p.details?`<div class="details">${esc(p.details)}</div>`:''}
     </div>`).join('');
 }
@@ -1347,7 +1602,7 @@ function addStaff(){
   const name = input.value.trim();
   if(!name) return;
   const d = getData();
-  d.staff.push({ id:uid(), name, farbe:nextStaffColor(), rettung_see:null, handyregel:"", details:"", flags:[] });
+  d.staff.push({ id:uid(), name, farbe:nextStaffColor(), rettung_see:null, handyregel:"", details:"", flags:[], abreise_frueher:false, abreise_tag:"", rettungsabzeichen:false });
   saveData(d);
   input.value = "";
   renderStaffList();
@@ -1388,6 +1643,12 @@ function maFlagChipsHTML(activeFlags){
         onchange="this.parentElement.classList.toggle('on', this.checked)">${c.icon} ${esc(c.label)}</label>`;
   }).join('') + `</div>`;
 }
+// Stufe 17 (spec/16 §4b): Sichtbarkeit des Freitextfelds an-/ausschalten, analog tnAllergienModeToggle.
+function mfAbreiseToggle(input){
+  input.parentElement.classList.toggle('on', input.checked);
+  const t = document.getElementById('mfAbreiseTag');
+  if(t) t.style.display = input.checked ? '' : 'none';
+}
 function openStaffDetailSheet(id){
   const d = getData();
   const p = d.staff.find(s=>s.id===id); if(!p) return;
@@ -1399,7 +1660,11 @@ function openStaffDetailSheet(id){
         <option value=""${rVal===''?' selected':''}>– unbekannt –</option>
         <option value="ja"${rVal==='ja'?' selected':''}>Ja</option>
         <option value="nein"${rVal==='nein'?' selected':''}>Nein</option>
-      </select></div>
+      </select>
+      <label class="toggle-chip${p.rettungsabzeichen?' on':''}" style="margin-top:8px">
+        <input type="checkbox" id="mfRettungsabzeichen" ${p.rettungsabzeichen?'checked':''} style="display:none"
+          onchange="this.parentElement.classList.toggle('on', this.checked)">🏅 Rettungsschwimmerabzeichen (Silber)</label>
+    </div>
     <div class="form-field"><label>Flags</label>${maFlagChipsHTML(flags)}</div>
     <div class="form-field"><label>Details</label>
       <textarea id="mfDetails" placeholder="z. B. Allergie, Details siehe Personalunterlagen …">${esc(p.details||'')}</textarea></div>
@@ -1407,6 +1672,11 @@ function openStaffDetailSheet(id){
       <label class="toggle-chip${p.handyregel===true?' on':''}">
         <input type="checkbox" id="mfHandyNacht" ${p.handyregel===true?'checked':''} style="display:none"
           onchange="this.parentElement.classList.toggle('on', this.checked)">📱➡️ Eltern verlangen Abgabe in der Nacht</label></div>
+    <div class="form-field"><label>🚙 Frühere Abreise</label>
+      <label class="toggle-chip${p.abreise_frueher?' on':''}">
+        <input type="checkbox" id="mfAbreiseFrueher" ${p.abreise_frueher?'checked':''} style="display:none"
+          onchange="mfAbreiseToggle(this)">🚙 Reist früher ab</label>
+      <input id="mfAbreiseTag" type="text" placeholder="z. B. Mi, 3. Tag / 23.7." value="${esc(p.abreise_tag||'')}" style="margin-top:8px;${p.abreise_frueher?'':'display:none'}"></div>
     <div class="form-actions">
       <button type="button" class="form-save" onclick="saveStaffDetail('${id}')">Speichern</button>
     </div>`;
@@ -1417,9 +1687,12 @@ function saveStaffDetail(id){
   const p = d.staff.find(s=>s.id===id); if(!p) return;
   const rVal = document.getElementById('mfRettung').value;
   p.rettung_see = rVal==='ja' ? true : rVal==='nein' ? false : null;
+  p.rettungsabzeichen = document.getElementById('mfRettungsabzeichen').checked;
   p.flags = Array.from(document.querySelectorAll('#sheetBody .toggle-chip input:checked')).map(i=>i.value);
   p.details = document.getElementById('mfDetails').value.trim();
   p.handyregel = document.getElementById('mfHandyNacht').checked;
+  p.abreise_frueher = document.getElementById('mfAbreiseFrueher').checked;
+  p.abreise_tag = p.abreise_frueher ? document.getElementById('mfAbreiseTag').value.trim() : "";
   saveData(d);
   closeSheet();
   renderMaCounters();
@@ -1491,6 +1764,8 @@ function staffMenuDeleteConfirm(id){
     if(Array.isArray(d.ansprech[k])) d.ansprech[k] = d.ansprech[k].filter(sid=>sid!==id);
     else if(d.ansprech[k]===id) d.ansprech[k] = null;
   });
+  // Löschkaskade Stufe 18 (spec/15): Person auch aus allen Gruppen-Teamer-Zuweisungen entfernen.
+  d.gruppen.forEach(g=>{ g.teamerIds = (g.teamerIds||[]).filter(sid=>sid!==id); });
   saveData(d);
   closeSheet();
   renderStaffList();
@@ -1524,6 +1799,7 @@ function confirmDeleteAllStaffDo(){
   d.staff = [];
   d.zust = {};
   Object.keys(d.ansprech).forEach(k=>{ d.ansprech[k] = Array.isArray(d.ansprech[k]) ? [] : null; });
+  d.gruppen.forEach(g=>{ g.teamerIds = []; }); // Löschkaskade Stufe 18 (spec/15)
   saveData(d);
   closeSheet();
   renderStaffList();
@@ -1536,8 +1812,13 @@ function confirmDeleteAllStaffDo(){
 const TN_COUNTERS = [
   {id:'kritisch', icon:'🆘', label:'Kritisch', desc:'Lebensbedrohliche Besonderheit (z. B. Anaphylaxie, Epilepsie) — vom Team manuell markiert.',
     match:t=>(t.flags||[]).includes('kritisch')},
-  {id:'medis', icon:'💊', label:'Medis', desc:'Nimmt regelmäßig Medikamente — siehe Medikamenten-Plan unten.',
-    match:t=>(t.flags||[]).includes('medis')},
+  {id:'medis', icon:'💊', label:'Medis', desc:'Nimmt regelmäßig Medikamente — siehe Medikamenten-Plan.',
+    /* Stufe 16 (spec/14 §3): ergibt sich automatisch aus vorhandenen Medi-Einträgen (statt manuellem
+       Flag) + Legacy-Flag aus Bestandsdaten, damit keine Info verloren geht. getData()-Aufruf im
+       match ist minimaler Overhead, akzeptiert (siehe Spec). */
+    match:t=> getData().medis.some(m=>m.tnId===t.id) || (t.flags||[]).includes('medis')},
+  {id:'allergien', icon:'🥜', label:'Allergie', desc:'Hat eine oder mehrere Allergien — Details im TN-Formular.',
+    match:t=>!!(t.allergien && t.allergien.trim())},
   {id:'schwimm', icon:'⚠️🏊', label:'Schwimmen/Baden', desc:'Schwimmfähigkeit nicht „sicher" und/oder Badeerlaubnis eingeschränkt.',
     match:t=>(t.schwimm && t.schwimm!=='sicher') || (t.bade && t.bade!=='alles')},
   {id:'zecken_nein', icon:'🚫🕷️', label:'Zecken', desc:'Zecken-Entfernung durch das Team NICHT erlaubt — Eltern sofort kontaktieren (Info an Eltern gilt aber immer).',
@@ -1574,7 +1855,52 @@ const TN_ANSPRECH_CATS = [];
 
 let tnFilter = null;
 let tnSearchTerm = "";
+/* Stufe 17 (spec/16 §5a): aktiver Top-Card-Filter (null/'all'/'w'/'m'/'d'/'ohne'). Gegenseitig
+   exklusiv mit den <details>-Akkordeons in #tnAccordions (siehe setupTnAccordions/§5c). */
+let tnStatsFilter = null;
 let tnPendingFilter = null; /* für Deep-Links aus Erste Hilfe (Stufe 7): einmaliger Vorbelegungswert für tnFilter */
+/* Stufe 16 (spec/14 §4): In-Memory-Draft für die Medikamente-Mini-Liste im TN-Formular. Bei Neu-TN
+   leer, bei Bestands-TN aus d.medis vorbefüllt; wird erst in saveTn() dauerhaft nach d.medis geschrieben. */
+let tnMediDraft = [];
+let tnMediDraftEditIdx = null;
+
+/* ---- Top-Cards (Stufe 16, spec/14 §2) ---- */
+function renderTnStats(){
+  const el = document.getElementById('tnStats');
+  if(!el) return;
+  const d = getData();
+  const nGesamt = d.tn.length;
+  const nW = d.tn.filter(t=>t.geschlecht==='w').length;
+  const nM = d.tn.filter(t=>t.geschlecht==='m').length;
+  const nD = d.tn.filter(t=>t.geschlecht==='d').length;
+  const nOhne = d.tn.filter(t=>!t.geschlecht).length;
+  // Stufe 17 (spec/16 §5a): jede Karte ist jetzt ein Filter-Button (id ∈ all/w/m/d/ohne).
+  const cards = [
+    {id:'all', ic:'👥', num:nGesamt, lbl:'TN gesamt', show:true},
+    {id:'w', ic:'♀️', num:nW, lbl:'Mädchen', show:true},
+    {id:'m', ic:'♂️', num:nM, lbl:'Jungen', show:true},
+    {id:'d', ic:'⚧️', num:nD, lbl:'Divers', show:nD>0},
+    {id:'ohne', ic:'❓', num:nOhne, lbl:'ohne Angabe', show:nOhne>0}
+  ];
+  el.innerHTML = cards.filter(c=>c.show).map(c=>
+    `<button type="button" class="tn-stat${tnStatsFilter===c.id?' active':''}" onclick="toggleTnStatsFilter('${c.id}')">
+      <div class="ic">${c.ic}</div><div class="num">${c.num}</div><div class="lbl">${esc(c.lbl)}</div></button>`
+  ).join('');
+}
+/* Stufe 17 (spec/16 §5a+§5c): Klick auf eine Top-Card -> Liste darunter (#tnStatsList) auf-/zuklappen.
+   Gleicher Klick = schließen, anderer Klick = umschalten. Öffnen schließt (Single-open, gegenseitig
+   exklusiv) alle <details> in #tnAccordions — der umgekehrte Fall steckt im toggle-Listener von
+   setupTnAccordions(). */
+function toggleTnStatsFilter(id){
+  tnStatsFilter = (tnStatsFilter===id) ? null : id;
+  if(tnStatsFilter!==null){
+    const group = document.getElementById('tnAccordions');
+    if(group) group.querySelectorAll('details').forEach(det=>{ det.open = false; });
+  }
+  renderTnStats();
+  renderTnStatsList();
+  updateFloatingCollapse();
+}
 
 /* ---- Mini-Dashboard (Counter-Chips) ---- */
 function renderTnCounters(){
@@ -1592,7 +1918,38 @@ function renderTnCounters(){
 function toggleTnFilter(id){
   tnFilter = (tnFilter===id) ? null : id;
   renderTnCounters();
-  renderTnList();
+  renderTnBesonderheitenBody();
+  updateFloatingCollapse();
+}
+/* Stufe 16 (spec/14 §5): Inhalt des Besonderheiten-Akkordeons je nach tnFilter — bei 'medis' wird
+   statt einer gefilterten Liste der Medikamenten-Plan gezeigt (ersetzt den früheren eigenen Akkordeon). */
+function renderTnBesonderheitenBody(){
+  const el = document.getElementById('tnBesonderheitenBody');
+  if(!el) return;
+  if(tnFilter === 'medis'){
+    el.innerHTML = `
+      <div id="mediSummary" style="font-weight:700;margin-bottom:6px">💊 Medikamenten-Plan</div>
+      <div id="mediList"></div>
+      <button type="button" class="tn-add-btn" onclick="openMediSheet()">+ Medikamenten-Eintrag</button>`;
+    renderMediList();
+  } else if(tnFilter){
+    el.innerHTML = `<div id="tnFilteredList"></div>`;
+    renderTnFilteredList();
+  } else {
+    el.innerHTML = '';
+  }
+}
+function renderTnFilteredList(){
+  const el = document.getElementById('tnFilteredList');
+  if(!el) return;
+  const d = getData();
+  const c = TN_COUNTERS.find(x=>x.id===tnFilter);
+  let list = c ? d.tn.filter(c.match) : [];
+  list = [...list].sort((a,b)=>a.name.localeCompare(b.name,'de'));
+  if(!list.length){ el.innerHTML = `<div class="tn-empty">Keine Treffer.</div>`; return; }
+  // spec/18: Besonderheiten direkt in der Dashboard-Filterliste zeigen (z. B. Allergie-Text),
+  // damit man nicht jede Person einzeln öffnen muss.
+  el.innerHTML = list.map(t=>tnCardHTML(t, {inline:true})).join('');
 }
 function openTnLegend(){
   openSheet('Legende', `<div class="legend-list">` + TN_COUNTERS.map(c=>
@@ -1743,10 +2100,16 @@ function deleteMediConfirm(id){
 }
 
 /* ---- TN-Liste ---- */
-function onTnSearch(v){ tnSearchTerm = v; renderTnList(); }
+function onTnSearch(v){ tnSearchTerm = v; renderTnStatsListBody(); }
 function tnBadgesHTML(t){
   let out = '';
-  TN_COUNTERS.forEach(c=>{ if(c.id!=='schwimm' && c.match(t)) out += `<span class="tn-badge warn">${c.icon} ${esc(c.label)}</span>`; });
+  TN_COUNTERS.forEach(c=>{
+    if(c.id==='schwimm' || !c.match(t)) return;
+    // spec/18: Allergie-Badge zeigt den eingetragenen Text (z. B. „🥜 Nüsse") statt nur „Allergie".
+    let label = c.label;
+    if(c.id==='allergien' && t.allergien && t.allergien.trim()) label = t.allergien.trim();
+    out += `<span class="tn-badge warn">${c.icon} ${esc(label)}</span>`;
+  });
   if((t.schwimm && t.schwimm!=='sicher') || (t.bade && t.bade!=='alles')){
     const sw = {sicher:'sicher',anfaenger:'Anfänger',nicht:'Nichtschwimmer'}[t.schwimm] || null;
     const ba = {alles:'überall',nur_nsb:'nur NSB',verbot:'Badeverbot'}[t.bade] || null;
@@ -1755,25 +2118,104 @@ function tnBadgesHTML(t){
   }
   return out;
 }
-function renderTnList(){
-  const el = document.getElementById('tnList');
+/* spec/18: nur die „echten" Flag-Badges fürs Info-Blatt — ohne allergien/medis/schwimm,
+   die dort als eigene, ausführliche Zeilen erscheinen (Text/Notiz/Uhrzeit). */
+function tnFlagBadgesOnly(t){
+  let out = '';
+  TN_COUNTERS.forEach(c=>{
+    if(['schwimm','medis','allergien'].includes(c.id)) return;
+    if(c.match(t)) out += `<span class="tn-badge warn">${c.icon} ${esc(c.label)}</span>`;
+  });
+  return out;
+}
+/* Stufe 16 (spec/14 §6): TN-Karten im TN-Bereich (Alle TN + gefilterte Besonderheiten-Liste) zeigen
+   nur Name/Zimmer/Alter — Flags/Details/Schwimm-Badges nicht mehr auf der Kartenoberfläche, alles
+   erst beim Öffnen (openTnSheet). tnBadgesHTML() bleibt unverändert für die TN-Karten in der
+   Zimmer-Ansicht (raeumeZustRowsHTML(), Stufe 14) — die ist NICHT Teil dieser Stufe/spec. */
+function tnCardHTML(t, opts){
+  opts = opts || {};
+  // Stufe 17 (spec/16 §1): 🗑️ direkt auf der Karte, stopPropagation verhindert das gleichzeitige
+  // Öffnen des Detail-Sheets (das per Tap auf die restliche Fläche weiterhin funktioniert).
+  // spec/18: Tap öffnet jetzt das read-only Info-Blatt (openTnInfo) statt des Formulars.
+  // opts.inline blendet die Besonderheiten-Badges direkt unter dem Namen ein (Dashboard-Filterliste),
+  // damit z. B. der Allergie-Text ohne Öffnen sichtbar ist.
+  const badges = opts.inline ? tnBadgesHTML(t) : '';
+  return `<div class="tn-card" onclick="openTnInfo('${t.id}')">
+      <div class="tn-card-toprow">
+        <div class="name">${esc(t.name)}${t.zimmer?`<span class="tn-badge">🛏️ ${esc(t.zimmer)}</span>`:''}${t.alter?`<span class="tn-badge">${esc(String(t.alter))} J.</span>`:''}</div>
+        <button type="button" class="team-icon-btn sm" onclick="event.stopPropagation(); deleteTn('${t.id}')" aria-label="Löschen">🗑️</button>
+      </div>
+      ${badges?`<div class="flags" style="margin-top:6px">${badges}</div>`:''}
+    </div>`;
+}
+/* ---- spec/18: read-only Info-Blatt eines TN — zeigt NUR befüllte Angaben ---- */
+function tnInfoRow(icon, label, valueHTML){
+  return `<div class="tninfo-row"><span class="tninfo-ic">${icon}</span>
+    <div class="tninfo-body"><div class="tninfo-label">${esc(label)}</div><div class="tninfo-val">${valueHTML}</div></div></div>`;
+}
+function openTnInfo(id){
+  const d = getData();
+  const t = d.tn.find(x=>x.id===id); if(!t) return;
+  const rows = [];
+  if(t.zimmer) rows.push(tnInfoRow('🛏️','Zimmer', esc(t.zimmer)));
+  if(t.alter) rows.push(tnInfoRow('🎂','Alter', esc(String(t.alter))+' Jahre'));
+  const gLabel = {w:'weiblich', m:'männlich', d:'divers'}[t.geschlecht];
+  if(gLabel) rows.push(tnInfoRow('🧑','Geschlecht', esc(gLabel)));
+  if((t.schwimm && t.schwimm!=='sicher') || (t.bade && t.bade!=='alles')){
+    const sw = {sicher:'sicher',anfaenger:'Anfänger',nicht:'Nichtschwimmer'}[t.schwimm] || null;
+    const ba = {alles:'überall',nur_nsb:'nur Nichtschwimmerbereich',verbot:'Badeverbot'}[t.bade] || null;
+    const parts = [sw?('Schwimmen: '+sw):null, ba?('Baden: '+ba):null].filter(Boolean).join(' · ');
+    if(parts) rows.push(tnInfoRow('⚠️🏊','Schwimmen & Baden', esc(parts)));
+  }
+  if(t.allergien && t.allergien.trim()) rows.push(tnInfoRow('🥜','Allergien', esc(t.allergien.trim())));
+  const medis = d.medis.filter(m=>m.tnId===t.id).sort((a,b)=>(a.zeit||'').localeCompare(b.zeit||''));
+  if(medis.length){
+    const ml = medis.map(m=>`<div class="tninfo-medi">${m.zeit?`<b>${esc(m.zeit)}</b> · `:''}${esc(m.medikament||'')}${m.notiz?` <span class="tninfo-muted">(${esc(m.notiz)})</span>`:''}</div>`).join('');
+    rows.push(tnInfoRow('💊','Medikamente', ml));
+  }
+  const flagB = tnFlagBadgesOnly(t);
+  if(flagB) rows.push(tnInfoRow('⚠️','Besonderheiten', `<div class="flags">${flagB}</div>`));
+  if(t.details && t.details.trim()) rows.push(tnInfoRow('📝','Notiz', esc(t.details.trim())));
+  const bodyRows = rows.length ? rows.join('') : `<div class="tn-empty">Keine weiteren Angaben erfasst.</div>`;
+  const body = `<div class="tninfo">${bodyRows}</div>
+    <div class="form-actions" style="margin-top:16px">
+      <button type="button" class="form-save" onclick="closeSheet(); openTnSheet('${id}')">✏️ Bearbeiten</button>
+    </div>`;
+  openSheet(t.name, body);
+}
+/* ---- Top-Card-Liste (Stufe 17, spec/16 §5b, ersetzt das entfernte "Alle TN"-Akkordeon) ----
+   tnStatsFilter gibt vor, welche Teilmenge gezeigt wird (all/w/m/d/ohne), zusätzlich per Suche
+   filterbar. Zwei-Ebenen-Aufbau (Wrapper mit Suchfeld + separater Listen-Container darunter):
+   renderTnStatsList() baut das Suchfeld nur beim (Neu-)Öffnen bzw. Filterwechsel neu auf, damit
+   das Eingabefeld beim Tippen (renderTnStatsListBody) nicht bei jedem Tastendruck den Fokus verliert. */
+function renderTnStatsList(){
+  const el = document.getElementById('tnStatsList');
+  if(!el) return;
+  if(tnStatsFilter === null){
+    el.innerHTML = '';
+    delete el.dataset.filter;
+    return;
+  }
+  if(el.dataset.filter !== tnStatsFilter){
+    el.dataset.filter = tnStatsFilter;
+    tnSearchTerm = "";
+    el.innerHTML = `<div class="searchbar"><input id="tnSearch" type="search" placeholder="🔍 Name suchen …" autocomplete="off" oninput="onTnSearch(this.value)"></div><div id="tnStatsListBody"></div>`;
+  }
+  renderTnStatsListBody();
+}
+function renderTnStatsListBody(){
+  const el = document.getElementById('tnStatsListBody');
   if(!el) return;
   const d = getData();
+  let list = d.tn;
+  if(tnStatsFilter==='w' || tnStatsFilter==='m' || tnStatsFilter==='d') list = list.filter(t=>t.geschlecht===tnStatsFilter);
+  else if(tnStatsFilter==='ohne') list = list.filter(t=>!t.geschlecht);
   const q = tnSearchTerm.trim().toLowerCase();
-  let list = d.tn.filter(t=> !q || t.name.toLowerCase().includes(q));
-  if(tnFilter){
-    const c = TN_COUNTERS.find(x=>x.id===tnFilter);
-    if(c) list = list.filter(c.match);
-  }
+  if(q) list = list.filter(t=>t.name.toLowerCase().includes(q));
   list = [...list].sort((a,b)=>a.name.localeCompare(b.name,'de'));
   if(!list.length){ el.innerHTML = `<div class="tn-empty">${d.tn.length? 'Keine Treffer.' : 'Noch keine Teilnehmenden erfasst.'}</div>`; return; }
-  el.innerHTML = list.map(t=>`
-    <div class="tn-card" onclick="openTnSheet('${t.id}')">
-      <div class="name">${esc(t.name)}${t.zimmer?`<span class="tn-badge">🛏️ ${esc(t.zimmer)}</span>`:''}${t.alter?`<span class="tn-badge">${esc(String(t.alter))} J.</span>`:''}</div>
-      <div class="flags">${tnBadgesHTML(t)}</div>
-      ${t.details?`<div class="details">${esc(t.details)}</div>`:''}
-      ${t.zimmer?zimmerZustaendigeNamesHTML(t.zimmer):''}
-    </div>`).join('');
+  // Haupt-TN-Liste bleibt bewusst reduziert (nur Name/Zimmer/Alter) — Details per Tap (Info-Blatt).
+  el.innerHTML = list.map(t=>tnCardHTML(t)).join('');
 }
 /* Zwei Handy-Abgabe-Zeitpunkte schließen sich gegenseitig aus (ein TN kann nur einen Zeitpunkt
    haben) — beim Ankreuzen des einen wird der andere automatisch abgewählt. */
@@ -1788,13 +2230,109 @@ function tnHandyExclusive(input){
   }
 }
 function tnFlagChipsHTML(activeFlags){
-  return `<div class="toggle-chips">` + TN_COUNTERS.filter(c=>c.id!=='schwimm').map(c=>{
+  /* Stufe 16 (spec/14 §4): 'schwimm' war nie ein echter Flag-Chip (eigene Selects), 'medis' läuft
+     jetzt über die inline Medikamente-Sektion, 'allergien' über das eigene Allergien-Feld — beide
+     daher aus der Flag-Chip-Liste ausgeschlossen. */
+  return `<div class="toggle-chips">` + TN_COUNTERS.filter(c=>c.id!=='schwimm' && c.id!=='medis' && c.id!=='allergien').map(c=>{
     const on = activeFlags.includes(c.id);
     const onchange = TN_HANDY_EXCLUSIVE.includes(c.id) ? `tnHandyExclusive(this)` : `this.parentElement.classList.toggle('on', this.checked)`;
     return `<label class="toggle-chip${on?' on':''}">
       <input type="checkbox" value="${c.id}" ${on?'checked':''} style="display:none"
         onchange="${onchange}">${c.icon} ${esc(c.label)}</label>`;
   }).join('') + `</div>`;
+}
+/* ---- Geschlecht-Auswahl (Stufe 16, spec/14 §4): 3 Radio-Chips, gleiches visuelles Muster wie
+   die Flag-Toggle-Chips, aber Einfachauswahl. Default 'w' nur bei Neu-TN (siehe openTnSheet). ---- */
+function tnGeschlechtChipsHTML(current){
+  const opts = [{id:'w',icon:'♀️',label:'Mädchen'},{id:'m',icon:'♂️',label:'Junge'},{id:'d',icon:'⚧️',label:'Divers'}];
+  return `<div class="toggle-chips" id="tfGeschlechtGroup">` + opts.map(o=>{
+    const on = current===o.id;
+    return `<label class="toggle-chip${on?' on':''}">
+      <input type="radio" name="tfGeschlecht" value="${o.id}" ${on?'checked':''} style="display:none"
+        onchange="tnGeschlechtRadioToggle(this)">${o.icon} ${esc(o.label)}</label>`;
+  }).join('') + `</div>`;
+}
+function tnGeschlechtRadioToggle(input){
+  document.querySelectorAll('#tfGeschlechtGroup .toggle-chip').forEach(l=>l.classList.remove('on'));
+  input.parentElement.classList.add('on');
+}
+/* ---- Allergien-Feld (Stufe 16, spec/14 §4): Toggle keine/vorhanden, Textfeld nur bei "vorhanden". ---- */
+function tnAllergienFieldHTML(current){
+  const has = !!(current && current.trim());
+  return `<div class="toggle-chips" id="tfAllergienToggle">
+      <label class="toggle-chip${!has?' on':''}"><input type="radio" name="tfAllergienMode" value="keine" ${!has?'checked':''} style="display:none" onchange="tnAllergienModeToggle(this)">keine</label>
+      <label class="toggle-chip${has?' on':''}"><input type="radio" name="tfAllergienMode" value="vorhanden" ${has?'checked':''} style="display:none" onchange="tnAllergienModeToggle(this)">vorhanden</label>
+    </div>
+    <textarea id="tfAllergienText" placeholder="z. B. Nüsse, Erdbeeren …" style="margin-top:8px;${has?'':'display:none'}">${esc(current||'')}</textarea>`;
+}
+function tnAllergienModeToggle(input){
+  document.querySelectorAll('#tfAllergienToggle .toggle-chip').forEach(l=>l.classList.remove('on'));
+  input.parentElement.classList.add('on');
+  const ta = document.getElementById('tfAllergienText');
+  if(ta) ta.style.display = (input.value==='vorhanden') ? '' : 'none';
+}
+/* ---- Medikamente inline im TN-Formular (Stufe 16, spec/14 §4): schreibt/liest tnMediDraft,
+   erst saveTn() überträgt den Draft dauerhaft nach d.medis. Kein eigener Bottom-Sheet-Stack —
+   das kleine Unter-Formular rendert inline in #tnMediSubForm. ---- */
+function tnMediDraftListHTML(){
+  if(!tnMediDraft.length) return `<div class="medi-empty" style="padding:6px 0">Keine Medikamente erfasst.</div>`;
+  return tnMediDraft.map((m,idx)=>`
+    <div class="medi-card" style="cursor:default">
+      <div class="time">${esc(m.zeit||'--:--')}</div>
+      <div class="mid">
+        <div class="mname">${esc(m.medikament||'')}</div>
+        ${m.notiz?`<div class="msub">${esc(m.notiz)}</div>`:''}
+      </div>
+      <div style="display:flex;gap:6px;flex:0 0 auto">
+        <button type="button" class="team-icon-btn sm" onclick="openTnMediForm(${idx})" aria-label="Bearbeiten">✏️</button>
+        <button type="button" class="team-icon-btn sm" onclick="deleteTnMediDraft(${idx})" aria-label="Löschen">🗑️</button>
+      </div>
+    </div>`).join('');
+}
+function renderTnMediDraftList(){
+  const el = document.getElementById('tnMediDraftList');
+  if(el) el.innerHTML = tnMediDraftListHTML();
+}
+function openTnMediForm(idx){
+  tnMediDraftEditIdx = (idx===null || idx===undefined) ? null : idx;
+  const m = (tnMediDraftEditIdx!=null) ? tnMediDraft[tnMediDraftEditIdx] : null;
+  const el = document.getElementById('tnMediSubForm');
+  if(!el) return;
+  el.innerHTML = `
+    <div class="form-field" style="margin-top:10px"><label>Uhrzeit</label>
+      <input id="tmZeit" type="time" value="${m?esc(m.zeit||''):''}"></div>
+    <div class="form-field"><label>Medikament</label>
+      <input id="tmMed" type="text" placeholder="z. B. Ibuprofen 400" value="${m?esc(m.medikament||''):''}"></div>
+    <div class="form-field"><label>Notiz</label>
+      <textarea id="tmNotiz" placeholder="z. B. nach dem Essen, im Kühlschrank …">${m?esc(m.notiz||''):''}</textarea></div>
+    <div class="form-actions">
+      <button type="button" class="staff-cancel" onclick="closeTnMediForm()">Abbrechen</button>
+      <button type="button" class="form-save" onclick="saveTnMediDraft()">${m?'Übernehmen':'Hinzufügen'}</button>
+    </div>`;
+}
+function closeTnMediForm(){
+  tnMediDraftEditIdx = null;
+  const el = document.getElementById('tnMediSubForm');
+  if(el) el.innerHTML = '';
+}
+function saveTnMediDraft(){
+  const zeit = document.getElementById('tmZeit').value;
+  const medikament = document.getElementById('tmMed').value.trim();
+  const notiz = document.getElementById('tmNotiz').value.trim();
+  if(!medikament){ alert('Bitte ein Medikament angeben.'); return; }
+  const entry = { zeit, medikament, notiz };
+  if(tnMediDraftEditIdx!=null && tnMediDraft[tnMediDraftEditIdx]){
+    Object.assign(tnMediDraft[tnMediDraftEditIdx], entry);
+  } else {
+    tnMediDraft.push(entry);
+  }
+  closeTnMediForm();
+  renderTnMediDraftList();
+}
+function deleteTnMediDraft(idx){
+  tnMediDraft.splice(idx,1);
+  if(tnMediDraftEditIdx===idx) closeTnMediForm();
+  renderTnMediDraftList();
 }
 /* Zimmer-Dropdown (Stufe 11, spec/09): Optionen aus meta.raeume. Ist der aktuelle TN-Zimmerwert
    nicht (mehr) in der Liste (z. B. gelöschter Raum oder alter Freitext-Bestand vor Stufe 11),
@@ -1810,13 +2348,41 @@ function raeumeSelectOptionsHTML(current){
   }
   return html;
 }
+// Stufe 17 (spec/16 §3): Direktlink aus dem TN-Formular in die Einstellungen zur Zimmerverwaltung.
+// location.hash löst das bestehende Routing aus (route() -> loadEinstellungen() -> renderRaeumeSettings()),
+// der kurze Timeout wartet den Render-Zyklus ab, bevor zur Zimmerliste gescrollt wird.
+function tnGoToZimmerSettings(){
+  closeSheet();
+  location.hash = 'einstellungen';
+  setTimeout(()=>{
+    const el = document.getElementById('raeumeList');
+    if(el) el.scrollIntoView({behavior:'smooth', block:'start'});
+  }, 60);
+}
 function openTnSheet(id){
   const d = getData();
   const t = id ? d.tn.find(x=>x.id===id) : null;
   const flags = t ? (t.flags||[]) : [];
   const curZimmer = t ? (t.zimmer||'') : '';
   const zimmerUnbekannt = curZimmer && !(d.meta.raeume||[]).includes(curZimmer);
+  /* Stufe 16 (spec/14 §4): Defaults gelten nur beim Neu-Anlegen (t===null) — spart Klicks, ohne
+     Bestands-TN Falschdaten unterzuschieben. */
+  const geschlechtCur = t ? (t.geschlecht||'') : 'w';
+  const schwimmCur = t ? (t.schwimm||'') : 'sicher';
+  const badeCur = t ? (t.bade||'') : 'alles';
+  const allergienCur = t ? (t.allergien||'') : '';
+  tnMediDraft = t ? d.medis.filter(m=>m.tnId===t.id).map(m=>({zeit:m.zeit,medikament:m.medikament,notiz:m.notiz})) : [];
+  tnMediDraftEditIdx = null;
+  // Stufe 17 (spec/16 §3): Nur beim Neu-Anlegen und solange noch kein Zimmer existiert — rein
+  // informativ, TN-Anlegen ohne Zimmer bleibt jederzeit möglich (Select hat "– kein Zimmer –").
+  const zimmerHintHTML = (!t && (d.meta.raeume||[]).length === 0) ? `
+    <div class="settings-hint" style="text-align:left">
+      💡 Tipp: Meist ist es einfacher, <b>zuerst die Zimmer anzulegen</b> und dann die TN — dann kannst du hier
+      direkt ein Zimmer zuweisen. Du kannst TN aber auch ohne Zimmer anlegen.
+      <button type="button" class="form-save" style="width:100%;margin-top:8px" onclick="tnGoToZimmerSettings()">🛏️ Zimmer anlegen</button>
+    </div>` : '';
   const body = `
+    ${zimmerHintHTML}
     <div class="form-field"><label>Name</label>
       <input id="tfName" type="text" placeholder="Vorname Name" value="${t?esc(t.name):''}"></div>
     <div class="form-field"><label>Alter (optional)</label>
@@ -1825,23 +2391,30 @@ function openTnSheet(id){
       <select id="tfZimmer">${raeumeSelectOptionsHTML(curZimmer)}</select>
       ${zimmerUnbekannt?`<div class="settings-hint" style="text-align:left;margin:6px 0 0">⚠️ Zimmer zuordnen – „${esc(curZimmer)}“ ist nicht mehr in der Zimmerliste.</div>`:''}
     </div>
-    <div class="form-field"><label>Flags</label>${tnFlagChipsHTML(flags)}</div>
+    <div class="form-field"><label>Geschlecht</label>${tnGeschlechtChipsHTML(geschlechtCur)}</div>
     <div class="form-field"><label>Schwimmfähigkeit</label>
       <select id="tfSchwimm">
         <option value="">– keine Angabe –</option>
-        <option value="sicher"${t&&t.schwimm==='sicher'?' selected':''}>sicher</option>
-        <option value="anfaenger"${t&&t.schwimm==='anfaenger'?' selected':''}>Anfänger</option>
-        <option value="nicht"${t&&t.schwimm==='nicht'?' selected':''}>Nichtschwimmer</option>
+        <option value="sicher"${schwimmCur==='sicher'?' selected':''}>sicher</option>
+        <option value="anfaenger"${schwimmCur==='anfaenger'?' selected':''}>Anfänger</option>
+        <option value="nicht"${schwimmCur==='nicht'?' selected':''}>Nichtschwimmer</option>
       </select></div>
     <div class="form-field"><label>Badeerlaubnis</label>
       <select id="tfBade">
         <option value="">– keine Angabe –</option>
-        <option value="alles"${t&&t.bade==='alles'?' selected':''}>überall</option>
-        <option value="nur_nsb"${t&&t.bade==='nur_nsb'?' selected':''}>nur Nichtschwimmerbereich</option>
-        <option value="verbot"${t&&t.bade==='verbot'?' selected':''}>Badeverbot</option>
+        <option value="alles"${badeCur==='alles'?' selected':''}>überall</option>
+        <option value="nur_nsb"${badeCur==='nur_nsb'?' selected':''}>nur Nichtschwimmerbereich</option>
+        <option value="verbot"${badeCur==='verbot'?' selected':''}>Badeverbot</option>
       </select></div>
+    <div class="form-field"><label>Allergien</label>${tnAllergienFieldHTML(allergienCur)}</div>
+    <div class="form-field"><label>💊 Medikamente</label>
+      <div id="tnMediDraftList">${tnMediDraftListHTML()}</div>
+      <div id="tnMediSubForm"></div>
+      <button type="button" class="tn-add-btn" onclick="openTnMediForm(null)">+ Medikament</button>
+    </div>
+    <div class="form-field"><label>Flags / Besonderheiten</label>${tnFlagChipsHTML(flags)}</div>
     <div class="form-field"><label>Details</label>
-      <textarea id="tfDetails" placeholder="z. B. Allergie gegen Nüsse, Details siehe TN-Ordner …">${t?esc(t.details||''):''}</textarea></div>
+      <textarea id="tfDetails" placeholder="z. B. Details siehe TN-Ordner …">${t?esc(t.details||''):''}</textarea></div>
     <div class="form-actions">
       ${t?`<button type="button" class="staff-danger" onclick="deleteTn('${id}')">Löschen</button>`:''}
       <button type="button" class="form-save" onclick="saveTn(${t?`'${id}'`:'null'})">Speichern</button>
@@ -1853,17 +2426,30 @@ function saveTn(id){
   if(!name){ alert('Bitte einen Namen angeben.'); return; }
   const alterVal = document.getElementById('tfAlter').value;
   const zimmer = document.getElementById('tfZimmer').value.trim();
+  const geschlecht = (document.querySelector('input[name="tfGeschlecht"]:checked')||{}).value || '';
   const schwimm = document.getElementById('tfSchwimm').value || null;
   const bade = document.getElementById('tfBade').value || null;
+  const allergienMode = (document.querySelector('input[name="tfAllergienMode"]:checked')||{}).value;
+  const allergien = (allergienMode==='vorhanden') ? document.getElementById('tfAllergienText').value.trim() : '';
   const details = document.getElementById('tfDetails').value.trim();
-  const flags = Array.from(document.querySelectorAll('#sheetBody .toggle-chip input:checked')).map(i=>i.value);
+  // Stufe 16: Selektor auf type=checkbox eingeschränkt — #sheetBody enthält jetzt zusätzlich die
+  // Geschlecht-/Allergien-Radios im selben .toggle-chip-Look, die hier NICHT als Flags zählen dürfen.
+  const flags = Array.from(document.querySelectorAll('#sheetBody .toggle-chip input[type="checkbox"]:checked')).map(i=>i.value);
   const d = getData();
+  let tnId = id;
   if(id){
     const t = d.tn.find(x=>x.id===id);
-    if(t) Object.assign(t, {name, alter: alterVal?Number(alterVal):"", zimmer, schwimm, bade, details, flags});
+    if(t) Object.assign(t, {name, alter: alterVal?Number(alterVal):"", zimmer, geschlecht, schwimm, bade, allergien, details, flags});
   } else {
-    d.tn.push({ id:uid(), name, alter: alterVal?Number(alterVal):"", zimmer, schwimm, bade, details, flags });
+    tnId = uid();
+    d.tn.push({ id:tnId, name, alter: alterVal?Number(alterVal):"", zimmer, geschlecht, schwimm, bade, allergien, details, flags });
   }
+  // Stufe 16 (spec/14 §4): Medikamente-Draft dauerhaft nach d.medis übertragen — alte Einträge
+  // dieses TN entfernen, dann den kompletten Draft neu einfügen (einfacher als diffen).
+  d.medis = d.medis.filter(m=>m.tnId!==tnId);
+  tnMediDraft.forEach(m=>{ d.medis.push({ id:uid(), tnId, zeit:m.zeit, medikament:m.medikament, notiz:m.notiz }); });
+  tnMediDraft = [];
+  tnMediDraftEditIdx = null;
   saveData(d);
   closeSheet();
   renderTnView();
@@ -1883,6 +2469,43 @@ function deleteTnConfirm(id){
   const d = getData();
   d.tn = d.tn.filter(t=>t.id!==id);
   d.medis = d.medis.filter(m=>m.tnId!==id);
+  // Löschkaskade Stufe 18 (spec/15): TN auch aus allen Gruppen-Mitgliederlisten entfernen.
+  d.gruppen.forEach(g=>{ g.memberIds = (g.memberIds||[]).filter(mid=>mid!==id); });
+  saveData(d);
+  closeSheet();
+  renderTnView();
+  renderDashGrid();
+}
+
+/* ---- Alle TN löschen (Stufe 17, spec/16 §2) — nur aus den Einstellungen aufrufbar, zweistufig
+   wie confirmDeleteAllStaff. Leert d.tn + d.medis (Medi-Einträge gehören immer zu einem TN) sowie
+   (Stufe 18, spec/15) alle Gruppen-Mitgliederlisten. ---- */
+function confirmDeleteAllTn(){
+  const d = getData();
+  if(!d.tn.length){ openSheet('Teilnehmende', `<div class="staff-empty">Es sind aktuell keine Teilnehmenden angelegt.</div>`); return; }
+  openSheet('Alle TN löschen', `<div class="confirm-box">
+    <p>Wirklich <b>alle Teilnehmenden</b> löschen? Zugehörige Medikamenten-Einträge werden mit entfernt. Diese Aktion kann nicht rückgängig gemacht werden.</p>
+    <div class="confirm-actions">
+      <button type="button" class="staff-cancel" onclick="closeSheet()">Abbrechen</button>
+      <button type="button" class="staff-danger" onclick="confirmDeleteAllTnStep2()">Weiter</button>
+    </div>
+  </div>`);
+}
+function confirmDeleteAllTnStep2(){
+  const n = getData().tn.length;
+  setSheetBody(`<div class="confirm-box">
+    <p><b>Bist du sicher?</b> Es gibt kein Zurück – alle ${n} Teilnehmenden werden entfernt.</p>
+    <div class="confirm-actions">
+      <button type="button" class="staff-cancel" onclick="closeSheet()">Abbrechen</button>
+      <button type="button" class="staff-danger" onclick="confirmDeleteAllTnDo()">Endgültig löschen</button>
+    </div>
+  </div>`);
+}
+function confirmDeleteAllTnDo(){
+  const d = getData();
+  d.tn = [];
+  d.medis = [];
+  if(Array.isArray(d.gruppen)) d.gruppen.forEach(g=>{ g.memberIds = []; });
   saveData(d);
   closeSheet();
   renderTnView();
@@ -1893,12 +2516,474 @@ function deleteTnConfirm(id){
 function renderTnView(){
   tnFilter = tnPendingFilter; tnPendingFilter = null; /* einmaliger Deep-Link-Filter aus Erste Hilfe, siehe tnPendingFilter */
   tnSearchTerm = "";
-  const s = document.getElementById('tnSearch');
-  if(s) s.value = "";
+  tnStatsFilter = null; /* Stufe 17 (spec/16 §5c): Top-Card-Liste bei jedem View-Aufruf zugeklappt starten */
+  renderTnStats();
   renderTnCounters();
-  renderTnAnsprech();
-  renderMediList();
-  renderTnList();
+  renderTnBesonderheitenBody();
+  renderTnStatsList();
+  renderGruppen();
+  setupTnAccordions();
+  // Deep-Link aus Erste Hilfe (tnPendingFilter → tnFilter): Besonderheiten-Akkordeon automatisch
+  // öffnen, damit die gefilterte Liste/der Medi-Plan direkt sichtbar ist (spec/14 §5).
+  if(tnFilter){
+    const det = document.getElementById('tnAccBesonderheiten');
+    if(det) det.open = true;
+  }
+  updateFloatingCollapse();
+}
+/* ---- Akkordeon-Gruppe #view-tn (Stufe 16, spec/14 §5+§7): nur eines gleichzeitig offen, plus
+   mitschwebender Schließen-Pfeil, sobald eines offen ist. Listener nur einmal anhängen (die
+   <details>-Elemente sind statisches Markup, werden bei renderTnView() nicht neu erzeugt). ---- */
+function setupTnAccordions(){
+  const group = document.getElementById('tnAccordions');
+  if(!group || group.dataset.wired) return;
+  group.dataset.wired = '1';
+  group.querySelectorAll('details').forEach(det=>{
+    det.addEventListener('toggle', ()=>{
+      if(det.open){
+        group.querySelectorAll('details').forEach(other=>{ if(other!==det) other.open = false; });
+        // Stufe 17 (spec/16 §5c): Öffnet man ein <details> (Besonderheiten / später Gruppen aus
+        // Stufe 18), muss die Top-Card-Liste zuklappen (gegenseitig exklusiv). Läuft automatisch für
+        // jedes künftige <details> in #tnAccordions mit, da der Listener über die ganze Gruppe geht.
+        if(tnStatsFilter!==null){
+          tnStatsFilter = null;
+          renderTnStats();
+          renderTnStatsList();
+        }
+      }
+      updateFloatingCollapse();
+    });
+  });
+}
+function updateFloatingCollapse(){
+  const btn = document.getElementById('tnFloatingClose');
+  const group = document.getElementById('tnAccordions');
+  if(!btn) return;
+  const openDet = group ? Array.from(group.querySelectorAll('details')).find(d=>d.open) : null;
+  // Stufe 17 (spec/16 §5c): Pfeil auch sichtbar, wenn statt eines <details> die Top-Card-Liste offen ist.
+  btn.style.display = (openDet || tnStatsFilter!==null) ? '' : 'none';
+}
+function tnCloseOpenAccordion(){
+  const group = document.getElementById('tnAccordions');
+  const openDet = group ? Array.from(group.querySelectorAll('details')).find(d=>d.open) : null;
+  if(openDet){
+    openDet.open = false;
+    const summary = openDet.querySelector('summary');
+    if(summary) summary.scrollIntoView({behavior:'smooth', block:'start'});
+  } else if(tnStatsFilter!==null){
+    // Stufe 17 (spec/16 §5c): Fallback, falls statt eines <details> die Top-Card-Liste offen ist.
+    tnStatsFilter = null;
+    renderTnStats();
+    renderTnStatsList();
+    const stats = document.getElementById('tnStats');
+    if(stats) stats.scrollIntoView({behavior:'smooth', block:'start'});
+  } else {
+    return;
+  }
+  updateFloatingCollapse();
+}
+
+/* ============ Gruppen (Stufe 18, spec/15_gruppen.md) ============
+   Gruppen sind editierbare SCHNAPPSCHÜSSE: der Assistent (Modus A/B) befüllt memberIds EINMAL,
+   danach ändert sich die Mitgliederliste nur noch manuell (neue/gelöschte TN wandern nicht automatisch
+   rein/raus — die Löschkaskaden oben entfernen nur gelöschte TN/Teamer wieder heraus). Ein TN darf in
+   mehreren Gruppen sein. Kartenaufbau bewusst wie die Zimmer-Karten (raeumeZustRowsHTML, Stufe 14) —
+   gleiche CSS-Klassen (.det.room-card), damit keine neuen Styles nötig sind. */
+function renderGruppen(){
+  const el = document.getElementById('gruppenList');
+  if(!el) return;
+  const d = getData();
+  if(!d.gruppen.length){ el.innerHTML = `<div class="tn-empty">Noch keine Gruppen.</div>`; return; }
+  // Offene Karten beim Neuzeichnen offen halten (gleiches Muster wie renderRaeumeZustList).
+  const openIds = new Set(Array.from(el.querySelectorAll('details.gruppe-card')).filter(det=>det.open).map(det=>det.dataset.id));
+  el.innerHTML = d.gruppen.map(gruppeCardHTML).join('');
+  el.querySelectorAll('details.gruppe-card').forEach(det=>{ if(openIds.has(det.dataset.id)) det.open = true; });
+}
+function gruppeCardHTML(g){
+  const d = getData();
+  const members = (g.memberIds||[]).map(id=>d.tn.find(t=>t.id===id)).filter(Boolean).sort((a,b)=>a.name.localeCompare(b.name,'de'));
+  const ages = members.map(m=>m.alter).filter(a=>a);
+  const ageInfo = ages.length ? (Math.min(...ages)===Math.max(...ages) ? ` · ${Math.min(...ages)} J.` : ` · ${Math.min(...ages)}–${Math.max(...ages)} J.`) : '';
+  const teamerChips = (g.teamerIds||[]).map(id=>staffChip(id, {onClick:`removeGruppeTeamer('${g.id}','${id}')`, showX:true})).join('')
+    || `<span class="tn-ansprech-empty">noch kein Teamer zugewiesen</span>`;
+  // Mitglieder-Karten im gleichen Look wie tnCardHTML (Name · 🛏️Zimmer · Alter), Tap öffnet TN-Detail;
+  // ✕ entfernt nur aus der Gruppe (memberIds), der TN selbst bleibt erhalten (spec/15 §4).
+  const memberListHTML = members.length
+    ? members.map(t=>`<div class="tn-card" onclick="openTnSheet('${t.id}')">
+        <div class="tn-card-toprow">
+          <div class="name">${esc(t.name)}${t.zimmer?`<span class="tn-badge">🛏️ ${esc(t.zimmer)}</span>`:''}${t.alter?`<span class="tn-badge">${esc(String(t.alter))} J.</span>`:''}</div>
+          <button type="button" class="team-icon-btn sm" onclick="event.stopPropagation(); removeTnFromGruppe('${g.id}','${t.id}')" aria-label="Aus Gruppe entfernen">✕</button>
+        </div>
+      </div>`).join('')
+    : `<div class="tn-empty">Noch keine Mitglieder.</div>`;
+  return `<details class="det room-card gruppe-card" data-id="${g.id}">
+    <summary>
+      <span class="room-summary-label">${esc(g.titel)}</span>
+      <span class="room-summary-belegt">${members.length} TN${ageInfo}</span>
+      <button type="button" class="team-icon-btn sm" style="margin-left:auto" onclick="event.preventDefault(); event.stopPropagation(); deleteGruppeConfirm('${g.id}')" aria-label="Gruppe löschen">🗑️</button>
+    </summary>
+    <div class="body">
+      <div class="zust-row">${teamerChips}<button type="button" class="schip-add" onclick="openGruppeTeamerPicker('${g.id}')">+ Teamer</button></div>
+      <div class="sec-h" style="margin-top:14px">Mitglieder</div>
+      <div class="room-tn-list">${memberListHTML}</div>
+      <button type="button" class="tn-add-btn" style="margin-top:10px" onclick="openGruppeAddTnPicker('${g.id}')">+ TN zur Gruppe</button>
+      <div class="room-card-actions">
+        <button type="button" onclick="renameGruppe('${g.id}')">✏️ Umbenennen</button>
+      </div>
+    </div>
+  </details>`;
+}
+/* ---- Teamer-Zuweisung (Mehrfachauswahl, Wiederverwendung von staffPicker() wie bei Zuständigkeiten) ---- */
+function openGruppeTeamerPicker(gruppeId){
+  const d = getData();
+  const g = d.gruppen.find(x=>x.id===gruppeId); if(!g) return;
+  openSheet('Teamer zuweisen', staffPicker(g.teamerIds||[], {onToggle:`toggleGruppeTeamer('${gruppeId}','{id}')`}));
+}
+function toggleGruppeTeamer(gruppeId, staffId){
+  const d = getData();
+  const g = d.gruppen.find(x=>x.id===gruppeId); if(!g) return;
+  if(!g.teamerIds) g.teamerIds = [];
+  const i = g.teamerIds.indexOf(staffId);
+  if(i>=0) g.teamerIds.splice(i,1); else g.teamerIds.push(staffId);
+  saveData(d);
+  setSheetBody(staffPicker(g.teamerIds, {onToggle:`toggleGruppeTeamer('${gruppeId}','{id}')`}));
+  renderGruppen();
+}
+function removeGruppeTeamer(gruppeId, staffId){
+  const d = getData();
+  const g = d.gruppen.find(x=>x.id===gruppeId); if(!g) return;
+  g.teamerIds = (g.teamerIds||[]).filter(id=>id!==staffId);
+  saveData(d);
+  renderGruppen();
+}
+/* ---- TN manuell nachpflegen (spec/15 §4: "da Schnappschuss") ---- */
+function gruppeAddTnPickerHTML(gruppeId){
+  const d = getData();
+  const g = d.gruppen.find(x=>x.id===gruppeId); if(!g) return '';
+  const avail = d.tn.filter(t=>!(g.memberIds||[]).includes(t.id)).sort((a,b)=>a.name.localeCompare(b.name,'de'));
+  if(!avail.length) return `<div class="staff-empty">Alle Teilnehmenden sind bereits in dieser Gruppe.</div>`;
+  return `<div class="picker-list">` + avail.map(t=>`
+      <button type="button" class="picker-row" onclick="addTnToGruppe('${gruppeId}','${t.id}')">
+        <span class="pname">${esc(t.name)}${t.zimmer?` · 🛏️ ${esc(t.zimmer)}`:''}${t.alter?` · ${esc(String(t.alter))} J.`:''}</span>
+      </button>`).join('') + `</div>`;
+}
+function openGruppeAddTnPicker(gruppeId){
+  openSheet('TN zur Gruppe hinzufügen', gruppeAddTnPickerHTML(gruppeId));
+}
+function addTnToGruppe(gruppeId, tnId){
+  const d = getData();
+  const g = d.gruppen.find(x=>x.id===gruppeId); if(!g) return;
+  if(!g.memberIds) g.memberIds = [];
+  if(!g.memberIds.includes(tnId)) g.memberIds.push(tnId);
+  saveData(d);
+  setSheetBody(gruppeAddTnPickerHTML(gruppeId)); // Sheet bleibt offen, damit mehrere TN nacheinander hinzugefügt werden können
+  renderGruppen();
+}
+function removeTnFromGruppe(gruppeId, tnId){
+  const d = getData();
+  const g = d.gruppen.find(x=>x.id===gruppeId); if(!g) return;
+  g.memberIds = (g.memberIds||[]).filter(id=>id!==tnId);
+  saveData(d);
+  renderGruppen();
+}
+/* ---- Umbenennen (gleiches Inline-Eingabefeld-Muster wie raeumeEditRoom, Stufe 11) ---- */
+function renameGruppe(gruppeId){
+  const d = getData();
+  const g = d.gruppen.find(x=>x.id===gruppeId); if(!g) return;
+  openSheet('Gruppe umbenennen', `<div class="rename-box">
+    <input id="gruppeRenameInput" type="text" autocomplete="off">
+    <button type="button" class="staff-add-btn" onclick="renameGruppeSave('${gruppeId}')" aria-label="Speichern">✓</button>
+  </div>`);
+  const inp = document.getElementById('gruppeRenameInput');
+  inp.value = g.titel;
+  inp.focus(); inp.select();
+  inp.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); renameGruppeSave(gruppeId); } });
+}
+function renameGruppeSave(gruppeId){
+  const inp = document.getElementById('gruppeRenameInput');
+  const val = inp.value.trim();
+  if(!val) return;
+  const d = getData();
+  const g = d.gruppen.find(x=>x.id===gruppeId); if(!g) return;
+  g.titel = val;
+  saveData(d);
+  closeSheet();
+  renderGruppen();
+}
+/* ---- Löschen (zweistufig? Nein — analog deleteTn: eine Bestätigung reicht, das ist kein
+   "alle löschen"-Vorgang wie bei confirmDeleteAllTn/Staff) ---- */
+function deleteGruppeConfirm(gruppeId){
+  const d = getData();
+  const g = d.gruppen.find(x=>x.id===gruppeId); if(!g) return;
+  openSheet('Gruppe löschen', `<div class="confirm-box">
+    <p>Gruppe „${esc(g.titel)}" wirklich löschen? Die Teilnehmenden selbst bleiben erhalten, nur die Gruppen-Zuordnung entfällt.</p>
+    <div class="confirm-actions">
+      <button type="button" class="staff-cancel" onclick="closeSheet()">Abbrechen</button>
+      <button type="button" class="staff-danger" onclick="deleteGruppeDo('${gruppeId}')">Löschen</button>
+    </div></div>`);
+}
+function deleteGruppeDo(gruppeId){
+  const d = getData();
+  d.gruppen = d.gruppen.filter(g=>g.id!==gruppeId);
+  saveData(d);
+  closeSheet();
+  renderGruppen();
+}
+/* ---- Alle Gruppen auf einmal löschen (Feedback nach Handy-Test, 20.07.2026 — Button im Akkordeon-Kopf
+   "👥 Gruppen"). Einstufige Bestätigung wie bei deleteGruppeConfirm: löscht nur die Gruppen-Schnappschüsse,
+   TN und Medikamenten-Daten bleiben unberührt (anders als confirmDeleteAllTn, daher kein zweiter Schritt). ---- */
+function confirmDeleteAllGruppen(){
+  const d = getData();
+  if(!d.gruppen.length){ openSheet('Gruppen', `<div class="staff-empty">Es sind aktuell keine Gruppen angelegt.</div>`); return; }
+  openSheet('Alle Gruppen löschen', `<div class="confirm-box">
+    <p>Wirklich <b>alle ${d.gruppen.length} Gruppen</b> löschen? Die Teilnehmenden selbst bleiben erhalten, nur die Gruppen-Zuordnung entfällt. Diese Aktion kann nicht rückgängig gemacht werden.</p>
+    <div class="confirm-actions">
+      <button type="button" class="staff-cancel" onclick="closeSheet()">Abbrechen</button>
+      <button type="button" class="staff-danger" onclick="confirmDeleteAllGruppenDo()">Löschen</button>
+    </div></div>`);
+}
+function confirmDeleteAllGruppenDo(){
+  const d = getData();
+  d.gruppen = [];
+  saveData(d);
+  closeSheet();
+  renderGruppen();
+}
+
+/* ---- Erstellungs-Assistent: Sheet mit Umschalter Modus A (Alter/Geschlecht) / Modus B (Zufallsgruppen).
+   gcTitelManual merkt sich, ob der Titel manuell überschrieben wurde — solange nicht, wird er bei
+   jeder Filter-Änderung neu vorgeschlagen (spec/15 §3 "Vorschlag automatisch generieren ... editierbar"). ---- */
+let gcTitelManual = false;
+function openGruppeCreateSheet(){
+  gcTitelManual = false;
+  openSheet('Neue Gruppe erstellen', `
+    <div class="toggle-chips" id="gcModeGroup">
+      <label class="toggle-chip on"><input type="radio" name="gcMode" value="alter" checked style="display:none" onchange="gruppeCreateModeToggle(this)">Nach Alter &amp; Geschlecht</label>
+      <label class="toggle-chip"><input type="radio" name="gcMode" value="autoalter" style="display:none" onchange="gruppeCreateModeToggle(this)">Automatisch nach Alter</label>
+      <label class="toggle-chip"><input type="radio" name="gcMode" value="zufall" style="display:none" onchange="gruppeCreateModeToggle(this)">Zufallsgruppen</label>
+    </div>
+    <div id="gcModeBody"></div>`);
+  gruppeRenderModeA();
+}
+function gruppeCreateModeToggle(input){
+  document.querySelectorAll('#gcModeGroup .toggle-chip').forEach(l=>l.classList.remove('on'));
+  input.parentElement.classList.add('on');
+  if(input.value==='alter') gruppeRenderModeA();
+  else if(input.value==='autoalter') gruppeRenderModeC();
+  else gruppeRenderModeB();
+}
+
+/* -- Modus A: nach Alter & Geschlecht (Standard) -- */
+function gruppeRenderModeA(){
+  const body = document.getElementById('gcModeBody'); if(!body) return;
+  gcTitelManual = false;
+  body.innerHTML = `
+    <div class="form-field"><label>Titel</label><input id="gcTitel" type="text" oninput="gcTitelManual=true"></div>
+    <div class="form-field"><label>Geschlecht</label>
+      <div class="toggle-chips" id="gcGeschlechtGroup">
+        <label class="toggle-chip on"><input type="radio" name="gcGeschlecht" value="alle" checked style="display:none" onchange="gruppeCreateGeschlechtToggle(this)">alle (gemischt)</label>
+        <label class="toggle-chip"><input type="radio" name="gcGeschlecht" value="w" style="display:none" onchange="gruppeCreateGeschlechtToggle(this)">nur ♀️</label>
+        <label class="toggle-chip"><input type="radio" name="gcGeschlecht" value="m" style="display:none" onchange="gruppeCreateGeschlechtToggle(this)">nur ♂️</label>
+      </div>
+    </div>
+    <div class="form-field"><label>Alter von–bis (optional)</label>
+      <div style="display:flex;gap:8px">
+        <input id="gcAlterVon" type="number" min="0" max="99" placeholder="von" oninput="gruppeCreatePreviewUpdate()">
+        <input id="gcAlterBis" type="number" min="0" max="99" placeholder="bis" oninput="gruppeCreatePreviewUpdate()">
+      </div>
+    </div>
+    <div class="settings-hint" id="gcPreview" style="text-align:left"></div>
+    <div class="form-actions">
+      <button type="button" class="form-save" onclick="createGruppeFromFilter()">Gruppe erstellen</button>
+    </div>`;
+  gruppeCreatePreviewUpdate();
+}
+function gruppeCreateGeschlechtToggle(input){
+  document.querySelectorAll('#gcGeschlechtGroup .toggle-chip').forEach(l=>l.classList.remove('on'));
+  input.parentElement.classList.add('on');
+  gruppeCreatePreviewUpdate();
+}
+// Geschlecht: Divers/ohne Angabe zählt bei "alle" mit, bei "nur ♀️/♂️" bewusst NICHT (spec/15 §3).
+function gruppeCreatePreviewCount(){
+  const d = getData();
+  const geschlecht = (document.querySelector('input[name="gcGeschlecht"]:checked')||{}).value || 'alle';
+  const von = document.getElementById('gcAlterVon').value;
+  const bis = document.getElementById('gcAlterBis').value;
+  let list = d.tn;
+  if(geschlecht==='w') list = list.filter(t=>t.geschlecht==='w');
+  else if(geschlecht==='m') list = list.filter(t=>t.geschlecht==='m');
+  if(von) list = list.filter(t=>t.alter && t.alter>=Number(von));
+  if(bis) list = list.filter(t=>t.alter && t.alter<=Number(bis));
+  return list;
+}
+function gruppeSuggestTitel(geschlecht, von, bis){
+  const base = geschlecht==='w' ? 'Mädchen' : geschlecht==='m' ? 'Jungs' : 'Gruppe';
+  let age = '';
+  if(von && bis) age = ` ${von}–${bis}`;
+  else if(von) age = ` ab ${von}`;
+  else if(bis) age = ` bis ${bis}`;
+  return base + age;
+}
+function gruppeCreatePreviewUpdate(){
+  const list = gruppeCreatePreviewCount();
+  const el = document.getElementById('gcPreview');
+  if(el) el.textContent = `${list.length} passende TN`;
+  if(!gcTitelManual){
+    const geschlecht = (document.querySelector('input[name="gcGeschlecht"]:checked')||{}).value || 'alle';
+    const von = document.getElementById('gcAlterVon').value;
+    const bis = document.getElementById('gcAlterBis').value;
+    const inp = document.getElementById('gcTitel');
+    if(inp) inp.value = gruppeSuggestTitel(geschlecht, von, bis);
+  }
+}
+function createGruppeFromFilter(){
+  const titelInp = document.getElementById('gcTitel');
+  const titel = (titelInp && titelInp.value.trim()) || 'Neue Gruppe';
+  const list = gruppeCreatePreviewCount();
+  const d = getData();
+  d.gruppen.push({ id: uid(), titel, teamerIds: [], memberIds: list.map(t=>t.id) });
+  saveData(d);
+  closeSheet();
+  renderGruppen();
+}
+
+/* -- Modus C: Automatisch nach Alter (Feedback nach Handy-Test, 20.07.2026) --
+   Legt pro vorkommendem Alter eine eigene Gruppe an (z. B. "Gruppe Zehnjährige"), Geschlecht bleibt immer
+   gemischt. Praxis-Grund (Marco): Bus-/Zugfahrten & Team-Zuteilung werden nach exakten Altersjahrgängen
+   organisiert, benachbarte Jahrgänge (z. B. Zehn- + Elfjährige) werden danach von Hand als ein Team
+   zusammengefasst — die App muss dafür nur die Basis-Jahrgangs-Gruppen liefern, kein Mischalgorithmus nötig.
+   TN ohne Altersangabe (t.alter falsy) können keinem Jahrgang zugeordnet werden und bleiben außen vor. */
+const GRUPPE_ALTER_WORTE = {
+  0:'Nulljährige',1:'Einjährige',2:'Zweijährige',3:'Dreijährige',4:'Vierjährige',5:'Fünfjährige',
+  6:'Sechsjährige',7:'Siebenjährige',8:'Achtjährige',9:'Neunjährige',10:'Zehnjährige',11:'Elfjährige',
+  12:'Zwölfjährige',13:'Dreizehnjährige',14:'Vierzehnjährige',15:'Fünfzehnjährige',16:'Sechzehnjährige',
+  17:'Siebzehnjährige',18:'Achtzehnjährige',19:'Neunzehnjährige',20:'Zwanzigjährige'
+};
+function gruppeAlterWort(alter){
+  return GRUPPE_ALTER_WORTE[alter] || `${alter}-Jährige`;
+}
+function gruppeRenderModeC(){
+  const body = document.getElementById('gcModeBody'); if(!body) return;
+  const d = getData();
+  const alterWerte = [...new Set(d.tn.filter(t=>t.alter).map(t=>t.alter))].sort((a,b)=>a-b);
+  const previewText = alterWerte.length
+    ? `Legt automatisch ${alterWerte.length} Gruppe${alterWerte.length===1?'':'n'} an: ` + alterWerte.map(a=>gruppeAlterWort(a)).join(', ') + '.'
+    : 'Keine TN mit Altersangabe vorhanden — es kann keine Gruppe angelegt werden.';
+  body.innerHTML = `
+    <div class="settings-hint" style="text-align:left">Für jedes vorkommende Alter wird automatisch eine eigene Gruppe angelegt (z. B. „Gruppe Zehnjährige", „Gruppe Elfjährige" …), Geschlecht bleibt gemischt. TN ohne Altersangabe werden keiner Gruppe zugeordnet — bei Bedarf danach manuell per „+ TN zur Gruppe" ergänzen. Mehrere Alters-Gruppen lassen sich anschließend über „+ Teamer" gemeinsam einem Team zuweisen.</div>
+    <div class="settings-hint" style="text-align:left;margin-top:8px"><b>${esc(previewText)}</b></div>
+    <div class="form-actions">
+      <button type="button" class="form-save" onclick="createGruppenNachAlter()" ${alterWerte.length?'':'disabled'}>Gruppen erstellen</button>
+    </div>`;
+}
+function createGruppenNachAlter(){
+  const d = getData();
+  const mitAlter = d.tn.filter(t=>t.alter);
+  if(!mitAlter.length){ alert('Keine TN mit Altersangabe vorhanden.'); return; }
+  const alterWerte = [...new Set(mitAlter.map(t=>t.alter))].sort((a,b)=>a-b);
+  alterWerte.forEach(alter=>{
+    const mitglieder = mitAlter.filter(t=>t.alter===alter);
+    d.gruppen.push({ id: uid(), titel: `Gruppe ${gruppeAlterWort(alter)}`, teamerIds: [], memberIds: mitglieder.map(t=>t.id) });
+  });
+  saveData(d);
+  closeSheet();
+  renderGruppen();
+}
+
+/* -- Modus B: Zufallsgruppen (spec/15 §3, niedrigere Prio, optionaler letzter Schritt) --
+   Verteilung: Pool nach Alter sortieren, dann im Schlangen-/Round-Robin-Muster auf k Gruppen
+   verteilen — Sequenz 0,1,…,k-1,k-1,…,1,0,0,1,… (gruppeSnakeIndices). Ergebnis: gleich große
+   Gruppen (Differenz ≤1, da jede volle Hin+Rück-Runde jeder Gruppe genau 2 TN gibt) mit guter
+   Altersmischung (jede Runde deckt die ganze Altersspanne des Restpools ab). */
+function gruppeRenderModeB(){
+  const body = document.getElementById('gcModeBody'); if(!body) return;
+  body.innerHTML = `
+    <div class="form-field"><label>Vorfilter Geschlecht (optional)</label>
+      <div class="toggle-chips" id="gcbGeschlechtGroup">
+        <label class="toggle-chip on"><input type="radio" name="gcbGeschlecht" value="alle" checked style="display:none" onchange="gruppeRandomGeschlechtToggle(this)">alle (gemischt)</label>
+        <label class="toggle-chip"><input type="radio" name="gcbGeschlecht" value="w" style="display:none" onchange="gruppeRandomGeschlechtToggle(this)">nur ♀️</label>
+        <label class="toggle-chip"><input type="radio" name="gcbGeschlecht" value="m" style="display:none" onchange="gruppeRandomGeschlechtToggle(this)">nur ♂️</label>
+      </div>
+    </div>
+    <div class="form-field"><label>Vorfilter Alter von–bis (optional)</label>
+      <div style="display:flex;gap:8px">
+        <input id="gcbAlterVon" type="number" min="0" max="99" placeholder="von" oninput="gruppeRandomPreviewUpdate()">
+        <input id="gcbAlterBis" type="number" min="0" max="99" placeholder="bis" oninput="gruppeRandomPreviewUpdate()">
+      </div>
+    </div>
+    <div class="settings-hint" id="gcbPoolInfo" style="text-align:left"></div>
+    <div class="form-field"><label>Anzahl Gruppen</label>
+      <input id="gcbAnzahl" type="number" min="1" placeholder="z. B. 5" oninput="gruppeRandomAnzahlChanged()"></div>
+    <div class="form-field"><label>oder Gruppengröße (TN pro Gruppe)</label>
+      <input id="gcbGroesse" type="number" min="1" placeholder="z. B. 8" oninput="gruppeRandomGroesseChanged()"></div>
+    <div class="form-actions">
+      <button type="button" class="form-save" onclick="createRandomGruppen()">Erstellen</button>
+    </div>`;
+  gruppeRandomPreviewUpdate();
+}
+function gruppeRandomGeschlechtToggle(input){
+  document.querySelectorAll('#gcbGeschlechtGroup .toggle-chip').forEach(l=>l.classList.remove('on'));
+  input.parentElement.classList.add('on');
+  gruppeRandomPreviewUpdate();
+}
+function gruppeRandomPool(){
+  const d = getData();
+  const geschlecht = (document.querySelector('input[name="gcbGeschlecht"]:checked')||{}).value || 'alle';
+  const von = document.getElementById('gcbAlterVon').value;
+  const bis = document.getElementById('gcbAlterBis').value;
+  let list = d.tn;
+  if(geschlecht==='w') list = list.filter(t=>t.geschlecht==='w');
+  else if(geschlecht==='m') list = list.filter(t=>t.geschlecht==='m');
+  if(von) list = list.filter(t=>t.alter && t.alter>=Number(von));
+  if(bis) list = list.filter(t=>t.alter && t.alter<=Number(bis));
+  return list;
+}
+function gruppeRandomPreviewUpdate(){
+  const pool = gruppeRandomPool();
+  const el = document.getElementById('gcbPoolInfo');
+  if(el) el.textContent = `${pool.length} TN im Pool`;
+}
+// Anzahl ⇄ Größe: eins eingeben, das andere wird aus der aktuellen Poolgröße abgeleitet (aufgerundet).
+function gruppeRandomAnzahlChanged(){
+  const pool = gruppeRandomPool().length;
+  const anzahl = parseInt(document.getElementById('gcbAnzahl').value, 10);
+  if(pool>0 && anzahl>0) document.getElementById('gcbGroesse').value = Math.ceil(pool/anzahl);
+  gruppeRandomPreviewUpdate();
+}
+function gruppeRandomGroesseChanged(){
+  const pool = gruppeRandomPool().length;
+  const groesse = parseInt(document.getElementById('gcbGroesse').value, 10);
+  if(pool>0 && groesse>0) document.getElementById('gcbAnzahl').value = Math.ceil(pool/groesse);
+  gruppeRandomPreviewUpdate();
+}
+// Erzeugt die Verteil-Sequenz 0,1,…,k-1,k-1,…,1,0,0,1,… (spec/15 §3) — abwechselnd Hin- und Rückweg
+// über die k Gruppen-Indizes, bis n Einträge erreicht sind.
+function gruppeSnakeIndices(n, k){
+  const seq = [];
+  let forward = true;
+  while(seq.length < n){
+    for(let i=0; i<k && seq.length<n; i++) seq.push(forward ? i : k-1-i);
+    forward = !forward;
+  }
+  return seq;
+}
+function createRandomGruppen(){
+  const pool = gruppeRandomPool();
+  if(!pool.length){ alert('Keine TN im gewählten Filter.'); return; }
+  let k = parseInt(document.getElementById('gcbAnzahl').value, 10);
+  if(!k || k<1) k = 1;
+  k = Math.min(k, pool.length);
+  const sorted = [...pool].sort((a,b)=>(a.alter||0)-(b.alter||0));
+  const seq = gruppeSnakeIndices(sorted.length, k);
+  const groups = Array.from({length:k}, ()=>[]);
+  sorted.forEach((t,i)=>groups[seq[i]].push(t));
+  const d = getData();
+  groups.forEach((grp,i)=>{
+    if(grp.length) d.gruppen.push({ id: uid(), titel: `Gruppe ${i+1}`, teamerIds: [], memberIds: grp.map(t=>t.id) });
+  });
+  saveData(d);
+  closeSheet();
+  renderGruppen();
 }
 
 /* ============ Erste Hilfe (Stufe 7, spec/07_erste_hilfe.md) ============ */
@@ -2252,6 +3337,56 @@ function blockHTML(blocks, checkable, roleId){
   return html;
 }
 
+/* spec/20 (Akkordeon-Rework): jede core-Section mit Überschrift (b.h) wird als eigenes aufklappbares
+   Button-Akkordeon gerendert (Marco-Wunsch: Übersicht ohne Scrollen, gezielt eine Section öffnen).
+   Blöcke ohne h bleiben eine flache Liste. Bullet-Optik (✓-Box) wie bei blockHTML(...,checkable). */
+function roleBlocksHTML(blocks, roleId){
+  let out="", idx=0;
+  blocks.forEach(b=>{
+    const lis = b.items.map(it=>{
+      const key=LS_PREFIX+"chk_"+roleId+"_"+(idx++);
+      const done=localStorage.getItem(key)==="1";
+      return `<li class="${done?'done':''}" data-key="${key}"><span class="box">✓</span><span>${esc(it)}</span></li>`;
+    }).join("");
+    if(b.h){
+      out+=`<details class="det role-acc"><summary>${esc(b.h)}</summary><div class="body"><ul class="checks">${lis}</ul></div></details>`;
+    }else{
+      out+=`<ul class="checks">${lis}</ul>`;
+    }
+  });
+  return out;
+}
+/* Single-open + mitschwebender Schließen-Pfeil für die Rollen-Akkordeons (gleiches Muster wie die
+   TN-Akkordeons, aber neu verdrahtet, weil #detailBody bei jedem openRole() neu gerendert wird). */
+function wireRoleAccordions(){
+  const group=document.getElementById('roleAccGroup');
+  if(!group) return;
+  const dets=Array.from(group.querySelectorAll('details.role-acc'));
+  dets.forEach(det=>{
+    det.addEventListener('toggle', ()=>{
+      if(det.open) dets.forEach(o=>{ if(o!==det) o.open=false; });
+      updateRoleFloatingClose();
+    });
+  });
+  updateRoleFloatingClose();
+}
+function updateRoleFloatingClose(){
+  const btn=document.getElementById('roleFloatingClose');
+  const group=document.getElementById('roleAccGroup');
+  if(!btn) return;
+  btn.style.display = (group && group.querySelector('details.role-acc[open]')) ? '' : 'none';
+}
+function roleCloseOpenAccordion(){
+  const group=document.getElementById('roleAccGroup');
+  const open = group && group.querySelector('details.role-acc[open]');
+  if(open){
+    open.open=false;
+    const s=open.querySelector('summary');
+    if(s) s.scrollIntoView({behavior:'smooth', block:'start'});
+  }
+  updateRoleFloatingClose();
+}
+
 /* Feedback 17.07.2026: "noch offen"-Hinweis (r.who) verschwindet, sobald mind. eine Person der
    Rolle zugewiesen ist — vorher hatte der Hinweis auch nach Zuweisung keinen Nutzen mehr. Rollen
    ohne "noch offen" im Text (z. B. "alle, abwechselnd") bleiben unverändert. */
@@ -2330,61 +3465,282 @@ function raumBelegt(raum){
    (<details>, wiederverwendet wie schon beim Medi-Plan-Akkordeon aus Stufe 13). Geschlossen:
    nur Label + Belegung + statische (nicht klickbare) Teamer-Chips. Geöffnet zusätzlich:
    Teamer zuweisen, Bettenzahl-Editor, TN-Liste dieses Zimmers, Umbenennen/Löschen. */
+/* Stufe 19 (spec/17): eine einzelne Zimmer-Karte (unverändert aus Stufe 14/spec 12, nur als
+   eigener Helfer ausgelagert, damit die Etagen-Gruppierung sie einfach einbetten kann).
+   `idx` = Index in meta.raeume (onclick-Handler nutzen weiterhin den Index, siehe Kommentar oben). */
+function roomCardHTML(raum, idx){
+  const d = getData();
+  const key = roomZustKey(raum);
+  const ids = d.zust[key] || [];
+  const chipsStatic = ids.map(id=>staffChip(id)).join('') || `<span class="tn-ansprech-empty">noch niemand zugewiesen</span>`;
+  const chipsEdit = ids.map(id=>staffChip(id, {onClick:`removeRoomStaff(${idx},'${id}')`, showX:true})).join('');
+  const betten = raumBetten(raum), belegt = raumBelegt(raum);
+  const tnHier = d.tn.filter(t=>t.zimmer===raum).sort((a,b)=>a.name.localeCompare(b.name,'de'));
+  const tnListHTML = tnHier.length
+    ? tnHier.map(t=>`<div class="tn-card" onclick="openTnInfo('${t.id}')">
+        <div class="name">${esc(t.name)}${t.alter?`<span class="tn-badge">${esc(String(t.alter))} J.</span>`:''}</div>
+        <div class="flags">${tnBadgesHTML(t)}</div>
+      </div>`).join('')
+    : `<div class="tn-empty">Noch kein TN diesem Zimmer zugeordnet.</div>`;
+  return `<details class="det room-card" data-idx="${idx}">
+    <summary>
+      <span class="room-summary-label">🛏️ ${esc(raum)}</span>
+      <span class="room-summary-belegt">${belegt}/${betten} belegt</span>
+      <span class="room-summary-chips">${chipsStatic}</span>
+    </summary>
+    <div class="body">
+      <div class="zust-row">${chipsEdit}<button type="button" class="schip-add" onclick="openRoomStaffPicker(${idx})">+ Person</button></div>
+      <div class="room-betten-row">
+        <label for="bettenInput${idx}">Bettenzahl</label>
+        <input id="bettenInput${idx}" type="number" min="0" inputmode="numeric" value="${betten}"
+          oninput="raeumeSetBetten(${idx}, this.value)">
+        <span class="room-belegt">${belegt}/${betten} belegt</span>
+      </div>
+      <div class="room-etage-row" style="margin-top:10px">
+        <label for="etageInput${idx}">Etage</label>
+        <input id="etageInput${idx}" type="text" list="etagenRoomDL" value="${esc(d.meta.etagen[raum]||'')}"
+          placeholder="z. B. OG (leer = ohne Etage)" onchange="roomSetEtage(${idx}, this.value)">
+      </div>
+      <div class="sec-h" style="margin-top:14px">TN in diesem Zimmer</div>
+      <div class="room-tn-list">${tnListHTML}</div>
+      <div class="room-card-actions">
+        <button type="button" onclick="raeumeEditRoom(${idx})">✏️ Umbenennen</button>
+        <button type="button" onclick="raeumeDeleteRoomConfirm(${idx})">🗑️ Löschen</button>
+      </div>
+    </div>
+  </details>`;
+}
+
+/* Stufe 19 (spec/17): Anzeige-Filter (nur Laufzeit, kein Datenmodell). null = alle Etagen zeigen. */
+let zimmerEtageFilter = null;
+function setEtageFilter(idx){
+  const d = getData();
+  zimmerEtageFilter = (idx < 0) ? null : (d.meta.etagenOrder[idx] || null);
+  renderRaeumeZustList();
+}
+
+/* Selbstheilung: jede in meta.etagen referenzierte Etage muss in etagenOrder stehen (sonst hätte
+   sie keinen stabilen Index für die Umbenennen/Löschen/Sortier-Handler). Gibt true zurück, wenn
+   etwas ergänzt wurde (dann speichern). */
+function healEtagenOrder(d){
+  let changed = false;
+  Object.values(d.meta.etagen || {}).forEach(e=>{
+    if(e && !d.meta.etagenOrder.includes(e)){ d.meta.etagenOrder.push(e); changed = true; }
+  });
+  return changed;
+}
+
 function raeumeZustRowsHTML(){
   const d = getData();
+  if(healEtagenOrder(d)) saveData(d);
   const raeume = d.meta.raeume || [];
-  if(!raeume.length){
+  if(!raeume.length && !d.meta.etagenOrder.length){
     return `<div class="staff-empty">Noch keine Zimmer angelegt.</div>`;
   }
-  return raeume.map((raum, idx)=>{
-    const key = roomZustKey(raum);
-    const ids = d.zust[key] || [];
-    const chipsStatic = ids.map(id=>staffChip(id)).join('') || `<span class="tn-ansprech-empty">noch niemand zugewiesen</span>`;
-    const chipsEdit = ids.map(id=>staffChip(id, {onClick:`removeRoomStaff(${idx},'${id}')`, showX:true})).join('');
-    const betten = raumBetten(raum), belegt = raumBelegt(raum);
-    const tnHier = d.tn.filter(t=>t.zimmer===raum).sort((a,b)=>a.name.localeCompare(b.name,'de'));
-    const tnListHTML = tnHier.length
-      ? tnHier.map(t=>`<div class="tn-card" onclick="openTnSheet('${t.id}')">
-          <div class="name">${esc(t.name)}${t.alter?`<span class="tn-badge">${esc(String(t.alter))} J.</span>`:''}</div>
-          <div class="flags">${tnBadgesHTML(t)}</div>
-        </div>`).join('')
-      : `<div class="tn-empty">Noch kein TN diesem Zimmer zugeordnet.</div>`;
-    return `<details class="det room-card" data-idx="${idx}">
+  // Zimmer-Index-Liste je Etagen-Label (+ "Ohne Etage"-Sammelgruppe).
+  const roomsByEtage = {};
+  const ohne = [];
+  raeume.forEach((raum, idx)=>{
+    const e = d.meta.etagen[raum];
+    if(e){ (roomsByEtage[e] = roomsByEtage[e] || []).push({raum, idx}); }
+    else ohne.push({raum, idx});
+  });
+  // Etagen-Filter-Chips (nur wenn es überhaupt Etagen gibt).
+  let html = '';
+  if(d.meta.etagenOrder.length){
+    // Filter per Etagen-INDEX schalten (Label könnte Anführungszeichen enthalten → siehe Index-Konvention oben).
+    const chip = (label, idx, active)=>`<button type="button" class="etage-filter-chip${active?' active':''}" onclick="setEtageFilter(${idx})">${esc(label)}</button>`;
+    html += `<div class="etage-filter">${chip('Alle', -1, zimmerEtageFilter===null)}${d.meta.etagenOrder.map((e,i)=>chip(e, i, zimmerEtageFilter===e)).join('')}</div>`;
+  }
+  // Reale Etagen (in Reihenfolge) rendern, dann "Ohne Etage" ans Ende.
+  d.meta.etagenOrder.forEach((etage, ordIdx)=>{
+    if(zimmerEtageFilter && zimmerEtageFilter !== etage) return;
+    const rooms = roomsByEtage[etage] || [];
+    const planId = d.meta.etagenPlan[etage] || '';
+    const planHTML = planId
+      ? `<div class="etage-plan"><img class="etage-plan-img" data-plan-etage="${ordIdx}" alt="Lageplan ${esc(etage)}" onclick="openEtagePlanFull(${ordIdx})">
+           <div class="etage-plan-actions">
+             <button type="button" onclick="etagePlanPick(${ordIdx})">🖼️ Ersetzen</button>
+             <button type="button" onclick="etagePlanRemove(${ordIdx})">🗑️ Entfernen</button>
+           </div></div>`
+      : `<button type="button" class="etage-plan-upload" onclick="etagePlanPick(${ordIdx})">🖼️ Lageplan hochladen (PNG/JPG)</button>`;
+    html += `<details class="det etage-card" data-etage="${ordIdx}" open>
       <summary>
-        <span class="room-summary-label">🛏️ ${esc(raum)}</span>
-        <span class="room-summary-belegt">${belegt}/${betten} belegt</span>
-        <span class="room-summary-chips">${chipsStatic}</span>
+        <span class="etage-summary-label">🏠 ${esc(etage)}</span>
+        <span class="etage-summary-count">${rooms.length} ${rooms.length===1?'Zimmer':'Zimmer'}</span>
+        <span class="etage-summary-actions">
+          <button type="button" class="team-icon-btn sm" onclick="event.preventDefault();event.stopPropagation();etageMove(${ordIdx},-1)" aria-label="Nach oben">↑</button>
+          <button type="button" class="team-icon-btn sm" onclick="event.preventDefault();event.stopPropagation();etageMove(${ordIdx},1)" aria-label="Nach unten">↓</button>
+          <button type="button" class="team-icon-btn sm" onclick="event.preventDefault();event.stopPropagation();etageRename(${ordIdx})" aria-label="Etage umbenennen">✏️</button>
+          <button type="button" class="team-icon-btn sm" onclick="event.preventDefault();event.stopPropagation();etageDeleteConfirm(${ordIdx})" aria-label="Etage löschen">🗑️</button>
+        </span>
       </summary>
       <div class="body">
-        <div class="zust-row">${chipsEdit}<button type="button" class="schip-add" onclick="openRoomStaffPicker(${idx})">+ Person</button></div>
-        <div class="room-betten-row">
-          <label for="bettenInput${idx}">Bettenzahl</label>
-          <input id="bettenInput${idx}" type="number" min="0" inputmode="numeric" value="${betten}"
-            oninput="raeumeSetBetten(${idx}, this.value)">
-          <span class="room-belegt">${belegt}/${betten} belegt</span>
-        </div>
-        <div class="sec-h" style="margin-top:14px">TN in diesem Zimmer</div>
-        <div class="room-tn-list">${tnListHTML}</div>
-        <div class="room-card-actions">
-          <button type="button" onclick="raeumeEditRoom(${idx})">✏️ Umbenennen</button>
-          <button type="button" onclick="raeumeDeleteRoomConfirm(${idx})">🗑️ Löschen</button>
-        </div>
+        ${planHTML}
+        ${rooms.length ? rooms.map(r=>roomCardHTML(r.raum, r.idx)).join('') : `<div class="tn-empty">Noch kein Zimmer in dieser Etage.</div>`}
       </div>
     </details>`;
-  }).join('');
+  });
+  if(ohne.length && !zimmerEtageFilter){
+    html += `<details class="det etage-card" data-etage="ohne" open>
+      <summary>
+        <span class="etage-summary-label">📦 Ohne Etage</span>
+        <span class="etage-summary-count">${ohne.length} Zimmer</span>
+      </summary>
+      <div class="body">${ohne.map(r=>roomCardHTML(r.raum, r.idx)).join('')}</div>
+    </details>`;
+  }
+  // <datalist> für das Etagen-Feld in den Zimmer-Karten (einmalig).
+  html += etagenDatalistHTML('etagenRoomDL');
+  return html;
 }
 function renderRaeumeZustList(){
   const el = document.getElementById('raeumeZustList');
   if(!el) return;
-  // Offene Karten bleiben beim Neuzeichnen offen (z. B. wenn im Bottom-Sheet ein Teamer
-  // zugewiesen wird, während die Karte darunter geöffnet ist) — Index als Merkmal reicht,
-  // da meta.raeume seine Reihenfolge außer bei Add/Delete/Rename nicht ändert.
+  // Offene Karten/Etagen bleiben beim Neuzeichnen offen (z. B. wenn im Bottom-Sheet ein Teamer
+  // zugewiesen wird). Zimmer per Index, Etagen per data-etage merken.
   const openIdx = new Set(Array.from(el.querySelectorAll('details.room-card'))
     .filter(det=>det.open).map(det=>det.dataset.idx));
+  const openEt = new Set(Array.from(el.querySelectorAll('details.etage-card'))
+    .filter(det=>det.open).map(det=>det.dataset.etage));
+  const wasRendered = el.dataset.rendered === '1';
   el.innerHTML = raeumeZustRowsHTML();
-  el.querySelectorAll('details.room-card').forEach(det=>{
-    if(openIdx.has(det.dataset.idx)) det.open = true;
+  el.querySelectorAll('details.room-card').forEach(det=>{ if(openIdx.has(det.dataset.idx)) det.open = true; });
+  // Etagen-Akkordeons: beim allerersten Rendern default offen (open im HTML); danach den vorigen
+  // Zustand respektieren, damit ein zugeklapptes Akkordeon nicht bei jedem Re-Render aufspringt.
+  if(wasRendered){
+    el.querySelectorAll('details.etage-card').forEach(det=>{ det.open = openEt.has(det.dataset.etage); });
+  }
+  el.dataset.rendered = '1';
+  renderEtagePlanImages();
+}
+/* Lageplan-Bilder nachladen (async, IndexedDB) — wie renderWpImages die Bild-src nachträgt. */
+function renderEtagePlanImages(){
+  const d = getData();
+  document.querySelectorAll('img.etage-plan-img[data-plan-etage]').forEach(img=>{
+    const etage = d.meta.etagenOrder[parseInt(img.dataset.planEtage,10)];
+    const id = etage ? d.meta.etagenPlan[etage] : null;
+    if(id) imgGet(id).then(url=>{ if(url) img.src = url; });
   });
+}
+/* ---- Stufe 19 (spec/17): Etage eines Zimmers ändern (aus der Zimmer-Karte heraus) ---- */
+function roomSetEtage(idx, value){
+  const d = getData();
+  const raum = d.meta.raeume[idx]; if(raum===undefined) return;
+  setRoomEtage(d, raum, value); // legt neue Etage bei Bedarf an
+  saveData(d);
+  renderRaeumeZustList();
+  renderRaeumeSettings();
+}
+/* ---- Etagen sortieren / umbenennen / löschen (Handler nutzen den etagenOrder-INDEX) ---- */
+function etageMove(ordIdx, dir){
+  const d = getData(); const arr = d.meta.etagenOrder;
+  const j = ordIdx + dir; if(j < 0 || j >= arr.length) return;
+  const tmp = arr[ordIdx]; arr[ordIdx] = arr[j]; arr[j] = tmp;
+  saveData(d);
+  renderRaeumeZustList();
+}
+function etageRename(ordIdx){
+  const d = getData(); const etage = d.meta.etagenOrder[ordIdx]; if(etage===undefined) return;
+  openSheet('Etage umbenennen', `<div class="rename-box">
+    <input id="etageEditInput" type="text" autocomplete="off">
+    <button type="button" class="staff-add-btn" onclick="etageRenameSave(${ordIdx})" aria-label="Speichern">✓</button>
+  </div>`);
+  const inp = document.getElementById('etageEditInput');
+  inp.value = etage; inp.focus(); inp.select();
+  inp.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); etageRenameSave(ordIdx); } });
+}
+function etageRenameSave(ordIdx){
+  const val = document.getElementById('etageEditInput').value.trim(); if(!val) return;
+  const d = getData(); const oldE = d.meta.etagenOrder[ordIdx]; if(oldE===undefined) return;
+  if(val !== oldE){
+    // Zimmer-Zuordnungen auf neuen Etagennamen ummappen.
+    Object.keys(d.meta.etagen).forEach(raum=>{ if(d.meta.etagen[raum]===oldE) d.meta.etagen[raum] = val; });
+    // Lageplan mitwandern (bei Namens-Kollision alten Plan verwerfen, damit kein verwaistes Bild bleibt).
+    if(Object.prototype.hasOwnProperty.call(d.meta.etagenPlan, oldE)){
+      if(!d.meta.etagenPlan[val]) d.meta.etagenPlan[val] = d.meta.etagenPlan[oldE];
+      else if(d.meta.etagenPlan[oldE]) imgDelete(d.meta.etagenPlan[oldE]);
+      delete d.meta.etagenPlan[oldE];
+    }
+    // etagenOrder: existiert der Zielname schon (Zusammenführen), alten Slot entfernen; sonst umbenennen.
+    const existingIdx = d.meta.etagenOrder.indexOf(val);
+    if(existingIdx >= 0 && existingIdx !== ordIdx) d.meta.etagenOrder.splice(ordIdx, 1);
+    else d.meta.etagenOrder[ordIdx] = val;
+    if(zimmerEtageFilter === oldE) zimmerEtageFilter = val;
+  }
+  saveData(d); closeSheet();
+  renderRaeumeZustList(); renderRaeumeSettings();
+}
+function etageDeleteConfirm(ordIdx){
+  const d = getData(); const etage = d.meta.etagenOrder[ordIdx]; if(etage===undefined) return;
+  const n = Object.values(d.meta.etagen).filter(e=>e===etage).length;
+  openSheet('Etage löschen', `<div class="confirm-box">
+    <p>Etage „${esc(etage)}" löschen? Die ${n} Zimmer dieser Etage bleiben erhalten und rutschen nach „Ohne Etage".
+    Der Lageplan dieser Etage wird entfernt.</p>
+    <div class="confirm-actions">
+      <button type="button" class="staff-cancel" onclick="closeSheet()">Abbrechen</button>
+      <button type="button" class="staff-danger" onclick="etageDeleteDo(${ordIdx})">Löschen</button>
+    </div></div>`);
+}
+function etageDeleteDo(ordIdx){
+  const d = getData(); const etage = d.meta.etagenOrder[ordIdx]; if(etage===undefined) return;
+  Object.keys(d.meta.etagen).forEach(raum=>{ if(d.meta.etagen[raum]===etage) delete d.meta.etagen[raum]; });
+  const planId = d.meta.etagenPlan[etage];
+  delete d.meta.etagenPlan[etage];
+  d.meta.etagenOrder.splice(ordIdx, 1);
+  if(zimmerEtageFilter === etage) zimmerEtageFilter = null;
+  saveData(d);
+  if(planId) imgDelete(planId);
+  closeSheet();
+  renderRaeumeZustList(); renderRaeumeSettings();
+}
+/* ---- Lageplan-Bild je Etage (Reuse compressAndStoreImage/imgGet/imgDelete + wp-img-overlay) ---- */
+function etagePlanPick(ordIdx){
+  const d = getData(); const etage = d.meta.etagenOrder[ordIdx]; if(etage===undefined) return;
+  const inp = document.createElement('input');
+  inp.type = 'file'; inp.accept = 'image/png,image/jpeg'; inp.style.display = 'none';
+  document.body.appendChild(inp);
+  const cleanup = ()=>{ if(inp.parentNode) document.body.removeChild(inp); };
+  inp.addEventListener('change', ()=>{
+    const file = inp.files && inp.files[0];
+    if(!file){ cleanup(); return; }
+    compressAndStoreImage(file).then(newId=>{
+      const dd = getData(); const et = dd.meta.etagenOrder[ordIdx];
+      if(et===undefined){ cleanup(); return; }
+      const old = dd.meta.etagenPlan[et];
+      dd.meta.etagenPlan[et] = newId;
+      saveData(dd);
+      if(old && old !== newId) imgDelete(old);
+      renderRaeumeZustList();
+    }).catch(()=>alert('Bild konnte nicht verarbeitet werden.')).finally(cleanup);
+  });
+  inp.click();
+}
+function etagePlanRemove(ordIdx){
+  const d = getData(); const etage = d.meta.etagenOrder[ordIdx]; if(etage===undefined) return;
+  openSheet('Lageplan entfernen', `<div class="confirm-box">
+    <p>Lageplan der Etage „${esc(etage)}" wirklich entfernen?</p>
+    <div class="confirm-actions">
+      <button type="button" class="staff-cancel" onclick="closeSheet()">Abbrechen</button>
+      <button type="button" class="staff-danger" onclick="etagePlanRemoveDo(${ordIdx})">Entfernen</button>
+    </div></div>`);
+}
+function etagePlanRemoveDo(ordIdx){
+  const d = getData(); const etage = d.meta.etagenOrder[ordIdx]; if(etage===undefined) return;
+  const id = d.meta.etagenPlan[etage];
+  delete d.meta.etagenPlan[etage];
+  saveData(d);
+  if(id) imgDelete(id);
+  closeSheet(); closeWpImageFull();
+  renderRaeumeZustList();
+}
+function openEtagePlanFull(ordIdx){
+  const d = getData(); const etage = d.meta.etagenOrder[ordIdx]; if(etage===undefined) return;
+  const id = d.meta.etagenPlan[etage]; if(!id) return;
+  const ov = wpImgOverlay(); // dasselbe Vollbild-Overlay wie beim Wochenplan
+  imgGet(id).then(url=>{ if(url) document.getElementById('wpImgFull').src = url; });
+  document.getElementById('wpImgDelBtn').onclick = ()=>etagePlanRemove(ordIdx);
+  ov.classList.add('active');
 }
 function raeumeSetBetten(idx, val){
   const d = getData();
@@ -2436,7 +3792,9 @@ function openRole(id){
   let h=`<div class="dhead"><div class="emoji">${r.icon}</div><h2>${esc(r.title)}</h2></div>`;
   /* Stufe 14 (spec/12): bei der Zimmer-Rolle gibt es bewusst KEINE bereichsweite "Zuständig:"-Zeile
      — Zuständigkeit ist pro Zimmer (siehe Zimmer-Karten unten), nicht für den Gesamtbereich. */
-  if(r.id!=='zimmer') h+=`<div class="zust-row" id="zustRow">${zustRowHTML(r.id)}</div>`;
+  /* Notiz Marco (spec/20): bei „programm“ sind alle mal dran → feste Zuständigen-Zuweisung ergibt
+     keinen Sinn, Zeile ausgeblendet (wie schon bei „zimmer“). */
+  if(r.id!=='zimmer' && r.id!=='programm') h+=`<div class="zust-row" id="zustRow">${zustRowHTML(r.id)}</div>`;
   h+=whoBadgeHTML(r);
   if(r.intro) h+=`<div class="intro">${esc(r.intro)}</div>`;
 
@@ -2468,12 +3826,25 @@ function openRole(id){
   }
 
   if(r.id!=='zimmer' && r.core && r.core.length){
-    h+=`<div class="sec-h">${r.info?'Regeln':'Checkliste'}</div>`;
-    h+=blockHTML(r.core, true, r.id);
-  }
-
-  if(r.id!=='zimmer' && r.details && r.details.length){
-    h+=`<details class="det"><summary>Mehr Details & Sonderfälle</summary><div class="body">${blockHTML(r.details,false,r.id)}</div></details>`;
+    const hasSections = r.core.some(b=>b.h);
+    if(hasSections){
+      /* spec/20: Sections als Button-Akkordeons (alle zu beim Start, single-open, Schließen-Pfeil).
+         Sonderfälle sind in die passenden Sections eingebaut; nur falls eine Rolle noch ein
+         `details`-Array hat, reiht es sich als letztes Akkordeon „🔎 Mehr Details“ ein. */
+      let inner = roleBlocksHTML(r.core, r.id);
+      if(r.details && r.details.length){
+        inner += `<details class="det role-acc"><summary>🔎 Mehr Details & Sonderfälle</summary><div class="body">${blockHTML(r.details,false,r.id)}</div></details>`;
+      }
+      h+=`<div class="role-acc-group" id="roleAccGroup">${inner}</div>`;
+      h+=`<button type="button" id="roleFloatingClose" class="tn-floating-close" onclick="roleCloseOpenAccordion()" aria-label="Akkordeon schließen" style="display:none">⌃</button>`;
+    }else{
+      /* Rolle ohne Section-Überschriften (nur eine Liste) → flach wie bisher, kein Akkordeon. */
+      h+=`<div class="sec-h">${r.info?'Regeln':'Checkliste'}</div>`;
+      h+=blockHTML(r.core, true, r.id);
+      if(r.details && r.details.length){
+        h+=`<details class="det"><summary>Mehr Details & Sonderfälle</summary><div class="body">${blockHTML(r.details,false,r.id)}</div></details>`;
+      }
+    }
   }
 
   const nkey=LS_PREFIX+"note_"+r.id;
@@ -2484,6 +3855,7 @@ function openRole(id){
      zurücksetzen"-Button entfernt. Die Box mit Häkchen-Icon bleibt rein als Aufzählungs-Optik. */
 
   detailBody().innerHTML=h;
+  wireRoleAccordions();
 
   const ta=document.getElementById('noteArea'), tag=document.getElementById('savedTag');
   let t=null;
@@ -2808,28 +4180,53 @@ function renderRaeumeSettings(){
   if(!raeume.length){ el.innerHTML = `<div class="staff-empty">Noch keine Zimmer angelegt.</div>`; return; }
   el.innerHTML = raeume.map((raum, idx)=>`
     <div class="team-item-row">
-      <span class="team-item-text">🛏️ ${esc(raum)}</span>
+      <span class="team-item-text">🛏️ ${esc(raum)}${d.meta.etagen[raum]?`<span class="tn-badge" style="margin-left:6px">${esc(d.meta.etagen[raum])}</span>`:''}</span>
       <span class="team-item-actions">
         <button type="button" class="team-icon-btn sm" onclick="raeumeEditRoom(${idx})" aria-label="Umbenennen">✏️</button>
         <button type="button" class="team-icon-btn sm" onclick="raeumeDeleteRoomConfirm(${idx})" aria-label="Löschen">🗑️</button>
       </span>
     </div>`).join('');
 }
+/* Stufe 19 (spec/17): <datalist> aller bekannten Etagen — erlaubt Auswählen bestehender ODER
+   freies Eintippen einer neuen Etage im selben Feld. */
+function etagenDatalistHTML(id){
+  const d = getData();
+  const opts = (d.meta.etagenOrder || []).map(e=>`<option value="${esc(e)}">`).join('');
+  return `<datalist id="${id}">${opts}</datalist>`;
+}
+/* Stufe 19 (spec/17): Etage einem Zimmer zuweisen (leer = "Ohne Etage"). Neue Etage wird an
+   etagenOrder angehängt. Zentrale Stelle, damit Add und "Etage ändern" dieselbe Logik nutzen. */
+function setRoomEtage(d, raumLabel, etageRaw){
+  const etage = (etageRaw || '').trim();
+  if(etage){
+    d.meta.etagen[raumLabel] = etage;
+    if(!d.meta.etagenOrder.includes(etage)) d.meta.etagenOrder.push(etage);
+  } else {
+    delete d.meta.etagen[raumLabel];
+  }
+}
 function raeumeAddRoom(){
   openSheet('Neues Zimmer', `<div class="rename-box">
-    <input id="raumAddInput" type="text" placeholder="z. B. 12" autocomplete="off">
-    <button type="button" class="staff-add-btn" onclick="raeumeAddRoomSave()" aria-label="Hinzufügen">✓</button>
-  </div>`);
+    <input id="raumAddInput" type="text" placeholder="Zimmer, z. B. 12" autocomplete="off">
+  </div>
+  <div class="form-field" style="margin-top:10px">
+    <label for="raumAddEtage">Etage (optional)</label>
+    <input id="raumAddEtage" type="text" list="etagenAddDL" placeholder="z. B. OG — bestehende wählen oder neu" autocomplete="off">
+    ${etagenDatalistHTML('etagenAddDL')}
+  </div>
+  <button type="button" class="staff-add-btn" style="margin-top:12px" onclick="raeumeAddRoomSave()">Zimmer hinzufügen</button>`);
   const inp = document.getElementById('raumAddInput');
   inp.focus();
-  inp.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); raeumeAddRoomSave(); } });
+  inp.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); document.getElementById('raumAddEtage').focus(); } });
+  document.getElementById('raumAddEtage').addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); raeumeAddRoomSave(); } });
 }
 function raeumeAddRoomSave(){
-  const inp = document.getElementById('raumAddInput');
-  const val = inp.value.trim();
+  const val = document.getElementById('raumAddInput').value.trim();
   if(!val) return;
+  const etage = document.getElementById('raumAddEtage').value;
   const d = getData();
   if(!d.meta.raeume.includes(val)) d.meta.raeume.push(val);
+  setRoomEtage(d, val, etage);
   saveData(d);
   closeSheet();
   renderRaeumeSettings();
@@ -2865,6 +4262,11 @@ function raeumeEditRoomSave(idx){
       d.meta.betten[val] = d.meta.betten[oldRaum];
       delete d.meta.betten[oldRaum];
     }
+    // Stufe 19 (spec/17): Etagen-Zuordnung des Zimmers mit umbenennen.
+    if(Object.prototype.hasOwnProperty.call(d.meta.etagen, oldRaum)){
+      d.meta.etagen[val] = d.meta.etagen[oldRaum];
+      delete d.meta.etagen[oldRaum];
+    }
   }
   saveData(d);
   closeSheet();
@@ -2888,6 +4290,7 @@ function raeumeDeleteRoomDo(idx){
   const raum = d.meta.raeume[idx]; if(raum===undefined) return;
   delete d.zust[roomZustKey(raum)];
   delete d.meta.betten[raum];
+  delete d.meta.etagen[raum]; // Stufe 19 (spec/17): Etagen-Zuordnung mit entfernen
   d.meta.raeume.splice(idx,1);
   saveData(d);
   closeSheet();
