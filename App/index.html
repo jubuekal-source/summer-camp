@@ -1341,6 +1341,11 @@ const ROLES = [
       {h:"🎒 Unterwegs: Sicherheit", items:[
         "Bei Ausflügen sicherstellen: jemand hat den **TN-Ordner** (Versicherungskarten, Impfpässe …) UND das **Erste-Hilfe-Set** dabei."
       ]},
+      {h:"👥 Gruppeneinteilung für unterwegs", items:[
+        "Bei Reisen und Ausflügen ist das Team auch für die **Einteilung der Kinder in Reisegruppen** zuständig. Diese Gruppen könnt ihr direkt in der App unter **👥 Gruppen** anlegen (z. B. eine altersgemäße Aufteilung für die Zugfahrt).",
+        "Pro Gruppe werden **ein bis zwei Teamer** einer bestimmten Altersgruppe zugeordnet (z. B. zwei Teamer für die 10–11-Jährigen), die während der Fahrt für „ihre“ Kinder verantwortlich sind.",
+        "[👥 Zu den Gruppen](#gruppen)"
+      ]},
       {h:"💶 Kasse & Belege", items:[
         "**Ausflugskasse verwalten** & Eintritte / Zugfahrten bezahlen.",
         "**Belege sammeln** & einzeln ins Kassenbuch kleben (siehe 💰 Kassen-1×1).",
@@ -1355,9 +1360,9 @@ const ROLES = [
        Badmülleimer, Material ans Einkauf, Abreisetag) sind eingemerged (kein Doppel). Der
        Reinigungsplan (Kids-Plakat) steht als kopierbare Vorlage zum Übertragen auf Papierbögen. */
     core:[
-      {h:"🎓 Vor der Freizeit", items:[
-        "Rechtzeitig vor der Freizeit einen Account auf der Online-Lern-Plattform anlegen und die gesetzliche **Online-Hygieneschulung** (Belehrung nach Infektionsschutzgesetz) absolvieren.",
-        "[Zur Hygieneschulung (eLearning Jugendarbeit BW)](https://elearning.jugendakademie-bw.de/login/index.php)"
+      {h:"🎓 Vor der Freizeit", linkKey:"hygiene_schulung",
+       linkTip:"Button-Titel & Link sind editierbar (✏️). So kannst du hier künftig auch andere Schulungen oder Formulare hinterlegen — z. B. ein Hygienekonzept zum Lesen und Unterschreiben.", items:[
+        "Rechtzeitig vor der Freizeit einen Account auf der Online-Lern-Plattform anlegen und die gesetzliche **Online-Hygieneschulung** (Belehrung nach Infektionsschutzgesetz) absolvieren."
       ]},
       {h:"🛠️ Orga in den ersten Tagen", items:[
         "Reinigungsplan finalisieren: Bereiche (WCs, Bäder, Flure, Eingang) festlegen und Kinder/Teamer in feste Dienste einteilen.",
@@ -2601,6 +2606,15 @@ function setupTnAccordions(){
     });
   });
 }
+/* Deep-Link „#gruppen": Gruppen-Akkordeon öffnen (schließt via Toggle-Listener die anderen) und
+   hinscrollen. requestAnimationFrame, damit das Scrollen nach dem route()-window.scrollTo(0,0) greift. */
+function openTnGruppen(){
+  const det = document.getElementById('tnAccGruppen');
+  if(!det) return;
+  det.open = true;
+  const s = det.querySelector('summary');
+  if(s) requestAnimationFrame(()=>s.scrollIntoView({behavior:'smooth', block:'start'}));
+}
 function updateFloatingCollapse(){
   const btn = document.getElementById('tnFloatingClose');
   const group = document.getElementById('tnAccordions');
@@ -2675,6 +2689,7 @@ function gruppeCardHTML(g){
       <button type="button" class="tn-add-btn" style="margin-top:10px" onclick="openGruppeAddTnPicker('${g.id}')">+ TN zur Gruppe</button>
       <div class="room-card-actions">
         <button type="button" onclick="renameGruppe('${g.id}')">✏️ Umbenennen</button>
+        <button type="button" onclick="openGruppeMergePicker('${g.id}')">🔗 Mit anderer Gruppe zusammenführen</button>
       </div>
     </div>
   </details>`;
@@ -2771,6 +2786,65 @@ function deleteGruppeConfirm(gruppeId){
 function deleteGruppeDo(gruppeId){
   const d = getData();
   d.gruppen = d.gruppen.filter(g=>g.id!==gruppeId);
+  saveData(d);
+  closeSheet();
+  renderGruppen();
+}
+/* ---- Zusammenführen (spec/20 "Offen" — Praxis: Jahrgangs-Gruppen für die Zugfahrt, deren Ist-Größe
+   vorher unbekannt ist, z. B. nur zwei 10-Jährige, werden nachträglich mit einer Nachbargruppe kombiniert).
+   Die Gruppe, von deren Karte aus der Button getippt wurde (gruppeId), bleibt als Ziel bestehen —
+   memberIds/teamerIds werden vereinigt (Duplikate entfernt), die andere Gruppe (otherId) wird danach entfernt. ---- */
+function gruppeMergePickerHTML(gruppeId){
+  const d = getData();
+  const others = d.gruppen.filter(g=>g.id!==gruppeId);
+  if(!others.length) return `<div class="staff-empty">Keine weitere Gruppe zum Zusammenführen vorhanden.</div>`;
+  return `<div class="picker-list">` + others.map(g=>`
+      <button type="button" class="picker-row" onclick="openGruppeMergeConfirm('${gruppeId}','${g.id}')">
+        <span class="pname">${esc(g.titel)} · ${(g.memberIds||[]).length} TN</span>
+      </button>`).join('') + `</div>`;
+}
+function openGruppeMergePicker(gruppeId){
+  openSheet('Mit anderer Gruppe zusammenführen', gruppeMergePickerHTML(gruppeId));
+}
+// Titel-Vorschlag: kombinierte Alters-Jahrgänge, z.B. "10 + 11 Jahre" (spec/20-Beispiel); bei >4 verschiedenen
+// Altern oder ganz ohne Altersangabe fällt der Vorschlag auf "Titel1 + Titel2" zurück.
+function gruppeSuggestMergeTitel(g, other, combinedMembers){
+  const ages = [...new Set(combinedMembers.map(t=>t.alter).filter(Boolean))].sort((a,b)=>a-b);
+  if(ages.length && ages.length<=4) return ages.join(' + ') + ' Jahre';
+  return `${g.titel} + ${other.titel}`;
+}
+function openGruppeMergeConfirm(gruppeId, otherId){
+  const d = getData();
+  const g = d.gruppen.find(x=>x.id===gruppeId);
+  const other = d.gruppen.find(x=>x.id===otherId);
+  if(!g || !other) return;
+  const combinedIds = [...new Set([...(g.memberIds||[]), ...(other.memberIds||[])])];
+  const combinedMembers = combinedIds.map(id=>d.tn.find(t=>t.id===id)).filter(Boolean);
+  const suggestion = gruppeSuggestMergeTitel(g, other, combinedMembers);
+  openSheet('Gruppen zusammenführen', `<div class="confirm-box">
+    <p>„${esc(g.titel)}" (${(g.memberIds||[]).length} TN) mit „${esc(other.titel)}" (${(other.memberIds||[]).length} TN)
+    zusammenführen? Ergebnis: ${combinedMembers.length} TN in einer Gruppe. „${esc(other.titel)}" wird danach
+    entfernt, die Teilnehmenden und Teamer selbst bleiben erhalten.</p>
+    <div class="form-field"><label>Titel der zusammengeführten Gruppe</label>
+      <input id="gruppeMergeTitel" type="text" autocomplete="off" value="${esc(suggestion)}"></div>
+    <div class="confirm-actions">
+      <button type="button" class="staff-cancel" onclick="closeSheet()">Abbrechen</button>
+      <button type="button" class="staff-danger" onclick="mergeGruppenDo('${gruppeId}','${otherId}')">Zusammenführen</button>
+    </div></div>`);
+  const inp = document.getElementById('gruppeMergeTitel');
+  if(inp){ inp.focus(); inp.select(); }
+}
+function mergeGruppenDo(gruppeId, otherId){
+  const d = getData();
+  const g = d.gruppen.find(x=>x.id===gruppeId);
+  const other = d.gruppen.find(x=>x.id===otherId);
+  if(!g || !other) return;
+  const inp = document.getElementById('gruppeMergeTitel');
+  const titel = (inp && inp.value.trim()) || g.titel;
+  g.memberIds = [...new Set([...(g.memberIds||[]), ...(other.memberIds||[])])];
+  g.teamerIds = [...new Set([...(g.teamerIds||[]), ...(other.teamerIds||[])])];
+  g.titel = titel;
+  d.gruppen = d.gruppen.filter(x=>x.id!==otherId);
   saveData(d);
   closeSheet();
   renderGruppen();
@@ -3291,7 +3365,7 @@ const DASH_TILES = [
   {id:'ersthilfe', icon:'🩹', title:'Erste Hilfe', color:'#22D3EE', hash:'ersthilfe', sub:'Wundversorgung & Zecken'},
   {id:'wochenplan', icon:'🗓️', title:'Wochenplan', color:'#A78BFA', hash:'wochenplan', sub:'Programm & Fotos je Tag'},
   {id:'zust', icon:'📋', title:'Zuständigkeiten', color:'#FF6B4A', hash:'zust', sub:'Rollen & Aufgaben'},
-  {id:'tn', icon:'⚠️', title:'TN-Infos', color:'#FFB23E', hash:'tn', sub:'Gesundheit & Sicherheit'},
+  {id:'tn', icon:'⚠️', title:'TN-Infos', color:'#FFB23E', hash:'tn', sub:'Gesundheit, Sicherheit & Gruppen'},
   {id:'ma', icon:'🧡', title:'MA-Infos', color:'#F97316', hash:'ma', sub:'Rettungsschwimmer & Handyregeln'},
   {id:'notizen', icon:'📝', title:'Notizen', color:'#34d399', hash:'notizen', sub:'Privat, nur dieses Gerät'},
   {id:'team', icon:'🤝', title:'Team', color:'#FFB23E', hash:'team', sub:'Unsere Werte'}
@@ -3306,28 +3380,39 @@ function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g
    kein User-Input — daher unbedenklich. Erlaubt es, Schlüsselwörter je Punkt hervorzuheben. */
 function fmtInline(s){
   return esc(s)
-    /* [Label](https://…) → Button-Link (nur https, entwicklerseitig gepflegt) */
+    /* [Label](#hash) → interner Navigations-Button (z. B. #gruppen). Ohne target/rel. */
+    .replace(/\[([^\]]+)\]\((#[a-zA-Z0-9_-]+)\)/g,
+      '<a href="$2" class="inline-link-btn">$1</a>')
+    /* [Label](https://…) → externer Button-Link (nur https, entwicklerseitig gepflegt) */
     .replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g,
       '<a href="$2" target="_blank" rel="noopener" class="inline-link-btn">$1 ↗</a>')
     .replace(/\*\*(.+?)\*\*/g,'<b>$1</b>');
 }
 
-/* ============ Öffentliche Notion-Links (Feintuning 23.07.2026) ============ */
-/* Wiederverwendbare Komponente: ein frei betitelbarer öffentlicher Notion-Link je „key". Gespeichert
-   in meta.notionLinks (→ Teil des Exports, teamweit geteilt). Aktuell genutzt bei Video-Team und
-   Wochenplan; weitere Keys können einfach ergänzt werden. */
+/* ============ Editierbare Links (Feintuning 23.07.2026) ============ */
+/* Wiederverwendbare Komponente: ein frei betitelbarer Link je „key". Gespeichert in meta.notionLinks
+   (→ Teil des Exports, teamweit geteilt). „defaultUrl"/„defaultTitle" liefern einen Startwert, der
+   sofort als fertiger Button erscheint und per ✏️ überschrieben werden kann (z. B. Hygieneschulung —
+   später evtl. Hygienekonzept). Ohne defaultUrl erscheint „Link hinzufügen". */
 const NOTION_LINKS = {
-  video:      { defaultTitle: 'Unsere Video- & Bildersammlung' },
-  wochenplan: { defaultTitle: 'Zu unserem Notion-Wochenplan' }
+  video:            { defaultTitle: 'Unsere Video- & Bildersammlung' },
+  wochenplan:       { defaultTitle: 'Zu unserem Notion-Wochenplan' },
+  hygiene_schulung: { defaultTitle: 'Zur Hygieneschulung (eLearning Jugendarbeit BW)',
+                      defaultUrl:   'https://elearning.jugendakademie-bw.de/login/index.php' },
+  kueche_link:      { defaultTitle: 'Weiterer Link / Formular (optional)' }
 };
+/* Effektiver Link = gespeicherter Wert, sonst Registry-Default. null, wenn keine URL greift. */
 function notionLinkData(key){
   const d = getData();
-  const nl = (d.meta.notionLinks && d.meta.notionLinks[key]) || null;
-  return (nl && nl.url) ? nl : null;
+  const stored = (d.meta.notionLinks && d.meta.notionLinks[key]) || null;
+  const reg = NOTION_LINKS[key] || {};
+  const url = (stored && stored.url) ? stored.url : (reg.defaultUrl || '');
+  const title = (stored && stored.title) ? stored.title : (reg.defaultTitle || '');
+  return url ? { url, title } : null;
 }
 function notionLinkInnerHTML(key){
   const nl = notionLinkData(key);
-  const def = (NOTION_LINKS[key]||{}).defaultTitle || 'Notion-Link';
+  const def = (NOTION_LINKS[key]||{}).defaultTitle || 'Link';
   if(nl){
     const title = nl.title || def;
     return `<a class="notion-link-btn" href="${esc(nl.url)}" target="_blank" rel="noopener">🔗 ${esc(title)} ↗</a>
@@ -3346,18 +3431,24 @@ function renderNotionLink(key){
   if(el) el.innerHTML = notionLinkInnerHTML(key);
 }
 function openNotionLinkSheet(key){
-  const nl = notionLinkData(key);
-  const def = (NOTION_LINKS[key]||{}).defaultTitle || '';
-  const url = nl ? nl.url : '';
-  const title = nl ? (nl.title||def) : def;
-  openSheet(nl?'Notion-Link bearbeiten':'Notion-Link hinzufügen', `
-    <div class="form-field"><label>Öffentlicher Notion-Link (URL)</label>
-      <input id="nlUrl" type="url" inputmode="url" placeholder="https://notion.so/…" value="${esc(url)}"></div>
+  const d = getData();
+  const stored = (d.meta.notionLinks && d.meta.notionLinks[key]) || null;
+  const reg = NOTION_LINKS[key] || {};
+  const eff = notionLinkData(key);
+  const def = reg.defaultTitle || '';
+  const url = eff ? eff.url : '';
+  const title = eff ? (eff.title||def) : def;
+  const hasStored = !!(stored && stored.url);
+  const hasDefault = !!reg.defaultUrl;
+  const removeLabel = hasDefault ? 'Auf Standard zurücksetzen' : 'Entfernen';
+  openSheet(eff?'Link bearbeiten':'Link hinzufügen', `
+    <div class="form-field"><label>Link (URL)</label>
+      <input id="nlUrl" type="url" inputmode="url" placeholder="https://…" value="${esc(url)}"></div>
     <div class="form-field"><label>Angezeigter Titel</label>
       <input id="nlTitle" type="text" placeholder="${esc(def)}" value="${esc(title)}">
-      <div class="settings-hint" style="text-align:left;margin:6px 0 0">Statt der langen URL wird dieser Titel angezeigt. Standard: „${esc(def)}" — jederzeit änderbar.</div></div>
+      <div class="settings-hint" style="text-align:left;margin:6px 0 0">Statt der langen URL wird dieser Titel als Button angezeigt${def?` (Standard: „${esc(def)}")`:''} — jederzeit änderbar.</div></div>
     <div class="form-actions">
-      ${nl?`<button type="button" class="staff-danger" onclick="removeNotionLink('${key}')">Entfernen</button>`:''}
+      ${hasStored?`<button type="button" class="staff-danger" onclick="removeNotionLink('${key}')">${removeLabel}</button>`:''}
       <button type="button" class="form-save" onclick="saveNotionLink('${key}')">Speichern</button>
     </div>`);
 }
@@ -3474,10 +3565,12 @@ function roleBlocksHTML(blocks, roleId){
       const done=localStorage.getItem(key)==="1";
       return `<li class="${done?'done':''}" data-key="${key}"><span class="box">✓</span><span>${fmtInline(it)}</span></li>`;
     }).join("");
+    /* Optionaler editierbarer Link am Ende einer Section (z. B. Hygieneschulung). */
+    const linkHTML = b.linkKey ? notionLinkBlockHTML(b.linkKey, b.linkTip) : '';
     if(b.h){
-      out+=`<details class="det role-acc"><summary>${esc(b.h)}</summary><div class="body"><ul class="checks">${lis}</ul></div></details>`;
+      out+=`<details class="det role-acc"><summary>${esc(b.h)}</summary><div class="body"><ul class="checks">${lis}</ul>${linkHTML}</div></details>`;
     }else{
-      out+=`<ul class="checks">${lis}</ul>`;
+      out+=`<ul class="checks">${lis}</ul>${linkHTML}`;
     }
   });
   return out;
@@ -3957,6 +4050,9 @@ function openRole(id){
   if(r.id==='kueche'){
     /* Stufe 12 (spec/10 §4): bewusst die einzige Info auf dieser Seite — Inhalte
        leben in der separaten Küchenplaner-App, keine Doppelpflege. */
+    /* Feintuning 23.07.2026: editierbarer Link-Slot (z. B. für ein Formular/weitere Ressource),
+       platziert VOR dem Küchenplaner-Button. */
+    h+=notionLinkBlockHTML('kueche_link', 'Optionaler, editierbarer Link (✏️) — z. B. für ein Formular oder eine weitere Ressource des Küchenteams.');
     h+=`<div class="hint" style="margin-top:4px">
       <span>🍳</span>
       <span>Zuständigkeiten, Menü-Planer und Einkaufsliste gibt's in der eigenen Küchenplaner-App.<br>
@@ -4732,6 +4828,7 @@ function route(){
   else if(h==='notfall'){ showView('notfall'); }
   else if(h==='team'){ showView('team'); teamEditMode=false; renderTeamView(); }
   else if(h==='tn'){ showView('tn'); renderTnView(); }
+  else if(h==='gruppen'){ showView('tn'); renderTnView(); openTnGruppen(); } // Deep-Link zum Gruppen-Akkordeon (z. B. aus Ausflug-Rolle)
   else if(h==='ma'){ showView('ma'); renderMaView(); }
   else if(h==='ersthilfe'){ showView('ersthilfe'); renderEhView(); }
   else if(h==='wochenplan'){ showView('wochenplan'); renderWochenplanView(); }
