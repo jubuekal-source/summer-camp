@@ -282,15 +282,22 @@
   .zust-label{font-size:.8rem;color:var(--muted);font-weight:700;margin-right:2px}
 
   /* ---- Zimmer-Karten (Stufe 14, spec/12) ---- */
+  /* spec/21 Punkt 3: Rahmen deutlicher absetzen (auch geschlossen), damit beim Scrollen durch
+     mehrere Zimmer der Kartenübergang klarer sichtbar ist (vorher generische .det-Rahmenfarbe). */
+  details.room-card{border-color:var(--accent2);border-width:2px}
   .room-card summary{flex-wrap:wrap}
   .room-summary-label{font-weight:700}
+  /* spec/21 Punkt 1: Bearbeiten-Stift oben rechts in der Summary-Zeile. */
+  .room-edit-toggle{margin-left:auto}
   .room-summary-belegt{font-size:.76rem;color:var(--muted);background:var(--card2);
     padding:2px 8px;border-radius:10px;white-space:nowrap}
   .room-summary-chips{display:flex;flex-wrap:wrap;gap:4px;flex:1 1 100%;min-width:0}
-  /* Feedback 17.07.2026: bei geöffneter Karte stehen die zuständigen Teamer sonst doppelt da
-     (einmal statisch hier in der Summary, einmal editierbar mit X im Body) — Summary-Chips beim
-     Öffnen ausblenden, die editierbare Chip-Zeile im Body reicht dann. */
-  .room-card[open] .room-summary-chips{display:none}
+  /* Feedback 17.07.2026: bei geöffneter Karte + aktivem Edit-Modus stehen die zuständigen Teamer
+     sonst doppelt da (einmal statisch hier in der Summary, einmal editierbar mit X im Body) —
+     Summary-Chips dann ausblenden, die editierbare Chip-Zeile im Body reicht. spec/21 Punkt 1:
+     an .is-editing statt an [open] geknüpft, da die reine Lese-Ansicht (offen, aber nicht im
+     Edit-Modus) die statischen Chips weiterhin zeigen soll. */
+  .room-card.is-editing .room-summary-chips{display:none}
   .room-betten-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:12px}
   .room-betten-row label{font-size:.82rem;color:var(--muted);font-weight:600}
   .room-betten-row input{width:64px;padding:8px;border-radius:10px;border:1px solid var(--line);
@@ -946,7 +953,8 @@ function defaultData(){
     schemaVersion: 1,
     meta: { titelZusatz:"", zeitraum:"", stand:"", theme:"system", handyregelTeam:"", raeume:[], betten:{},
             etagen:{}, etagenOrder:[], etagenPlan:{}, // Stufe 19 (spec/17): Etagen-Gruppierung + Lageplan-Bild je Etage
-            notionLinks:{} }, // Feintuning 23.07.2026: frei betitelbare öffentliche Notion-Links (key → {url,title}), Teil des Exports
+            notionLinks:{}, // Feintuning 23.07.2026: frei betitelbare öffentliche Notion-Links (key → {url,title}), Teil des Exports
+            roleBlockOverrides:{} }, // spec/21 Punkt 4: Text-/Lösch-Overrides für ROLES.core-Items, key = roleId → { itemIdx: {text?, deleted?} }
     staff: [],
     tn: [],
     medis: [],
@@ -983,6 +991,9 @@ function normalizeData(raw){
   // Migration (Feintuning 23.07.2026): frei betitelbare öffentliche Notion-Links (key → {url,title}).
   // Fehlt/kein Objekt → {} (kein Datenverlust). Wird über getData() mitexportiert, also teamweit geteilt.
   if(!merged.meta.notionLinks || typeof merged.meta.notionLinks !== 'object' || Array.isArray(merged.meta.notionLinks)) merged.meta.notionLinks = {};
+  // Migration (spec/21 Punkt 4): Overrides für "Worauf muss ich achten?"-Blöcke (Zimmer-Rolle).
+  // Fehlt/kein Objekt → {} (kein Datenverlust, Original-Texte aus ROLES.core greifen dann ungefiltert).
+  if(!merged.meta.roleBlockOverrides || typeof merged.meta.roleBlockOverrides !== 'object' || Array.isArray(merged.meta.roleBlockOverrides)) merged.meta.roleBlockOverrides = {};
   // Migration (nachträgliche Vereinfachung nach Stufe 3): Ansprechperson Zecken/Wunden von
   // Einzel-ID auf Mehrfachauswahl (Array) umgestellt; Mitfahrt/TN-Infos gesamt entfallen.
   // Migration (Stufe 11): Ansprechperson Medikamenten-Plan (`ansprech.medis`) entfällt ersatzlos —
@@ -1562,6 +1573,15 @@ function setSheetBody(bodyHtml){
 }
 function closeSheet(){
   const ov = document.getElementById('sheetOverlay');
+  /* spec/21 Punkt 6 (Ursachenanalyse 23.07.2026): .sheet-overlay wird beim Schließen nur
+     unsichtbar (opacity:0/pointer-events:none, siehe CSS) — bleibt aber `position:fixed`
+     im DOM stehen. Wurde im Sheet zuletzt ein <input>/<textarea> fokussiert (z. B. Enter-Taste
+     im "Neues Zimmer"-Formular), blieb dieses Feld unsichtbar weiter fokussiert (kein blur()
+     vorher) → auf Mobilgeräten (iOS Safari) versucht der Browser danach, das jetzt "unsichtbare,
+     aber fokussierte" Feld ins Bild zu scrollen und springt dabei unkontrolliert (bei Marco: ans
+     Seitenende zu Export). Fix: aktives Element beim Schließen explizit blur()-en, damit die
+     Tastatur zugeht und kein Phantom-Fokus übrig bleibt. Betrifft alle Sheets, nicht nur Zimmer. */
+  if(document.activeElement && typeof document.activeElement.blur === 'function') document.activeElement.blur();
   if(ov) ov.classList.remove('active');
 }
 
@@ -3360,11 +3380,17 @@ function teamAddItemSave(blockId){
    Zeile 2: Wochenplan + Zuständigkeiten
    Zeile 3: TN-Infos + MA-Infos (jetzt nebeneinander statt versetzt)
    Zeile 4: Notizen + Team */
+/* spec/21 Punkt 5: zwei neue Shortcut-Kacheln (Zimmer-Übersicht, Gruppen) — reine Zusatz-Shortcuts,
+   die bestehenden Wege (Zuständigkeiten → Rolle „Zimmer" bzw. TN-Infos → Gruppen) bleiben unverändert
+   erhalten. route() (siehe unten) leitet hash:'zimmer' bzw. hash:'gruppen' bereits automatisch um,
+   keine neue Routing-Logik nötig. Neue Reihenfolge 23.07.2026 mit Marco abgestimmt. */
 const DASH_TILES = [
   {id:'notfall', icon:'🚨', title:'Notfall', color:'#E5484D', hash:'notfall', sub:'Erste Schritte & Kontakte'},
   {id:'ersthilfe', icon:'🩹', title:'Erste Hilfe', color:'#22D3EE', hash:'ersthilfe', sub:'Wundversorgung & Zecken'},
   {id:'wochenplan', icon:'🗓️', title:'Wochenplan', color:'#A78BFA', hash:'wochenplan', sub:'Programm & Fotos je Tag'},
   {id:'zust', icon:'📋', title:'Zuständigkeiten', color:'#FF6B4A', hash:'zust', sub:'Rollen & Aufgaben'},
+  {id:'zimmer', icon:'🛏️', title:'Zimmer-Übersicht', color:'#FF6B4A', hash:'zimmer', sub:'Wer liegt wo'},
+  {id:'gruppen', icon:'👥', title:'Gruppen', color:'#FFB23E', hash:'gruppen', sub:'Einteilung für unterwegs'},
   {id:'tn', icon:'⚠️', title:'TN-Infos', color:'#FFB23E', hash:'tn', sub:'Gesundheit, Sicherheit & Gruppen'},
   {id:'ma', icon:'🧡', title:'MA-Infos', color:'#F97316', hash:'ma', sub:'Rettungsschwimmer & Handyregeln'},
   {id:'notizen', icon:'📝', title:'Notizen', color:'#34d399', hash:'notizen', sub:'Privat, nur dieses Gerät'},
@@ -3532,6 +3558,110 @@ function renderGrid(filter=""){
     g.appendChild(el);
   });
   noresult().style.display = shown? "none":"block";
+}
+
+/* spec/21 Punkt 4: "🧭 Worauf muss ich achten?" (Zimmer-Rolle) — Blöcke editier-/löschbar.
+   ROLES.core ist statischer Code (kein User-Content, siehe Kommentar bei ROLES oben) → Overrides
+   leben in d.meta.roleBlockOverrides[roleId][itemIdx] = {text?, deleted?}. itemIdx = fortlaufender
+   Index über alle Items der Rolle (dieselbe Zählung wie die Checkbox-Keys chk_<roleId>_<idx>),
+   damit Original-Reihenfolge/-Struktur im Code unangetastet bleibt. Ein "Gesamt-Reset" (Einstellungen)
+   leert d.meta komplett → Overrides sind dann weg und die Original-Texte greifen wieder (siehe STAND.md).
+   Bewusst nur Bearbeiten + Löschen (kein Hinzufügen neuer Blöcke, mit Marco 23.07.2026 abgestimmt). */
+let zimmerCoreEditMode = false; // nur UI-Zustand, nicht Teil des Datenmodells/Exports
+
+function roleBlockOverrides(d, roleId){
+  if(!d.meta.roleBlockOverrides) d.meta.roleBlockOverrides = {};
+  if(!d.meta.roleBlockOverrides[roleId]) d.meta.roleBlockOverrides[roleId] = {};
+  return d.meta.roleBlockOverrides[roleId];
+}
+function zimmerCoreFlatItems(r){
+  const flat = [];
+  r.core.forEach(b=>b.items.forEach(it=>flat.push(it)));
+  return flat;
+}
+function zimmerCoreBlockHTML(r){
+  const d = getData();
+  const ov = roleBlockOverrides(d, r.id);
+  let html = "", idx = 0;
+  r.core.forEach(b=>{
+    let rows = "";
+    b.items.forEach(it=>{
+      const i = idx++;
+      const o = ov[i];
+      if(o && o.deleted) return;
+      const text = (o && o.text!==undefined) ? o.text : it;
+      const key = LS_PREFIX+"chk_"+r.id+"_"+i;
+      const done = localStorage.getItem(key)==="1";
+      rows += zimmerCoreEditMode
+        ? `<li class="${done?'done':''}" data-key="${key}">
+             <div class="team-item-row">
+               <span class="team-item-text"><span class="box">✓</span> ${fmtInline(text)}</span>
+               <span class="team-item-actions">
+                 <button type="button" class="team-icon-btn sm" onclick="zimmerCoreEditItem(${i})" aria-label="Hinweis bearbeiten">✏️</button>
+                 <button type="button" class="team-icon-btn sm" onclick="zimmerCoreDeleteItemConfirm(${i})" aria-label="Hinweis löschen">🗑️</button>
+               </span>
+             </div>
+           </li>`
+        : `<li class="${done?'done':''}" data-key="${key}"><span class="box">✓</span><span>${fmtInline(text)}</span></li>`;
+    });
+    if(!rows) return; // ganze Section ohne verbliebene Items (alles gelöscht) → Überschrift auch weglassen
+    if(b.h) html += `<div class="group-h">${esc(b.h)}</div>`;
+    html += `<ul class="checks">${rows}</ul>`;
+  });
+  return html || `<div class="tn-empty">Keine Hinweise mehr vorhanden (alle gelöscht).</div>`;
+}
+function renderZimmerCoreAcc(){
+  const r = ROLES.find(x=>x.id==='zimmer'); if(!r) return;
+  const el = document.getElementById('zimmerCoreBody');
+  if(el) el.innerHTML = zimmerCoreBlockHTML(r);
+  const btn = document.getElementById('zimmerCoreEditToggle');
+  if(btn) btn.textContent = zimmerCoreEditMode ? '✓' : '✏️';
+}
+function toggleZimmerCoreEdit(){
+  zimmerCoreEditMode = !zimmerCoreEditMode;
+  renderZimmerCoreAcc();
+}
+function zimmerCoreEditItem(idx){
+  const r = ROLES.find(x=>x.id==='zimmer'); if(!r) return;
+  const d = getData();
+  const ov = roleBlockOverrides(d, r.id);
+  const flat = zimmerCoreFlatItems(r);
+  const current = (ov[idx] && ov[idx].text!==undefined) ? ov[idx].text : (flat[idx]||'');
+  openSheet('Hinweis bearbeiten', `<div class="rename-box">
+    <textarea id="zimmerCoreEditInput" rows="4" style="width:100%;font:inherit;padding:8px;border-radius:10px;
+      border:1px solid var(--line);background:var(--card2);color:var(--text)"></textarea>
+    <button type="button" class="staff-add-btn" onclick="zimmerCoreEditItemSave(${idx})" aria-label="Speichern">✓</button>
+  </div>`);
+  const inp = document.getElementById('zimmerCoreEditInput');
+  inp.value = current; // per JS gesetzt (Sonderzeichen/Markdown-** sicher, Muster wie raeumeEditRoom)
+}
+function zimmerCoreEditItemSave(idx){
+  const inp = document.getElementById('zimmerCoreEditInput');
+  const val = inp.value.trim();
+  if(!val) return;
+  const d = getData();
+  const ov = roleBlockOverrides(d, 'zimmer');
+  ov[idx] = Object.assign({}, ov[idx], {text: val});
+  saveData(d);
+  closeSheet();
+  renderZimmerCoreAcc();
+}
+function zimmerCoreDeleteItemConfirm(idx){
+  openSheet('Hinweis löschen', `<div class="confirm-box">
+    <p>Diesen Hinweis wirklich löschen? Kann nicht rückgängig gemacht werden (nur über „Gesamten
+    App-Inhalt zurücksetzen" in den Einstellungen, das aber auch alle anderen Daten löscht).</p>
+    <div class="confirm-actions">
+      <button type="button" class="staff-cancel" onclick="closeSheet()">Abbrechen</button>
+      <button type="button" class="staff-danger" onclick="zimmerCoreDeleteItemDo(${idx})">Löschen</button>
+    </div></div>`);
+}
+function zimmerCoreDeleteItemDo(idx){
+  const d = getData();
+  const ov = roleBlockOverrides(d, 'zimmer');
+  ov[idx] = Object.assign({}, ov[idx], {deleted:true});
+  saveData(d);
+  closeSheet();
+  renderZimmerCoreAcc();
 }
 
 function blockHTML(blocks, checkable, roleId){
@@ -3707,13 +3837,9 @@ function roomCardHTML(raum, idx){
         <div class="flags">${tnBadgesHTML(t)}</div>
       </div>`).join('')
     : `<div class="tn-empty">Noch kein TN diesem Zimmer zugeordnet.</div>`;
-  return `<details class="det room-card" data-idx="${idx}">
-    <summary>
-      <span class="room-summary-label">🛏️ ${esc(raum)}</span>
-      <span class="room-summary-belegt">${belegt}/${betten} belegt</span>
-      <span class="room-summary-chips">${chipsStatic}</span>
-    </summary>
-    <div class="body">
+  // spec/21 Punkt 1: Bearbeiten-Elemente nur anzeigen, wenn per ✏️-Stift aufgeklappt (roomEditOpen).
+  const isEdit = roomEditOpen.has(String(idx));
+  const editHTML = isEdit ? `
       <div class="zust-row">${chipsEdit}<button type="button" class="schip-add" onclick="openRoomStaffPicker(${idx})">+ Person</button></div>
       <div class="room-betten-row">
         <label for="bettenInput${idx}">Bettenzahl</label>
@@ -3726,12 +3852,21 @@ function roomCardHTML(raum, idx){
         <input id="etageInput${idx}" type="text" list="etagenRoomDL" value="${esc(d.meta.etagen[raum]||'')}"
           placeholder="z. B. OG (leer = ohne Etage)" onchange="roomSetEtage(${idx}, this.value)">
       </div>
-      <div class="sec-h" style="margin-top:14px">TN in diesem Zimmer</div>
-      <div class="room-tn-list">${tnListHTML}</div>
       <div class="room-card-actions">
         <button type="button" onclick="raeumeEditRoom(${idx})">✏️ Umbenennen</button>
         <button type="button" onclick="raeumeDeleteRoomConfirm(${idx})">🗑️ Löschen</button>
-      </div>
+      </div>` : '';
+  return `<details class="det room-card${isEdit?' is-editing':''}" data-idx="${idx}">
+    <summary>
+      <span class="room-summary-label">🛏️ Zimmer ${esc(raum)}</span>
+      <span class="room-summary-belegt">${belegt}/${betten} belegt</span>
+      <button type="button" class="team-icon-btn sm room-edit-toggle" onclick="event.preventDefault();event.stopPropagation();toggleRoomEdit(${idx})" aria-label="Zimmer bearbeiten">✏️</button>
+      <span class="room-summary-chips">${chipsStatic}</span>
+    </summary>
+    <div class="body">
+      ${editHTML}
+      <div class="sec-h" style="margin-top:14px">TN in diesem Zimmer</div>
+      <div class="room-tn-list">${tnListHTML}</div>
     </div>
   </details>`;
 }
@@ -3741,6 +3876,18 @@ let zimmerEtageFilter = null;
 function setEtageFilter(idx){
   const d = getData();
   zimmerEtageFilter = (idx < 0) ? null : (d.meta.etagenOrder[idx] || null);
+  renderRaeumeZustList();
+}
+
+/* spec/21 Punkt 1: Zimmer-Karte ist standardmäßig reine Lese-Ansicht (TN + statische Teamer-Chips).
+   Die Bearbeiten-Elemente (Teamer zuweisen, Bettenzahl, Etage, Umbenennen/Löschen) werden erst nach
+   Tap auf den ✏️-Stift eingeblendet. Zustand nur Laufzeit (kein Datenmodell), analog zimmerEtageFilter
+   — darf beim Neuzeichnen zu sein (nach Absprache mit Marco unkritisch), bleibt aber der Einfachheit
+   halber über renderRaeumeZustList()-Aufrufe hinweg erhalten (kein zusätzlicher Aufwand). */
+let roomEditOpen = new Set();
+function toggleRoomEdit(idx){
+  const k = String(idx);
+  if(roomEditOpen.has(k)) roomEditOpen.delete(k); else roomEditOpen.add(k);
   renderRaeumeZustList();
 }
 
@@ -4035,10 +4182,14 @@ function openRole(id){
     /* Stufe 14 (spec/12): Checkliste + Details wandern in ein geschlossenes "Worauf muss ich
        achten?"-Akkordeon (Muster wie das Medi-Plan-Akkordeon aus Stufe 13) — erst die Hinweise,
        dann die eigentliche Zimmer-Übersicht als öffenbare Karten. */
+    zimmerCoreEditMode = false; // beim (Wieder-)Öffnen der Rolle immer wieder Lese-Ansicht
     h+=`<details class="det" style="margin-top:4px">
-      <summary>🧭 Worauf muss ich achten?</summary>
+      <summary>🧭 Worauf muss ich achten?
+        <button type="button" id="zimmerCoreEditToggle" class="team-icon-btn sm" style="margin-left:auto"
+          onclick="event.preventDefault();event.stopPropagation();toggleZimmerCoreEdit()" aria-label="Hinweise bearbeiten">✏️</button>
+      </summary>
       <div class="body">
-        ${blockHTML(r.core, true, r.id)}
+        <div id="zimmerCoreBody">${zimmerCoreBlockHTML(r)}</div>
         ${r.details && r.details.length ? `<details class="det" style="margin-top:10px"><summary>Mehr Details & Sonderfälle</summary><div class="body">${blockHTML(r.details,false,r.id)}</div></details>` : ''}
       </div>
     </details>`;
@@ -4417,7 +4568,7 @@ function renderRaeumeSettings(){
   if(!raeume.length){ el.innerHTML = `<div class="staff-empty">Noch keine Zimmer angelegt.</div>`; return; }
   el.innerHTML = raeume.map((raum, idx)=>`
     <div class="team-item-row">
-      <span class="team-item-text">🛏️ ${esc(raum)}${d.meta.etagen[raum]?`<span class="tn-badge" style="margin-left:6px">${esc(d.meta.etagen[raum])}</span>`:''}</span>
+      <span class="team-item-text">🛏️ Zimmer ${esc(raum)}${d.meta.etagen[raum]?`<span class="tn-badge" style="margin-left:6px">${esc(d.meta.etagen[raum])}</span>`:''}</span>
       <span class="team-item-actions">
         <button type="button" class="team-icon-btn sm" onclick="raeumeEditRoom(${idx})" aria-label="Umbenennen">✏️</button>
         <button type="button" class="team-icon-btn sm" onclick="raeumeDeleteRoomConfirm(${idx})" aria-label="Löschen">🗑️</button>
@@ -4468,6 +4619,10 @@ function raeumeAddRoomSave(){
   closeSheet();
   renderRaeumeSettings();
   renderRaeumeZustList();
+  // spec/21 Punkt 6: zusätzliche Absicherung neben dem blur()-Fix in closeSheet() — zurück zum
+  // Anfang von "Zimmer verwalten" springen, falls trotzdem noch ein Scroll-Versatz auftritt.
+  const list = document.getElementById('raeumeList');
+  if(list) list.scrollIntoView({block:'start'});
 }
 function raeumeEditRoom(idx){
   const d = getData();
