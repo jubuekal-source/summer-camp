@@ -222,6 +222,23 @@
   .kueche-link-btn{display:inline-block;margin-top:10px;padding:10px 18px;border-radius:12px;
     background:var(--accent);color:#1a1205;font-weight:800;text-decoration:none;font-size:.9rem}
   .kueche-link-btn:active{transform:scale(.97)}
+  /* Inline-Button-Link in Rollen-Texten ([Label](url) → fmtInline). Dezenter als .kueche-link-btn. */
+  .inline-link-btn{display:inline-block;margin-top:4px;padding:7px 14px;border-radius:10px;
+    background:var(--accent2);color:#0b1220;font-weight:700;text-decoration:none;font-size:.86rem;line-height:1.2}
+  .inline-link-btn:active{transform:scale(.97)}
+  /* Öffentliche Notion-Link-Komponente (Video-Team, Wochenplan) */
+  .notion-link-block{margin:10px 0}
+  .notion-link-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .notion-link-btn{display:inline-block;padding:10px 16px;border-radius:12px;background:var(--accent);
+    color:#1a1205;font-weight:800;text-decoration:none;font-size:.9rem;line-height:1.2;flex:1 1 auto}
+  .notion-link-btn:active{transform:scale(.98)}
+  .notion-link-add{padding:10px 16px;border-radius:12px;border:1.5px dashed var(--line);
+    background:transparent;color:var(--text);font-weight:700;font-size:.9rem;cursor:pointer}
+  .notion-link-add:active{transform:scale(.98)}
+  .notion-link-edit{padding:8px 10px;border-radius:10px;border:1px solid var(--line);
+    background:transparent;color:var(--text);font-size:.95rem;cursor:pointer}
+  .notion-link-tip{margin-top:8px}
+  .notion-link-tip>summary{font-size:.82rem;opacity:.85;padding:8px 10px}
 
   /* ZUSTÄNDIGKEITEN */
   .zust-head{background:linear-gradient(135deg,#FF6B4A,#FF8A3D);border-radius:18px;padding:22px 20px;margin:4px 0 0}
@@ -735,12 +752,18 @@
       <p>Programm der Woche, direkt aus Notion eingefügt</p>
     </header>
 
+    <div class="notion-link-block" style="margin-top:16px">
+      <div id="notionLink_wochenplan" class="notion-link-row"></div>
+      <details class="det notion-link-tip"><summary>💡 Wozu ist das?</summary>
+        <div class="body">Über diesen Link kommst du direkt zu unserer Programmplanung in Notion und kannst z. B. Inhalte in die App kopieren.</div>
+      </details>
+    </div>
+
     <div class="daychips" id="wpDayChips" style="margin-top:16px"></div>
 
     <div class="hint" style="margin-top:10px">
       <span>💡</span>
-      <span><b>Tipp:</b> Tagesplan am besten direkt aus Notion kopieren und hier einfügen — Fett &amp; Emojis bleiben erhalten.
-      Aus WhatsApp geht's auch (Sternchen für *fett* werden erkannt), aber Notion ist der bessere Weg.</span>
+      <span><b>Tipp:</b> Tagesplan am besten direkt aus Notion kopieren und hier einfügen — Fett &amp; Emojis bleiben erhalten.</span>
     </div>
 
     <div class="form-field">
@@ -922,7 +945,8 @@ function defaultData(){
   return {
     schemaVersion: 1,
     meta: { titelZusatz:"", zeitraum:"", stand:"", theme:"system", handyregelTeam:"", raeume:[], betten:{},
-            etagen:{}, etagenOrder:[], etagenPlan:{} }, // Stufe 19 (spec/17): Etagen-Gruppierung + Lageplan-Bild je Etage
+            etagen:{}, etagenOrder:[], etagenPlan:{}, // Stufe 19 (spec/17): Etagen-Gruppierung + Lageplan-Bild je Etage
+            notionLinks:{} }, // Feintuning 23.07.2026: frei betitelbare öffentliche Notion-Links (key → {url,title}), Teil des Exports
     staff: [],
     tn: [],
     medis: [],
@@ -956,6 +980,9 @@ function normalizeData(raw){
   if(!merged.meta.etagen || typeof merged.meta.etagen !== 'object' || Array.isArray(merged.meta.etagen)) merged.meta.etagen = {};
   if(!Array.isArray(merged.meta.etagenOrder)) merged.meta.etagenOrder = [];
   if(!merged.meta.etagenPlan || typeof merged.meta.etagenPlan !== 'object' || Array.isArray(merged.meta.etagenPlan)) merged.meta.etagenPlan = {};
+  // Migration (Feintuning 23.07.2026): frei betitelbare öffentliche Notion-Links (key → {url,title}).
+  // Fehlt/kein Objekt → {} (kein Datenverlust). Wird über getData() mitexportiert, also teamweit geteilt.
+  if(!merged.meta.notionLinks || typeof merged.meta.notionLinks !== 'object' || Array.isArray(merged.meta.notionLinks)) merged.meta.notionLinks = {};
   // Migration (nachträgliche Vereinfachung nach Stufe 3): Ansprechperson Zecken/Wunden von
   // Einzel-ID auf Mehrfachauswahl (Array) umgestellt; Mitfahrt/TN-Infos gesamt entfallen.
   // Migration (Stufe 11): Ansprechperson Medikamenten-Plan (`ansprech.medis`) entfällt ersatzlos —
@@ -1155,53 +1182,62 @@ function migrateOldKeys(){
 /* ============ Zuständigkeiten (Rollen) — unverändert aus Alt-App ============ */
 const ROLES = [
   {
-    id:"tagesleitung", icon:"📣", title:"Tagesleitung", who:"alle, abwechselnd", color:"#FF6B4A",
+    id:"tagesleitung", icon:"📣", title:"Tagesleitung", who:"alle, abwechselnd · i. d. R. 2 Personen (möglichst New- + Main-Teamer)", color:"#FF6B4A",
     /* spec/19 (Inhalts-Rework, Muster-Rolle): entlang des Tagesablaufs gegliedert — vor dem Essen →
        beim Essen → nach dem Essen → über den Tag → abends. Icon-Überschriften je Phase. Text inhaltlich
        unverändert, nur logisch/chronologisch neu sortiert und leicht geglättet. */
     core:[
-      {h:"🌅 Vor jeder Mahlzeit ansagen", items:[
-        "Tagesplan vorstellen: Was steht heute an?",
-        "Was sollen die Kids einpacken/anziehen? (Sonnenschutz, Trinken, Schuhe, Taschengeld, Rucksack …)",
-        "Shop-Öffnungszeiten verkünden (falls der Shop offen ist).",
-        "Faustregel: Programm- & Ablauf-Infos erst NACH dem Essen ansagen — vorher gehen sie unter."
+      {h:"🌅 Vor jeder Mahlzeit", items:[
+        "Zuerst: **Anwesenheit der TN prüfen** und sicherstellen (z. B. über die Zimmerzuständigen — kann delegiert werden).",
+        "**Freundlich begrüßen** („Guten Morgen, schön dass ihr da seid …“) und nur wirklich wichtige Infos schon jetzt kurz ansagen.",
+        "**Essen eröffnen:** Vor warmen Mahlzeiten beten wir als festes Ritual (wer selbst nicht mag, gibt's an eine:n TN oder Teamer weiter). Bei den anderen Mahlzeiten gern, aber freiwillig.",
+        "**Essensausgabe organisieren** (delegierbar): beim Frühstück meist nur kurz zeigen, was wo steht; bei warmen Mahlzeiten die TN tischweise zur Ausgabe rufen, um Chaos zu vermeiden.",
+        "**Faustregel:** Programm- & Ablauf-Infos erst NACH dem Essen ansagen — vorher gehen sie unter. Dafür sorgen, dass alle bis zum gemeinsamen Essensabschluss sitzen bleiben, sonst verpassen sie die wichtigen Ansagen am Ende."
       ]},
-      {h:"🍽️ Während & am Ende des Essens", items:[
-        "Vor warmen Mahlzeiten wird gebetet — du kannst jemanden fragen, der das übernimmt.",
-        "Essensausgabe organisieren (kann delegiert werden).",
-        "Essen offiziell beenden (alle bleiben sitzen) → Geschirr auf den Geschirrwagen, Abfall in den Eimer daneben (wie die Küche es vorbereitet), Küchendienst erinnern."
-      ]},
-      {h:"📣 Nach dem Essen ansagen", items:[
-        "Jetzt die Infos zu Programm & Abläufen ansagen (nicht vorher!).",
-        "Aktuelle Themen nur bei Bedarf ergänzen."
+      {h:"📣 Nach dem Essen", items:[
+        "Sobald die Mehrheit fertig ist, **mit den Ansagen starten** (die Letzten dürfen in Ruhe weiteressen).",
+        "**Wie & wann geht es wo weiter?** Was müssen die TN mitbringen/packen (Trinkflasche, Vesper, Sonnenschutz, Turnschuhe …).",
+        "**Aktuelle Themen** ergänzen (Shop-Öffnungszeiten, Zimmerwettbewerb/Zimmerhygiene …).",
+        "**Küchendienst ansagen** — unbedingt VOR dem offiziellen Essensende, sonst stehen alle auf und die Ansage geht unter: Wer ist bei der nächsten Mahlzeit dran? Aktuellen Küchendienst erinnern, noch zu bleiben und zu helfen.",
+        "**Essen offiziell beenden** und zum Abräumen auffordern — am besten in dieser Reihenfolge ansagen:",
+        "Wer noch nicht fertig ist, darf natürlich **weiteressen** (zuerst ansagen, bevor alle aufstehen und loshetzen).",
+        "Alle an ihrem Tisch sorgen dafür, dass er **vollständig abgeräumt** wird.",
+        "**Geschirr** auf den Geschirrwagen.",
+        "**Abfall** in die Eimer.",
+        "**Besteck** in die vorgesehenen Behälter.",
+        "**Brote, Marmeladen, Butter** usw. bitte so, wie es das Küchenteam wünscht (vorher klären!)."
       ]},
       {h:"🗂️ Über den Tag koordinieren", items:[
-        "Abläufe mit dem Team besprechen, Aufsicht klären, bei spontanen Änderungen Zuständige zuteilen, helfen wo nötig.",
-        "Anwesenheit bei Programm & Ausflügen prüfen (z. B. über die Zimmerzuständigen — kann delegiert werden).",
-        "Ihr zwei Tagesleitungen habt das meiste Programm des Tages — ihr kennt es am besten.",
-        "Vieles hier ist delegierbar (Essensausgabe, Anwesenheitscheck, Gebet) — du musst nicht alles selbst machen, aber behalte den Überblick."
+        "**Ihr zwei Tagesleitungen habt das meiste Programm des Tages** — ihr kennt es am besten.",
+        "Abläufe mit dem Team besprechen, **Aufsicht klären** (z. B. auch bei freier Zeit), bei spontanen Änderungen Zuständige zuteilen, helfen wo nötig.",
+        "**Anwesenheit** bei Programm & Ausflügen prüfen (z. B. über die Zimmerzuständigen — kann delegiert werden).",
+        "Vieles hier ist **delegierbar** (Essensausgabe, Anwesenheitscheck, Gebet) — du musst nicht alles selbst machen, aber behalte den Überblick."
       ]},
-      {h:"🌙 Abendabschluss", items:[
-        "Abendliche Reflexionsrunde moderieren (zügig & effektiv).",
+      {h:"🌙 Abendabschluss (TN)", items:[
+        "**Offizielles Programmende** verkünden: Ab jetzt gilt die **Zimmerruhe** — alle müssen jetzt zuerst ihr Handy abgeben, Zähne putzen und in die Zimmer. Allen eine gute Nacht wünschen."
+      ]},
+      {h:"💬 Feedback- & Reflexionsrunde (Team)", items:[
+        "Reflexionsrunde moderieren (zügig & effektiv) — möglichst mit vielen Teamern. Oft sind aber einige noch beschäftigt (Küche, Kinder, Handys einsammeln): vorher mit der anwesenden Gruppe abstimmen, ob wir genug sind zum Starten oder lieber kurz warten.",
         "Danach an die Tagesleitung des Folgetags übergeben."
       ]}
     ]
   },
   {
-    id:"planung", icon:"🗓️", title:"Tagesleitung Folgetag — Planung", who:"alle, abwechselnd", color:"#FF8A3D",
+    id:"planung", icon:"🗓️", title:"Tagesleitung Folgetag — Planung", who:"alle, abwechselnd · i. d. R. 2 Personen (möglichst New- + Main-Teamer)", color:"#FF8A3D",
     /* spec/19 (Inhalts-Rework): chronologisch/thematisch gegliedert — über den Tag planen →
        dokumentieren → Tagesplan für die Kinder → abends Teambesprechung. Inhalt unverändert,
        nur umsortiert; Aufsichtslücken/„ansprechend gestalten“/offene Punkte zu ihren Blöcken gezogen. */
     core:[
-      {h:"📝 Über den Tag: Folgetag planen", items:[
-        "Im Laufe des Tages den Folgetag mit allen Beteiligten planen (idealerweise gemeinsame Sitzung am Vortag).",
-        "Aufsichtslücken im Programm aktiv klären und im Wochenplan festhalten.",
-        "Bist du nicht selbst fürs Programm zuständig: die Zuständigen rechtzeitig erinnern."
+      {h:"🎯 Warum & wie vorplanen", items:[
+        "Ziel: Am Abend nach der Reflexion soll der Folgetag schnell stehen — dann müssen wir das Team nur noch informieren und letzte Rollen verteilen.",
+        "Darum den nächsten Tag schon tagsüber in den freien Lücken vorbereiten. Am besten treffen sich die beiden Tagesleitungen des Folgetags kurz und strukturieren ihn gemeinsam.",
+        "Wenn möglich schon beim vorabendlichen Besprechen berücksichtigen. Personen mit besonderer Rolle am Folgetag früh ansprechen und einbinden."
       ]},
-      {h:"🗒️ Im Wochenplan & in Notion dokumentieren", items:[
-        "Wochenplan ausfüllen: Aktivität mit Uhrzeit im Namen (z. B. „20:00–22:00 Kennenlernspiele“) + „Notes fürs Team“.",
-        "Programmpunkte-Datenbank ausfüllen — so klar, dass es in den Folgejahren direkt wiederverwendbar ist.",
-        "→ in Notion: Wochenplan & Programmpunkte-Datenbank."
+      {h:"🗒️ Im Wochenplan dokumentieren", items:[
+        "**Programmpunkte zuerst in Notion** anlegen (Datenbank „🎲 Programmplanung & Ideen“) — sauber und vollständig (Struktur & Detailtiefe → siehe Rolle 🎯 Programm-Verantwortliche).",
+        "Dann den **Wochenplan vervollständigen**: Aktivität mit Uhrzeit im Titel (z. B. „20:00–22:00 Kennenlernspiele“) + „Notes fürs Team“.",
+        "Bist du **nicht selbst fürs Programm zuständig**: die Zuständigen rechtzeitig erinnern und Schnittstellen (genaue Zeiten etc.) vorher klären.",
+        "**Aufsichtslücken** im Programm aktiv klären und im Wochenplan festhalten."
       ]},
       {h:"📋 Tagesplan für die Kinder", items:[
         "Tagesplan gestalten und am Morgen VOR dem Frühstück im Speisesaal aufhängen.",
@@ -1224,12 +1260,18 @@ const ROLES = [
       {h:"🧩 Vorbereiten", items:[
         "Plane deinen Programmpunkt vollständig: Material besorgen, Team-Kommunikation, Auf-/Abbau bzw. örtliche Vorbereitung, Durchführung."
       ]},
+      {h:"🗒️ In Notion dokumentieren", items:[
+        "Leg deinen Programmpunkt in der Notion-Datenbank „🎲 Programmplanung & Ideen“ **sauber an** — so klar, dass ihn auch eine fremde Person in 2 Jahren ohne Rückfragen anleiten könnte.",
+        "**Strukturbeispiel** (z. B. Haus- oder Detektivspiel): **Titel & Story** (Hintergrundgeschichte/Rahmenhandlung) · **Ziel** (was sollen die Kids erreichen?) · **Ablauf in Phasen** (Einstieg → Hauptspiel → Auflösung & Abschluss) · **Regeln** (kurz & klar) · **Spielfläche & Aufbau** (welche Räume/Stationen, Grenzen) · **Rollen im Team** (wer spielt welche Figur, wer betreut welche Station, wer hat die Aufsicht) · **Material & Requisiten** (inkl. ggf. Preis) · **Zeitrahmen** (Dauer + Puffer).",
+        "Im **Wochenplan eintragen**: Aktivität mit Uhrzeit im Titel (z. B. „20:00–22:00 Kennenlernspiele“) + „Notes fürs Team“. (Hinweis: Wochenplan & Programmpunkte-Datenbank sind verknüpft.)",
+        "**Tipp:** Gute Pflege hilft dir, während des Programms den Überblick zu behalten — und der Programmpunkt lässt sich künftig mit wenig Aufwand wiederverwenden. Ist er sauber strukturiert formuliert, kannst du den Text sogar direkt in den Wochenplan dieser App übernehmen (kopieren & einfügen)."
+      ]},
       {h:"🎤 Durchführen", items:[
         "Moderiere/erkläre den Programmpunkt für die Gruppe (wenn nicht anders abgesprochen).",
         "Sorge für die Aufsicht — selbst oder klar eingeteilt und kontrolliert."
       ]},
       {h:"🧹 Nachbereiten", items:[
-        "Räum hinterher auf: Ort sauber & müllfrei, Material ordentlich zurück in den Teamer-Raum. Kann delegiert werden."
+        "Räum hinterher auf: Ort sauber & müllfrei, Material ordentlich zurück in den Teamer-Raum. Kann delegiert werden — pädagogisch sinnvoll ist, auch die Kinder mit einzubeziehen."
       ]},
       {h:"🤝 Gemeinsam verantwortlich", items:[
         "„Verantwortlich“ heißt nicht „alles allein machen“: Aufgaben klar untereinander aufteilen und absprechen.",
@@ -1279,10 +1321,9 @@ const ROLES = [
         "Fair bleiben: keine Einnahmen maximieren, höchstens die Ausgaben decken — nicht die Kinder abzocken."
       ]},
       {h:"🧾 Abrechnung & Abschluss", items:[
-        "Separaten Shop-Kassenzettel vom Küchenteam aufbewahren; verkaufte Artikel direkt streichen.",
-        "Am vorletzten Tag Einnahmen + Kassenzettel ans Küchenteam/Gesamtleitung zur Abrechnung geben.",
-        "Reste am letzten Abend dem Team zur Verfügung stellen.",
-        "Details zur Verbuchung siehe 💰 Kassen-1×1 und Rolle „Küche“."
+        "**Kassenzettel bleiben beim Küchenteam** — der Shop bekommt sie nicht; für die eigene Preiskalkulation genügt bei Bedarf ein Foto des Kassenzettels.",
+        "**Am vorletzten Tag** die Einnahmen an die Gesamtleitung zur Abrechnung geben.",
+        "**Reste** am letzten Abend dem Team zur Verfügung stellen."
       ]}
     ]
   },
@@ -1292,18 +1333,18 @@ const ROLES = [
        eingefaltet. Titel gekürzt (Notiz Marco: „…verantwortliche“ lief über den Button-Rand). */
     core:[
       {h:"🧭 Vorbereiten", items:[
-        "Reiseverbindungen checken (An- & Abreise sowie Ausflug: Bus / Bahn / Fußweg).",
-        "Fahrkarten vorab organisieren, falls nötig.",
-        "Bei größeren Gruppen die Buslinien vorab informieren.",
-        "Beim Check-In: sobald alle da sind, vom Check-In-Team melden lassen, wie viele VVS-Gruppenkarten noch zu kaufen sind."
+        "**Beim Check-In:** sobald alle da sind, vom Check-In-Team melden lassen, wie viele VVS-Gruppenkarten noch zu kaufen sind.",
+        "**Reiseverbindungen checken** (An- & Abreise sowie Ausflug: Bus / Bahn / Fußweg).",
+        "**Fahrkarten** vorab organisieren, falls nötig.",
+        "Bei größeren Gruppen die **Buslinien vorab informieren**."
       ]},
       {h:"🎒 Unterwegs: Sicherheit", items:[
-        "Bei Ausflügen sicherstellen: jemand hat den TN-Ordner (Versicherungskarten, Impfpässe …) UND das Erste-Hilfe-Set dabei."
+        "Bei Ausflügen sicherstellen: jemand hat den **TN-Ordner** (Versicherungskarten, Impfpässe …) UND das **Erste-Hilfe-Set** dabei."
       ]},
       {h:"💶 Kasse & Belege", items:[
-        "Ausflugskasse verwalten & Eintritte / Zugfahrten bezahlen.",
-        "Belege sammeln & einzeln ins Kassenbuch kleben (siehe 💰 Kassen-1×1).",
-        "Am Ende Belege + Restbetrag an die Freizeitleitung übergeben — vorher Kasse prüfen!"
+        "**Ausflugskasse verwalten** & Eintritte / Zugfahrten bezahlen.",
+        "**Belege sammeln** & einzeln ins Kassenbuch kleben (siehe 💰 Kassen-1×1).",
+        "Am Ende **Belege + Restbetrag** an die Freizeitleitung übergeben — vorher Kasse prüfen!"
       ]}
     ]
   },
@@ -1315,7 +1356,8 @@ const ROLES = [
        Reinigungsplan (Kids-Plakat) steht als kopierbare Vorlage zum Übertragen auf Papierbögen. */
     core:[
       {h:"🎓 Vor der Freizeit", items:[
-        "Rechtzeitig vor der Freizeit einen Account auf der Online-Lern-Plattform anlegen und die gesetzliche Online-Hygieneschulung (Belehrung nach Infektionsschutzgesetz) absolvieren."
+        "Rechtzeitig vor der Freizeit einen Account auf der Online-Lern-Plattform anlegen und die gesetzliche **Online-Hygieneschulung** (Belehrung nach Infektionsschutzgesetz) absolvieren.",
+        "[Zur Hygieneschulung (eLearning Jugendarbeit BW)](https://elearning.jugendakademie-bw.de/login/index.php)"
       ]},
       {h:"🛠️ Orga in den ersten Tagen", items:[
         "Reinigungsplan finalisieren: Bereiche (WCs, Bäder, Flure, Eingang) festlegen und Kinder/Teamer in feste Dienste einteilen.",
@@ -1371,7 +1413,7 @@ const ROLES = [
   },
   {
     id:"video", icon:"🎬", title:"Video-Team", who:"noch offen", color:"#FB7185",
-    intro:"Kein klassisches Marketing dieses Jahr. Ziel: ein toller Erinnerungsfilm (ca. 2 × 20 Min — Diashow + zusammengeschnittene Videos). Eine ansprechende 1–2-minütige Kurzversion für die Werbung im Folgejahr wäre ein super Bonus.",
+    intro:"🎯 **Ziel:** ein toller Erinnerungsfilm (ca. 2 × 20 Min — Diashow + zusammengeschnittene Videos). Eine ansprechende 1–2-minütige Kurzversion für die Werbung im Folgejahr wäre ein super Bonus.",
     /* spec/20 (Inhalts-Rework): Sammeln → Fotorechte → Film. Details eingefaltet; „1–2-Min-Kurzversion“
        stand doppelt (schon im Intro) → entdoppelt. Name „Marco“ → „Freizeitleitung“ (jahres-/namensneutral). */
     core:[
@@ -1406,12 +1448,12 @@ const ROLES = [
         "Wenn alle eingecheckt sind: den Ausflugsbeauftragten melden, wie viele VVS-Gruppenkarten noch zu kaufen sind."
       ]},
       {h:"🚆 Während der Zugfahrt", items:[
-        "Kids auf die Zimmer verteilen (im Zimmerplan festhalten).",
-        "Ist das Haus sehr voll, bleibt bei der Zimmerverteilung vermutlich wenig Wahl — das Prinzip gilt aber."
+        "Die **Zimmereinteilung ist in der Regel schon vorab grob geplant** — im Zug gemeinsam durchgehen und prüfen, ob sie so passt.",
+        "**Tausch- bzw. Änderungswünsche** aufnehmen und, wo sinnvoll, berücksichtigen — **final entscheidet das Team**.",
+        "Anpassungen direkt **im Zimmerplan festhalten**."
       ]},
       {h:"👥 Weitere Rollen", items:[
-        "Check-In Medis (2 Personen) und Koffer verladen (2 Personen): die genauen Aufgaben klären wir kurz vor dem eigentlichen Check-In.",
-        "→ in Notion: An- & Abreise + TN-Daten für Check-In."
+        "**Check-In Medis** (2 Personen) und **Koffer verladen** (2 Personen): die genauen Aufgaben klären wir kurz vor dem eigentlichen Check-In."
       ]}
     ]
   },
@@ -1421,8 +1463,9 @@ const ROLES = [
     /* spec/20 (Inhalts-Rework): in Belege → Kasse prüfen/übergeben gegliedert. */
     core:[
       {h:"🧾 Belege aufkleben", items:[
-        "Belege einzeln (mit Klebestift!) aufkleben: Ein Beleg pro Seite/Kassenformular. Alle Kassenzettel und Fahrkarten/Zugtickets unbedingt aufheben — ohne Beleg/Ticket bekommen wir das Geld nicht zurück!",
-        "Ausnahme Fahrten: mehrere Gruppentickets vom selben Tag dürfen zusammen — Gesamtsumme extra aufführen."
+        "Belege **einzeln** (mit Klebestift!) aufkleben: Ein Beleg pro Seite/Kassenformular. Alle Kassenzettel und Fahrkarten/Zugtickets unbedingt aufheben — ohne Beleg/Ticket bekommen wir das Geld nicht zurück!",
+        "Auf jedem Beleg **Datum und Gesamtsumme unterstreichen**. Auf dem Blatt, auf das der Beleg geklebt wird, zusätzlich **oben rechts das Datum** notieren.",
+        "**Ausnahme Fahrten:** mehrere Gruppentickets vom selben Tag dürfen zusammen — Gesamtsumme extra aufführen."
       ]},
       {h:"🧮 Kasse prüfen & übergeben", items:[
         "Kasse prüfen: erhaltener Betrag − Ausgaben (eingeklebte Belege) = Restbetrag im Geldbeutel.",
@@ -1500,6 +1543,13 @@ function openSheet(title, bodyHtml){
   document.getElementById('sheetTitle').textContent = title;
   document.getElementById('sheetBody').innerHTML = bodyHtml;
   ov.classList.add('active');
+  /* Content-Feintuning 23.07.2026: Sheet beim Öffnen immer oben starten. Vorher behielt das
+     Bottom-Sheet seine alte Scroll-Position (z. B. „ganz unten" nach dem letzten TN-Speichern),
+     sodass die neue Maske nicht am Anfang aufging. */
+  const sheet = ov.querySelector('.sheet');
+  if(sheet) sheet.scrollTop = 0;
+  const body = document.getElementById('sheetBody');
+  if(body) body.scrollTop = 0;
 }
 function setSheetBody(bodyHtml){
   const el = document.getElementById('sheetBody');
@@ -2373,22 +2423,18 @@ function openTnSheet(id){
   const allergienCur = t ? (t.allergien||'') : '';
   tnMediDraft = t ? d.medis.filter(m=>m.tnId===t.id).map(m=>({zeit:m.zeit,medikament:m.medikament,notiz:m.notiz})) : [];
   tnMediDraftEditIdx = null;
-  // Stufe 17 (spec/16 §3): Nur beim Neu-Anlegen und solange noch kein Zimmer existiert — rein
-  // informativ, TN-Anlegen ohne Zimmer bleibt jederzeit möglich (Select hat "– kein Zimmer –").
-  const zimmerHintHTML = (!t && (d.meta.raeume||[]).length === 0) ? `
-    <div class="settings-hint" style="text-align:left">
-      💡 Tipp: Meist ist es einfacher, <b>zuerst die Zimmer anzulegen</b> und dann die TN — dann kannst du hier
-      direkt ein Zimmer zuweisen. Du kannst TN aber auch ohne Zimmer anlegen.
-      <button type="button" class="form-save" style="width:100%;margin-top:8px" onclick="tnGoToZimmerSettings()">🛏️ Zimmer anlegen</button>
-    </div>` : '';
+  // Stufe 17 (spec/16 §3) + Feintuning 23.07.2026: Der „zuerst Zimmer anlegen"-Hinweis sitzt jetzt
+  // direkt am Zimmer-Feld (siehe unten), damit er genau dort auftaucht, wo man ein Zimmer zuweisen
+  // will. TN-Anlegen ohne Zimmer bleibt jederzeit möglich (Select hat "– kein Zimmer –").
   const body = `
-    ${zimmerHintHTML}
     <div class="form-field"><label>Name</label>
       <input id="tfName" type="text" placeholder="Vorname Name" value="${t?esc(t.name):''}"></div>
     <div class="form-field"><label>Alter (optional)</label>
       <input id="tfAlter" type="number" min="0" max="99" value="${t&&t.alter?esc(String(t.alter)):''}"></div>
     <div class="form-field"><label>Zimmer (optional)</label>
       <select id="tfZimmer">${raeumeSelectOptionsHTML(curZimmer)}</select>
+      ${(d.meta.raeume||[]).length===0?`<div class="settings-hint" style="text-align:left;margin:6px 0 0">💡 Noch keine Zimmer angelegt. Am besten <b>zuerst die Zimmer erstellen</b> (Einstellungen → Zimmer), dann kannst du hier direkt zuweisen.
+        <button type="button" class="form-save" style="width:100%;margin-top:8px" onclick="tnGoToZimmerSettings()">🛏️ Zimmer anlegen</button></div>`:''}
       ${zimmerUnbekannt?`<div class="settings-hint" style="text-align:left;margin:6px 0 0">⚠️ Zimmer zuordnen – „${esc(curZimmer)}“ ist nicht mehr in der Zimmerliste.</div>`:''}
     </div>
     <div class="form-field"><label>Geschlecht</label>${tnGeschlechtChipsHTML(geschlechtCur)}</div>
@@ -3255,6 +3301,86 @@ let roleBackHash = 'zust';
 let currentRoleId = null;
 
 function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+/* Content-Feintuning 23.07.2026: begrenzte Inline-Formatierung in Rollen-Texten. Zuerst escapen
+   (Sicherheit), danach **fett** → <b>. Nur für entwicklerseitig gepflegte Inhalte (ROLES/Intro),
+   kein User-Input — daher unbedenklich. Erlaubt es, Schlüsselwörter je Punkt hervorzuheben. */
+function fmtInline(s){
+  return esc(s)
+    /* [Label](https://…) → Button-Link (nur https, entwicklerseitig gepflegt) */
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g,
+      '<a href="$2" target="_blank" rel="noopener" class="inline-link-btn">$1 ↗</a>')
+    .replace(/\*\*(.+?)\*\*/g,'<b>$1</b>');
+}
+
+/* ============ Öffentliche Notion-Links (Feintuning 23.07.2026) ============ */
+/* Wiederverwendbare Komponente: ein frei betitelbarer öffentlicher Notion-Link je „key". Gespeichert
+   in meta.notionLinks (→ Teil des Exports, teamweit geteilt). Aktuell genutzt bei Video-Team und
+   Wochenplan; weitere Keys können einfach ergänzt werden. */
+const NOTION_LINKS = {
+  video:      { defaultTitle: 'Unsere Video- & Bildersammlung' },
+  wochenplan: { defaultTitle: 'Zu unserem Notion-Wochenplan' }
+};
+function notionLinkData(key){
+  const d = getData();
+  const nl = (d.meta.notionLinks && d.meta.notionLinks[key]) || null;
+  return (nl && nl.url) ? nl : null;
+}
+function notionLinkInnerHTML(key){
+  const nl = notionLinkData(key);
+  const def = (NOTION_LINKS[key]||{}).defaultTitle || 'Notion-Link';
+  if(nl){
+    const title = nl.title || def;
+    return `<a class="notion-link-btn" href="${esc(nl.url)}" target="_blank" rel="noopener">🔗 ${esc(title)} ↗</a>
+      <button type="button" class="notion-link-edit" onclick="openNotionLinkSheet('${key}')" aria-label="Link bearbeiten">✏️</button>`;
+  }
+  return `<button type="button" class="notion-link-add" onclick="openNotionLinkSheet('${key}')">🔗 Link hinzufügen</button>`;
+}
+function notionLinkBlockHTML(key, tipHTML){
+  return `<div class="notion-link-block">
+    <div id="notionLink_${key}" class="notion-link-row">${notionLinkInnerHTML(key)}</div>
+    ${tipHTML?`<details class="det notion-link-tip"><summary>💡 Wozu ist das?</summary><div class="body">${tipHTML}</div></details>`:''}
+  </div>`;
+}
+function renderNotionLink(key){
+  const el = document.getElementById('notionLink_'+key);
+  if(el) el.innerHTML = notionLinkInnerHTML(key);
+}
+function openNotionLinkSheet(key){
+  const nl = notionLinkData(key);
+  const def = (NOTION_LINKS[key]||{}).defaultTitle || '';
+  const url = nl ? nl.url : '';
+  const title = nl ? (nl.title||def) : def;
+  openSheet(nl?'Notion-Link bearbeiten':'Notion-Link hinzufügen', `
+    <div class="form-field"><label>Öffentlicher Notion-Link (URL)</label>
+      <input id="nlUrl" type="url" inputmode="url" placeholder="https://notion.so/…" value="${esc(url)}"></div>
+    <div class="form-field"><label>Angezeigter Titel</label>
+      <input id="nlTitle" type="text" placeholder="${esc(def)}" value="${esc(title)}">
+      <div class="settings-hint" style="text-align:left;margin:6px 0 0">Statt der langen URL wird dieser Titel angezeigt. Standard: „${esc(def)}" — jederzeit änderbar.</div></div>
+    <div class="form-actions">
+      ${nl?`<button type="button" class="staff-danger" onclick="removeNotionLink('${key}')">Entfernen</button>`:''}
+      <button type="button" class="form-save" onclick="saveNotionLink('${key}')">Speichern</button>
+    </div>`);
+}
+function saveNotionLink(key){
+  const url = (document.getElementById('nlUrl').value||'').trim();
+  if(!url){ alert('Bitte einen Link eingeben.'); return; }
+  if(!/^https?:\/\//i.test(url)){ alert('Bitte einen gültigen Link mit https:// eingeben.'); return; }
+  const def = (NOTION_LINKS[key]||{}).defaultTitle || '';
+  const title = ((document.getElementById('nlTitle').value||'').trim()) || def;
+  const d = getData();
+  if(!d.meta.notionLinks) d.meta.notionLinks = {};
+  d.meta.notionLinks[key] = { url, title };
+  saveData(d);
+  closeSheet();
+  renderNotionLink(key);
+}
+function removeNotionLink(key){
+  const d = getData();
+  if(d.meta.notionLinks) delete d.meta.notionLinks[key];
+  saveData(d);
+  closeSheet();
+  renderNotionLink(key);
+}
 
 /* ---- Dashboard-Grid ---- */
 function renderDashGrid(){
@@ -3326,12 +3452,12 @@ function blockHTML(blocks, checkable, roleId){
       b.items.forEach(it=>{
         const key=LS_PREFIX+"chk_"+roleId+"_"+idx;
         const done=localStorage.getItem(key)==="1";
-        html+=`<li class="${done?'done':''}" data-key="${key}"><span class="box">✓</span><span>${esc(it)}</span></li>`;
+        html+=`<li class="${done?'done':''}" data-key="${key}"><span class="box">✓</span><span>${fmtInline(it)}</span></li>`;
         idx++;
       });
       html+=`</ul>`;
     }else{
-      html+=`<ul>`+b.items.map(it=>`<li>${esc(it)}</li>`).join("")+`</ul>`;
+      html+=`<ul>`+b.items.map(it=>`<li>${fmtInline(it)}</li>`).join("")+`</ul>`;
     }
   });
   return html;
@@ -3346,7 +3472,7 @@ function roleBlocksHTML(blocks, roleId){
     const lis = b.items.map(it=>{
       const key=LS_PREFIX+"chk_"+roleId+"_"+(idx++);
       const done=localStorage.getItem(key)==="1";
-      return `<li class="${done?'done':''}" data-key="${key}"><span class="box">✓</span><span>${esc(it)}</span></li>`;
+      return `<li class="${done?'done':''}" data-key="${key}"><span class="box">✓</span><span>${fmtInline(it)}</span></li>`;
     }).join("");
     if(b.h){
       out+=`<details class="det role-acc"><summary>${esc(b.h)}</summary><div class="body"><ul class="checks">${lis}</ul></div></details>`;
@@ -3364,7 +3490,13 @@ function wireRoleAccordions(){
   const dets=Array.from(group.querySelectorAll('details.role-acc'));
   dets.forEach(det=>{
     det.addEventListener('toggle', ()=>{
-      if(det.open) dets.forEach(o=>{ if(o!==det) o.open=false; });
+      if(det.open){
+        dets.forEach(o=>{ if(o!==det) o.open=false; });
+        /* Content-Feintuning 23.07.2026: beim Öffnen eines Akkordeons zum Anfang (Überschrift) scrollen.
+           Vorher blieb die Scroll-Position stehen bzw. sprang ans Ende des vorher offenen Blocks. */
+        const s=det.querySelector('summary');
+        if(s) requestAnimationFrame(()=>s.scrollIntoView({behavior:'smooth', block:'start'}));
+      }
       updateRoleFloatingClose();
     });
   });
@@ -3558,11 +3690,13 @@ function raeumeZustRowsHTML(){
     const rooms = roomsByEtage[etage] || [];
     const planId = d.meta.etagenPlan[etage] || '';
     const planHTML = planId
-      ? `<div class="etage-plan"><img class="etage-plan-img" data-plan-etage="${ordIdx}" alt="Lageplan ${esc(etage)}" onclick="openEtagePlanFull(${ordIdx})">
-           <div class="etage-plan-actions">
-             <button type="button" onclick="etagePlanPick(${ordIdx})">🖼️ Ersetzen</button>
-             <button type="button" onclick="etagePlanRemove(${ordIdx})">🗑️ Entfernen</button>
-           </div></div>`
+      ? `<details class="det etage-plan-acc"><summary>🖼️ Lageplan anzeigen</summary><div class="body">
+           <div class="etage-plan"><img class="etage-plan-img" data-plan-etage="${ordIdx}" alt="Lageplan ${esc(etage)}" onclick="openEtagePlanFull(${ordIdx})">
+             <div class="etage-plan-actions">
+               <button type="button" onclick="etagePlanPick(${ordIdx})">🖼️ Ersetzen</button>
+               <button type="button" onclick="etagePlanRemove(${ordIdx})">🗑️ Entfernen</button>
+             </div></div>
+         </div></details>`
       : `<button type="button" class="etage-plan-upload" onclick="etagePlanPick(${ordIdx})">🖼️ Lageplan hochladen (PNG/JPG)</button>`;
     html += `<details class="det etage-card" data-etage="${ordIdx}" open>
       <summary>
@@ -3792,11 +3926,17 @@ function openRole(id){
   let h=`<div class="dhead"><div class="emoji">${r.icon}</div><h2>${esc(r.title)}</h2></div>`;
   /* Stufe 14 (spec/12): bei der Zimmer-Rolle gibt es bewusst KEINE bereichsweite "Zuständig:"-Zeile
      — Zuständigkeit ist pro Zimmer (siehe Zimmer-Karten unten), nicht für den Gesamtbereich. */
-  /* Notiz Marco (spec/20): bei „programm“ sind alle mal dran → feste Zuständigen-Zuweisung ergibt
-     keinen Sinn, Zeile ausgeblendet (wie schon bei „zimmer“). */
-  if(r.id!=='zimmer' && r.id!=='programm') h+=`<div class="zust-row" id="zustRow">${zustRowHTML(r.id)}</div>`;
+  /* Notiz Marco (spec/20): bei „programm“, „tagesleitung“ und „planung“ sind alle abwechselnd dran
+     (i. d. R. 2 Personen) → feste Zuständigen-Zuweisung ergibt keinen Sinn, „+ Person“-Zeile
+     ausgeblendet (wie schon bei „zimmer“). Der who-Badge trägt den Hinweis „alle, abwechselnd …“. */
+  if(r.id!=='zimmer' && r.id!=='programm' && r.id!=='tagesleitung' && r.id!=='planung') h+=`<div class="zust-row" id="zustRow">${zustRowHTML(r.id)}</div>`;
   h+=whoBadgeHTML(r);
-  if(r.intro) h+=`<div class="intro">${esc(r.intro)}</div>`;
+  if(r.intro) h+=`<div class="intro">${fmtInline(r.intro)}</div>`;
+
+  /* Feintuning 23.07.2026: öffentlicher Notion-Link fürs Video-Team (frei betitelbar, teamweit geteilt). */
+  if(r.id==='video'){
+    h+=notionLinkBlockHTML('video', 'Öffentlicher Notion-Link zur Bild- & Videosammlung — alle MA laden hier ihre Fotos/Videos hoch bzw. finden nach der Freizeit die Sammlung.');
+  }
 
   if(r.id==='zimmer'){
     /* Stufe 14 (spec/12): Checkliste + Details wandern in ein geschlossenes "Worauf muss ich
@@ -4052,6 +4192,7 @@ function selectWpDay(day){
 }
 function renderWochenplanView(){
   wpCurrentDay = 'mo';
+  renderNotionLink('wochenplan');
   renderWpDayChips();
   loadWpDay('mo');
 }
