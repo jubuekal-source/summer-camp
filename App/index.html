@@ -489,6 +489,8 @@
   .medi-card .mid{flex:1;min-width:0}
   .medi-card .mname{font-weight:700;font-size:.92rem}
   .medi-card .msub{color:var(--muted);font-size:.8rem;margin-top:2px}
+  /* spec/23 §7: MA-Medi-Einträge im zentralen Plan deutlich von TN-Einträgen abgesetzt. */
+  .medi-card.medi-staff{background:var(--card2);border-left:4px solid #F97316}
 
   .toggle-chips{display:flex;flex-wrap:wrap;gap:8px}
   .toggle-chip{display:inline-flex;align-items:center;gap:6px;padding:8px 12px;border-radius:16px;
@@ -744,15 +746,17 @@
       <p>Rettungsschwimmer, Handyregeln &amp; Personen-Verwaltung</p>
     </header>
 
-    <div class="tn-counters" id="maCounters" style="margin-top:16px"></div>
+    <!-- spec/23 §9a: Legende, exakt das TN-Muster. -->
+    <div style="display:flex;align-items:flex-start;gap:8px;margin-top:16px">
+      <div class="tn-counters" id="maCounters"></div>
+      <button type="button" class="tn-info-btn" onclick="openMaLegend()" aria-label="Legende">ℹ️</button>
+    </div>
 
     <div class="staff-block" style="margin-top:16px">
       <h3 id="staffCountHead">👥 Unser Team</h3>
-      <div class="staff-add">
-        <input id="staffNameInput" type="text" placeholder="Name eingeben …" autocomplete="off">
-        <button type="button" class="staff-add-btn" onclick="addStaff()" aria-label="Person hinzufügen">+</button>
-      </div>
-      <div class="staff-list" id="staffList"></div>
+      <!-- spec/23 §4: volles Formular statt Name+Enter, konsistent zu "+ TN hinzufügen". -->
+      <button type="button" class="tn-add-btn" onclick="openStaffForm(null)">+ Mitarbeiter/in hinzufügen</button>
+      <div class="staff-list" id="staffList" style="margin-top:14px"></div>
     </div>
 
     <div class="aside" style="margin-top:22px">🔒 MA-Gesundheitsdaten bleiben nur auf diesem Gerät.</div>
@@ -1073,12 +1077,15 @@ function normalizeData(raw){
     merged.tn.forEach(t=>{
       if(t.geschlecht === undefined) t.geschlecht = '';
       if(t.allergien === undefined) t.allergien = '';
-      // Migration (spec/22): Essenswahl ('' = normal/keine Angabe, 'vegetarisch', 'vegan') +
-      // Teamer-Flag (als TN erfasst, aber aus der Gruppeneinteilung ausgeschlossen).
+      // Migration (spec/22): Essenswahl ('' = normal/keine Angabe, 'vegetarisch', 'vegan').
       if(t.essen === undefined) t.essen = '';
-      if(t.istTeamer === undefined) t.istTeamer = false;
     });
   }
+  // Migration (spec/23 §8): der istTeamer-Workaround (MA doppelt als TN erfasst, nur um ihnen
+  // ein Zimmer zu geben) entfällt. Bestandsdaten sind laut Marco reine Testdaten — die alten
+  // Doppel-Einträge werden hart entfernt (kein Namens-Matching nötig). t.istTeamer wird ab
+  // jetzt nirgends mehr gelesen/geschrieben.
+  if(Array.isArray(merged.tn)) merged.tn = merged.tn.filter(t=>!t.istTeamer);
   // Migration (Stufe 17, spec/16 §4a): neue MA-Felder für "frühere Abreise" (Freitext-Tag,
   // jahresneutral statt Kalenderdatum). Fehlt das Feld → false/"" (kein Datenverlust).
   if(Array.isArray(merged.staff)){
@@ -1088,11 +1095,26 @@ function normalizeData(raw){
       // Migration (Stufe 15, spec/13): formales Rettungsschwimmerabzeichen (Silber), unabhängig
       // von der bestehenden Team-Einschätzung `rettung_see`. Fehlt es → false (kein Datenverlust).
       if(p.rettungsabzeichen === undefined) p.rettungsabzeichen = false;
+      // Migration (spec/23 §1): MA bekommen dieselben Gesundheits-/Zimmer-Felder wie TN, damit
+      // der istTeamer-Workaround unnötig wird. Fehlt ein Feld → Default (kein Datenverlust).
+      if(p.zimmer === undefined) p.zimmer = '';
+      if(p.geschlecht === undefined) p.geschlecht = '';
+      if(p.alter === undefined) p.alter = '';
+      if(p.schwimm === undefined) p.schwimm = '';
+      if(p.bade === undefined) p.bade = '';
+      if(p.allergien === undefined) p.allergien = '';
+      if(p.essen === undefined) p.essen = '';
+      if(p.fahrer === undefined) p.fahrer = false;
     });
   }
   // Migration (Stufe 18, spec/15): neues Top-Level-Array `gruppen` (editierbare Schnappschüsse,
   // siehe defaultData()). Fehlt es oder ist kein Array (Alt-Daten vor Stufe 18) → leeres Array.
   if(!Array.isArray(merged.gruppen)) merged.gruppen = [];
+  // Migration (spec/23 §1): medis.staffId — ein Medi-Eintrag gehört entweder zu einem TN
+  // (tnId gesetzt) oder zu einem MA (staffId gesetzt). Fehlt das Feld (Alt-Daten) → null.
+  if(Array.isArray(merged.medis)){
+    merged.medis.forEach(m=>{ if(m.staffId === undefined) m.staffId = null; });
+  }
   return merged;
 }
 function getData(){
@@ -1532,20 +1554,50 @@ const STAFF_COLORS = ["#FF6B4A","#FF8A3D","#FFB23E","#F472B6","#34d399","#60A5FA
 
 /* ============ MA-Infos: Mini-Dashboard & Flags (Stufe 4, spec/05) ============ */
 /* Gleicher Mechanismus wie TN_COUNTERS/Toggle-Chips, bewusst reduziert auf MA-relevante Flags. */
+/* spec/23 §4a: volle Flag-Liste (dieselben IDs/Icons wie TN, damit Badges/Legende konsistent sind).
+   NICHT für MA: kleingruppe_nein, handy_2200, handy_2300 (reine TN-Regeln). 'medis' ist kein Flag
+   mehr (ergibt sich aus Medi-Einträgen, wie bei TN) — Legacy-Wert in staff.flags wird toleriert
+   (siehe normalizeData), aber hier nicht mehr als Chip angeboten. */
 const MA_FLAGS = [
   {id:'kritisch', icon:'🆘', label:'Kritisch'},
-  {id:'medis', icon:'💊', label:'Medis'}
+  {id:'zecken_nein', icon:'🚫🕷️', label:'Zecken'},
+  {id:'wundvers_nein', icon:'🚫🩸', label:'Wundvers.'},
+  {id:'foto_nein', icon:'🚫📸', label:'Foto'},
+  {id:'mitfahr_nein', icon:'🚫🚗', label:'Mitfahrt'},
+  {id:'klettern_nein', icon:'🚫🧗', label:'Klettern'},
+  {id:'ticket_nein', icon:'🎫', label:'Ticket fehlt'}
 ];
-/* Stufe 17 (spec/16 §4d): Reihenfolge ⚠️ Besonderheiten -> 💊 Medis -> 🚙 Abreise -> 📵 Handy ->
-   🏊✅ Rettungsschwimmer (ans Ende). desc auch bei den neuen Einträgen mitgepflegt, falls später
-   eine Legende ergänzt wird (aktuell hat MA-Infos noch keine, siehe spec/16 §4d "kein Muss"). */
+/* spec/23 §9: volle Counter-Liste (analog TN_COUNTERS-Logik), nur belegte Chips (n>0) werden
+   gerendert (siehe renderMaCounters unten, unverändert aus Stufe 22). */
 const MA_COUNTERS = [
-  {id:'flags', icon:'⚠️', label:'Besonderheiten', desc:'MA mit eigenen Besonderheiten/Flags (siehe Kartendetails).',
-    match:p=>(p.flags||[]).length>0},
-  {id:'medis', icon:'💊', label:'Medis', desc:'MA mit dem Flag "Medis" (siehe Kartendetails).',
-    match:p=>(p.flags||[]).includes('medis')},
-  {id:'abreise', icon:'🚙', label:'Frühere Abreise', desc:'MA, die vor Ende der Freizeit abreisen.',
+  {id:'kritisch', icon:'🆘', label:'Kritisch', desc:'Lebensbedrohliche Besonderheit — vom Team manuell markiert.',
+    match:p=>(p.flags||[]).includes('kritisch')},
+  {id:'medis', icon:'💊', label:'Medis', desc:'Nimmt regelmäßig Medikamente — siehe Medikamenten-Plan.',
+    match:p=> getData().medis.some(m=>m.staffId===p.id) || (p.flags||[]).includes('medis')},
+  {id:'allergien', icon:'🥜', label:'Allergie', desc:'Hat eine oder mehrere Allergien — Details im MA-Formular.',
+    match:p=>!!(p.allergien && p.allergien.trim())},
+  {id:'veget', icon:'🥗', label:'Vegetarisch', desc:'Bevorzugte Essenswahl: vegetarisch.',
+    match:p=>p.essen==='vegetarisch'},
+  {id:'vegan', icon:'🌱', label:'Vegan', desc:'Bevorzugte Essenswahl: vegan.',
+    match:p=>p.essen==='vegan'},
+  {id:'schwimm', icon:'⚠️🏊', label:'Schwimmen/Baden', desc:'Schwimmfähigkeit nicht „sicher" und/oder Badeerlaubnis eingeschränkt.',
+    match:p=>(p.schwimm && p.schwimm!=='sicher') || (p.bade && p.bade!=='alles')},
+  {id:'zecken_nein', icon:'🚫🕷️', label:'Zecken', desc:'Zecken-Entfernung durch das Team NICHT erlaubt.',
+    match:p=>(p.flags||[]).includes('zecken_nein')},
+  {id:'wundvers_nein', icon:'🚫🩸', label:'Wundvers.', desc:'Med. Erstversorgung/Wundversorgung NICHT erlaubt.',
+    match:p=>(p.flags||[]).includes('wundvers_nein')},
+  {id:'foto_nein', icon:'🚫📸', label:'Foto', desc:'Foto-/Video-Einwilligung fehlt.',
+    match:p=>(p.flags||[]).includes('foto_nein')},
+  {id:'mitfahr_nein', icon:'🚫🚗', label:'Mitfahrt', desc:'Darf NICHT in PKW/Kleinbus mitfahren.',
+    match:p=>(p.flags||[]).includes('mitfahr_nein')},
+  {id:'klettern_nein', icon:'🚫🧗', label:'Klettern', desc:'Keine Erlaubnis für Klettergarten/Klettern.',
+    match:p=>(p.flags||[]).includes('klettern_nein')},
+  {id:'ticket_nein', icon:'🎫', label:'Ticket fehlt', desc:'Kein VVS-Ticket vorhanden.',
+    match:p=>(p.flags||[]).includes('ticket_nein')},
+  {id:'abreise', icon:'🕙🚙', label:'Frühere Abreise', desc:'MA, die vor Ende der Freizeit abreisen.',
     match:p=>!!p.abreise_frueher},
+  {id:'fahrer', icon:'🪪🚗', label:'Führerschein/fährt', desc:'Hat Führerschein und ist bereit, Auto zu fahren.',
+    match:p=>!!p.fahrer},
   {id:'handy', icon:'📵', label:'Handy nachts', desc:'Eltern verlangen nächtliche Handy-Abgabe.',
     match:p=>p.handyregel===true},
   {id:'rettung', icon:'🏊✅', label:'Rettungsschwimmer', desc:'Traut sich Badeaufsicht IM Wasser zu (Team-Einschätzung).',
@@ -1554,6 +1606,11 @@ const MA_COUNTERS = [
     match:p=>!!p.rettungsabzeichen}
 ];
 let maFilter = null;
+function openMaLegend(){
+  openSheet('Legende', `<div class="legend-list">` + MA_COUNTERS.map(c=>
+    `<div class="legend-item"><span class="ic">${c.icon}</span><div><b>${esc(c.label)}</b><br><span style="color:var(--muted)">${esc(c.desc)}</span></div></div>`
+  ).join('') + `</div>`);
+}
 
 function renderMaCounters(){
   const el = document.getElementById('maCounters');
@@ -1670,10 +1727,12 @@ function maFlagBadgesHTML(p){
   }).join('');
 }
 // Stufe 17 (spec/16 §4c): 📵/🚙 waren bisher gespeichert, aber nirgends auf der Karte sichtbar.
+// spec/23 §4b: Uhrzeit-Icons eindeutig getrennt — 🕙🚙 = frühere Abreise, 🪪🚗 = Führerschein/fährt.
 function maExtraBadgesHTML(p){
   let out = '';
   if(p.handyregel===true) out += `<span class="tn-badge warn">📵 Handy nachts</span>`;
-  if(p.abreise_frueher) out += `<span class="tn-badge warn">🚙 ${esc(p.abreise_tag||'')}</span>`;
+  if(p.abreise_frueher) out += `<span class="tn-badge warn">🕙🚙 ${esc(p.abreise_tag||'')}</span>`;
+  if(p.fahrer) out += `<span class="tn-badge">🪪🚗 Fahrer</span>`;
   return out;
 }
 function cycleRettung(id){
@@ -1686,6 +1745,191 @@ function cycleRettung(id){
   renderStaffList();
   renderDashGrid();
 }
+
+/* ==== spec/23 §4: volles MA-Formular (ersetzt Name+Enter — analog openTnSheet, aber mit
+   eigenen mf*-Radio-Namen, damit sich TN- und MA-Formular nicht in die Quere kommen). ==== */
+function maGeschlechtChipsHTML(current){
+  const opts = [{id:'w',icon:'♀️',label:'weiblich'},{id:'m',icon:'♂️',label:'männlich'},{id:'d',icon:'⚧️',label:'divers'}];
+  return `<div class="toggle-chips" id="mfGeschlechtGroup">` + opts.map(o=>{
+    const on = current===o.id;
+    return `<label class="toggle-chip${on?' on':''}">
+      <input type="radio" name="mfGeschlecht" value="${o.id}" ${on?'checked':''} style="display:none"
+        onchange="maGeschlechtRadioToggle(this)">${o.icon} ${esc(o.label)}</label>`;
+  }).join('') + `</div>`;
+}
+function maGeschlechtRadioToggle(input){
+  document.querySelectorAll('#mfGeschlechtGroup .toggle-chip').forEach(l=>l.classList.remove('on'));
+  input.parentElement.classList.add('on');
+}
+function maAllergienFieldHTML(current){
+  const has = !!(current && current.trim());
+  return `<div class="toggle-chips" id="mfAllergienToggle">
+      <label class="toggle-chip${!has?' on':''}"><input type="radio" name="mfAllergienMode" value="keine" ${!has?'checked':''} style="display:none" onchange="maAllergienModeToggle(this)">keine</label>
+      <label class="toggle-chip${has?' on':''}"><input type="radio" name="mfAllergienMode" value="vorhanden" ${has?'checked':''} style="display:none" onchange="maAllergienModeToggle(this)">vorhanden</label>
+    </div>
+    <textarea id="mfAllergienText" placeholder="z. B. Nüsse, Erdbeeren …" style="margin-top:8px;${has?'':'display:none'}">${esc(current||'')}</textarea>`;
+}
+function maAllergienModeToggle(input){
+  document.querySelectorAll('#mfAllergienToggle .toggle-chip').forEach(l=>l.classList.remove('on'));
+  input.parentElement.classList.add('on');
+  const ta = document.getElementById('mfAllergienText');
+  if(ta) ta.style.display = (input.value==='vorhanden') ? '' : 'none';
+}
+function maEssenChipsHTML(current){
+  const opts = [{id:'',icon:'🍽️',label:'normal'},{id:'vegetarisch',icon:'🥗',label:'vegetarisch'},{id:'vegan',icon:'🌱',label:'vegan'}];
+  return `<div class="toggle-chips" id="mfEssenGroup">` + opts.map(o=>{
+    const on = (current||'')===o.id;
+    return `<label class="toggle-chip${on?' on':''}">
+      <input type="radio" name="mfEssen" value="${o.id}" ${on?'checked':''} style="display:none"
+        onchange="maEssenRadioToggle(this)">${o.icon} ${esc(o.label)}</label>`;
+  }).join('') + `</div>`;
+}
+function maEssenRadioToggle(input){
+  document.querySelectorAll('#mfEssenGroup .toggle-chip').forEach(l=>l.classList.remove('on'));
+  input.parentElement.classList.add('on');
+}
+/* Farbe im Formular wählen (statt eigenem Sub-Sheet wie staffMenuColor — der würde das ganze
+   Formular überschreiben). Auswahl landet im versteckten Feld #mfFarbe. */
+function maPickColor(btn, color){
+  const inp = document.getElementById('mfFarbe');
+  if(inp) inp.value = color;
+  const wrap = btn.parentElement;
+  if(wrap) wrap.querySelectorAll('.swatch').forEach(b=>{ b.style.outline=''; b.style.outlineOffset=''; });
+  btn.style.outline = '3px solid var(--text)';
+  btn.style.outlineOffset = '2px';
+}
+function openStaffForm(id){
+  const d = getData();
+  const p = id ? d.staff.find(x=>x.id===id) : null;
+  const flags = p ? (p.flags||[]) : [];
+  const curZimmer = p ? (p.zimmer||'') : '';
+  const zimmerUnbekannt = curZimmer && !(d.meta.raeume||[]).includes(curZimmer);
+  // spec/23 §4: Defaults gelten nur beim Neu-Anlegen (p===null) — 'w' als Geschlecht-Default,
+  // weil laut Marco mehr Teamerinnen als Teamer im Team sind.
+  const geschlechtCur = p ? (p.geschlecht||'') : 'w';
+  const schwimmCur = p ? (p.schwimm||'') : '';
+  const badeCur = p ? (p.bade||'') : '';
+  const allergienCur = p ? (p.allergien||'') : '';
+  const essenCur = p ? (p.essen||'') : '';
+  const farbeCur = p ? p.farbe : nextStaffColor();
+  const rVal = p && p.rettung_see===true ? 'ja' : p && p.rettung_see===false ? 'nein' : '';
+  tnMediDraft = p ? d.medis.filter(m=>m.staffId===p.id).map(m=>({zeit:m.zeit,medikament:m.medikament,notiz:m.notiz})) : [];
+  tnMediDraftEditIdx = null;
+  const body = `
+    <div class="form-field"><label>Name</label>
+      <input id="mfName" type="text" placeholder="Vorname Name" value="${p?esc(p.name):''}"></div>
+    <div class="form-field"><label>Alter (optional)</label>
+      <input id="mfAlter" type="number" min="0" max="99" value="${p&&p.alter?esc(String(p.alter)):''}"></div>
+    <div class="form-field"><label>Zimmer (optional)</label>
+      <select id="mfZimmer">${raeumeSelectOptionsHTML(curZimmer)}</select>
+      ${(d.meta.raeume||[]).length===0?`<div class="settings-hint" style="text-align:left;margin:6px 0 0">💡 Noch keine Zimmer angelegt. Am besten <b>zuerst die Zimmer erstellen</b> (Einstellungen → Zimmer), dann kannst du hier direkt zuweisen.
+        <button type="button" class="form-save" style="width:100%;margin-top:8px" onclick="tnGoToZimmerSettings()">🛏️ Zimmer anlegen</button></div>`:''}
+      ${zimmerUnbekannt?`<div class="settings-hint" style="text-align:left;margin:6px 0 0">⚠️ Zimmer zuordnen – „${esc(curZimmer)}“ ist nicht mehr in der Zimmerliste.</div>`:''}
+    </div>
+    <div class="form-field"><label>Geschlecht</label>${maGeschlechtChipsHTML(geschlechtCur)}</div>
+    <div class="form-field"><label>Schwimmfähigkeit</label>
+      <select id="mfSchwimm">
+        <option value="">– keine Angabe –</option>
+        <option value="sicher"${schwimmCur==='sicher'?' selected':''}>sicher</option>
+        <option value="anfaenger"${schwimmCur==='anfaenger'?' selected':''}>Anfänger</option>
+        <option value="nicht"${schwimmCur==='nicht'?' selected':''}>Nichtschwimmer</option>
+      </select></div>
+    <div class="form-field"><label>Badeerlaubnis</label>
+      <select id="mfBade">
+        <option value="">– keine Angabe –</option>
+        <option value="alles"${badeCur==='alles'?' selected':''}>überall</option>
+        <option value="nur_nsb"${badeCur==='nur_nsb'?' selected':''}>nur Nichtschwimmerbereich</option>
+        <option value="verbot"${badeCur==='verbot'?' selected':''}>Badeverbot</option>
+      </select></div>
+    <div class="form-field"><label>🏊 Traut sich Badeaufsicht im Wasser zu</label>
+      <select id="mfRettung">
+        <option value=""${rVal===''?' selected':''}>– unbekannt –</option>
+        <option value="ja"${rVal==='ja'?' selected':''}>Ja</option>
+        <option value="nein"${rVal==='nein'?' selected':''}>Nein</option>
+      </select>
+      <label class="toggle-chip${p&&p.rettungsabzeichen?' on':''}" style="margin-top:8px">
+        <input type="checkbox" id="mfRettungsabzeichen" ${p&&p.rettungsabzeichen?'checked':''} style="display:none"
+          onchange="this.parentElement.classList.toggle('on', this.checked)">🏅 Rettungsschwimmerabzeichen (Silber)</label>
+    </div>
+    <div class="form-field"><label>Allergien</label>${maAllergienFieldHTML(allergienCur)}</div>
+    <div class="form-field"><label>🍽️ Essenswahl</label>${maEssenChipsHTML(essenCur)}</div>
+    <div class="form-field"><label>💊 Medikamente</label>
+      <div id="tnMediDraftList">${tnMediDraftListHTML()}</div>
+      <div id="tnMediSubForm"></div>
+      <button type="button" class="tn-add-btn" onclick="openTnMediForm(null)">+ Medikament</button>
+    </div>
+    <div class="form-field"><label class="tn-teamer-check"><input type="checkbox" id="mfFahrer" ${p&&p.fahrer?'checked':''}>
+      <span>🪪🚗 Führerschein &amp; bereit, Auto zu fahren</span></label></div>
+    <div class="form-field"><label>📵 Handyregelung</label>
+      <label class="toggle-chip${p&&p.handyregel===true?' on':''}">
+        <input type="checkbox" id="mfHandyNacht" ${p&&p.handyregel===true?'checked':''} style="display:none"
+          onchange="this.parentElement.classList.toggle('on', this.checked)">📱➡️ Eltern verlangen Abgabe in der Nacht</label></div>
+    <div class="form-field"><label>🕙🚙 Frühere Abreise</label>
+      <label class="toggle-chip${p&&p.abreise_frueher?' on':''}">
+        <input type="checkbox" id="mfAbreiseFrueher" ${p&&p.abreise_frueher?'checked':''} style="display:none"
+          onchange="mfAbreiseToggle(this)">🕙🚙 Reist früher ab</label>
+      <input id="mfAbreiseTag" type="text" placeholder="z. B. Mi, 3. Tag / 23.7." value="${p?esc(p.abreise_tag||''):''}" style="margin-top:8px;${p&&p.abreise_frueher?'':'display:none'}"></div>
+    <div class="form-field"><label>Flags / Besonderheiten</label>${maFlagChipsHTML(flags)}</div>
+    <div class="form-field"><label>🎨 Farbe</label>
+      <div class="color-swatches">${STAFF_COLORS.map(c=>`<button type="button" class="swatch" style="background:${c};${c===farbeCur?'outline:3px solid var(--text);outline-offset:2px;':''}" onclick="maPickColor(this,'${c}')" aria-label="Farbe ${c}"></button>`).join('')}</div>
+      <input type="hidden" id="mfFarbe" value="${esc(farbeCur)}">
+    </div>
+    <div class="form-field"><label>Details</label>
+      <textarea id="mfDetails" placeholder="z. B. Details siehe Personalunterlagen …">${p?esc(p.details||''):''}</textarea></div>
+    <div class="form-actions">
+      ${p?`<button type="button" class="staff-danger" onclick="staffMenuDelete('${id}')">Löschen</button>`:''}
+      <button type="button" class="form-save" onclick="saveStaffForm(${p?`'${id}'`:'null'})">Speichern</button>
+    </div>`;
+  openSheet(p?'MA bearbeiten':'Mitarbeiter/in hinzufügen', body);
+}
+function saveStaffForm(id){
+  const name = document.getElementById('mfName').value.trim();
+  if(!name){ alert('Bitte einen Namen angeben.'); return; }
+  const alterVal = document.getElementById('mfAlter').value;
+  const zimmer = document.getElementById('mfZimmer').value.trim();
+  const geschlecht = (document.querySelector('input[name="mfGeschlecht"]:checked')||{}).value || '';
+  const schwimm = document.getElementById('mfSchwimm').value || null;
+  const bade = document.getElementById('mfBade').value || null;
+  const rVal = document.getElementById('mfRettung').value;
+  const rettung_see = rVal==='ja' ? true : rVal==='nein' ? false : null;
+  const rettungsabzeichen = document.getElementById('mfRettungsabzeichen').checked;
+  const allergienMode = (document.querySelector('input[name="mfAllergienMode"]:checked')||{}).value;
+  const allergien = (allergienMode==='vorhanden') ? document.getElementById('mfAllergienText').value.trim() : '';
+  const essen = (document.querySelector('input[name="mfEssen"]:checked')||{}).value || '';
+  const fahrer = document.getElementById('mfFahrer').checked;
+  const handyregel = document.getElementById('mfHandyNacht').checked;
+  const abreise_frueher = document.getElementById('mfAbreiseFrueher').checked;
+  const abreise_tag = abreise_frueher ? document.getElementById('mfAbreiseTag').value.trim() : "";
+  const farbe = (document.getElementById('mfFarbe')||{}).value || nextStaffColor();
+  const details = document.getElementById('mfDetails').value.trim();
+  // spec/23 §10 Fallstrick: #sheetBody enthält neben den echten Flag-Checkboxen (mit value=flagId)
+  // weitere toggle-chip-Checkboxen ohne eigenes value (Rettungsabzeichen/Handy/Abreise) — die hätten
+  // sonst als Browser-Default value="on" die Flags-Liste verunreinigt. Deshalb zusätzlich gegen
+  // MA_FLAGS filtern (gleiches Muster wie saveTn, dort aber schon durch [type=checkbox] gelöst).
+  const flags = Array.from(document.querySelectorAll('#sheetBody .toggle-chip input[type="checkbox"]:checked'))
+    .map(i=>i.value).filter(v=>MA_FLAGS.some(f=>f.id===v));
+  const d = getData();
+  let staffId = id;
+  if(id){
+    const p = d.staff.find(x=>x.id===id);
+    if(p) Object.assign(p, {name, alter: alterVal?Number(alterVal):"", zimmer, geschlecht, schwimm, bade, rettung_see, rettungsabzeichen, allergien, essen, fahrer, handyregel, abreise_frueher, abreise_tag, farbe, details, flags});
+  } else {
+    staffId = uid();
+    d.staff.push({ id:staffId, name, alter: alterVal?Number(alterVal):"", zimmer, geschlecht, schwimm, bade, rettung_see, rettungsabzeichen, allergien, essen, fahrer, handyregel, abreise_frueher, abreise_tag, farbe, details, flags });
+  }
+  // Medikamente wie saveTn: alte Einträge dieser Person entfernen, Draft komplett neu einfügen.
+  d.medis = d.medis.filter(m=>m.staffId!==staffId);
+  tnMediDraft.forEach(m=>{ d.medis.push({ id:uid(), tnId:null, staffId, zeit:m.zeit, medikament:m.medikament, notiz:m.notiz }); });
+  tnMediDraft = [];
+  tnMediDraftEditIdx = null;
+  saveData(d);
+  closeSheet();
+  renderMaView();
+  renderDashGrid();
+  refreshOpenRoleZustRow();
+  refreshGridIfVisible();
+}
+
 function renderStaffList(){
   const el = document.getElementById('staffList');
   if(!el) return;
@@ -1708,7 +1952,7 @@ function renderStaffList(){
     const moveHTML = maFilter ? '' : `<span class="staff-move-actions">
         <button type="button" class="team-icon-btn sm" onclick="event.stopPropagation();staffMove('${p.id}',-1)" aria-label="Nach oben">↑</button>
         <button type="button" class="team-icon-btn sm" onclick="event.stopPropagation();staffMove('${p.id}',1)" aria-label="Nach unten">↓</button></span>`;
-    return `<div class="tn-card" onclick="openStaffMenu('${p.id}')">
+    return `<div class="tn-card" onclick="openStaffInfo('${p.id}')">
       <div class="name">${staffChip(p.id)}${rettungBadgeHTML(p)}${rettungsabzeichenBadgeHTML(p)}${moveHTML}</div>
       <div class="flags">${maFlagBadgesHTML(p)}${maExtraBadgesHTML(p)}</div>
       ${p.details?`<div class="details">${esc(p.details)}</div>`:''}
@@ -1750,6 +1994,48 @@ function refreshOpenRoleZustRow(){
   }
 }
 
+/* ---- spec/23 §5: read-only Info-Blatt eines MA — analog openTnInfo, nur belegte Zeilen.
+   Tap auf eine MA-Karte öffnet dies jetzt statt des alten Menüs (openStaffMenu, siehe unten,
+   bleibt als toter Helfer stehen). Umbenennen/Löschen/Farbe sitzen jetzt im Formular. ---- */
+function openStaffInfo(id){
+  const d = getData();
+  const p = d.staff.find(x=>x.id===id); if(!p) return;
+  const rows = [];
+  if(p.zimmer) rows.push(tnInfoRow('🛏️','Zimmer', esc(p.zimmer)));
+  if(p.alter) rows.push(tnInfoRow('🎂','Alter', esc(String(p.alter))+' Jahre'));
+  const gLabel = {w:'weiblich', m:'männlich', d:'divers'}[p.geschlecht];
+  if(gLabel) rows.push(tnInfoRow('🧑','Geschlecht', esc(gLabel)));
+  if((p.schwimm && p.schwimm!=='sicher') || (p.bade && p.bade!=='alles')){
+    const sw = {sicher:'sicher',anfaenger:'Anfänger',nicht:'Nichtschwimmer'}[p.schwimm] || null;
+    const ba = {alles:'überall',nur_nsb:'nur Nichtschwimmerbereich',verbot:'Badeverbot'}[p.bade] || null;
+    const parts = [sw?('Schwimmen: '+sw):null, ba?('Baden: '+ba):null].filter(Boolean).join(' · ');
+    if(parts) rows.push(tnInfoRow('⚠️🏊','Schwimmen & Baden', esc(parts)));
+  }
+  if(p.rettung_see===true || p.rettung_see===false){
+    rows.push(tnInfoRow('🏊','Badeaufsicht (traut sich zu)', p.rettung_see?'Ja':'Nein'));
+  }
+  if(p.rettungsabzeichen) rows.push(tnInfoRow('🏅','Rettungsschwimmerabzeichen', 'Silber'));
+  if(p.allergien && p.allergien.trim()) rows.push(tnInfoRow('🥜','Allergien', esc(p.allergien.trim())));
+  const essenLabel = {vegetarisch:'vegetarisch', vegan:'vegan'}[p.essen];
+  if(essenLabel) rows.push(tnInfoRow('🍽️','Essenswahl', esc(essenLabel)));
+  const medis = d.medis.filter(m=>m.staffId===p.id).sort((a,b)=>(a.zeit||'').localeCompare(b.zeit||''));
+  if(medis.length){
+    const ml = medis.map(m=>`<div class="tninfo-medi">${m.zeit?`<b>${esc(m.zeit)}</b> · `:''}${esc(m.medikament||'')}${m.notiz?` <span class="tninfo-muted">(${esc(m.notiz)})</span>`:''}</div>`).join('');
+    rows.push(tnInfoRow('💊','Medikamente', ml));
+  }
+  if(p.fahrer) rows.push(tnInfoRow('🪪🚗','Fahrer', 'Führerschein & bereit, Auto zu fahren'));
+  if(p.handyregel===true) rows.push(tnInfoRow('📱➡️','Handy nachts', 'Eltern verlangen Abgabe in der Nacht'));
+  if(p.abreise_frueher) rows.push(tnInfoRow('🕙🚙','Frühere Abreise', esc(p.abreise_tag||'ja')));
+  const flagB = maFlagBadgesHTML(p);
+  if(flagB) rows.push(tnInfoRow('⚠️','Besonderheiten', `<div class="flags">${flagB}</div>`));
+  if(p.details && p.details.trim()) rows.push(tnInfoRow('📝','Notiz', esc(p.details.trim())));
+  const bodyRows = rows.length ? rows.join('') : `<div class="tn-empty">Keine weiteren Angaben erfasst.</div>`;
+  const body = `<div class="tninfo">${bodyRows}</div>
+    <div class="form-actions" style="margin-top:16px">
+      <button type="button" class="form-save" onclick="closeSheet(); openStaffForm('${id}')">✏️ Bearbeiten</button>
+    </div>`;
+  openSheet(p.name, body);
+}
 function openStaffMenu(id){
   const d = getData();
   const p = d.staff.find(s=>s.id===id); if(!p) return;
@@ -1893,9 +2179,13 @@ function staffMenuDeleteConfirm(id){
   });
   // Löschkaskade Stufe 18 (spec/15): Person auch aus allen Gruppen-Teamer-Zuweisungen entfernen.
   d.gruppen.forEach(g=>{ g.teamerIds = (g.teamerIds||[]).filter(sid=>sid!==id); });
+  // Löschkaskade spec/23 §10: eigene Medi-Einträge (staffId) mit entfernen, analog deleteTnConfirm.
+  d.medis = d.medis.filter(m=>m.staffId!==id);
   saveData(d);
   closeSheet();
+  renderMaCounters();
   renderStaffList();
+  renderMediList();
   refreshOpenRoleZustRow();
   refreshGridIfVisible();
 }
@@ -1927,9 +2217,12 @@ function confirmDeleteAllStaffDo(){
   d.zust = {};
   Object.keys(d.ansprech).forEach(k=>{ d.ansprech[k] = Array.isArray(d.ansprech[k]) ? [] : null; });
   d.gruppen.forEach(g=>{ g.teamerIds = []; }); // Löschkaskade Stufe 18 (spec/15)
+  d.medis = d.medis.filter(m=>!m.staffId); // Löschkaskade spec/23 §10: MA-Medi-Einträge mit entfernen
   saveData(d);
   closeSheet();
+  renderMaCounters();
   renderStaffList();
+  renderMediList();
   refreshOpenRoleZustRow();
   refreshGridIfVisible();
 }
@@ -2006,21 +2299,18 @@ function renderTnStats(){
   const el = document.getElementById('tnStats');
   if(!el) return;
   const d = getData();
-  // spec/22 (Nachtrag 3): Teamer (istTeamer) zählen NICHT als Teilnehmende — eigene Kachel „Team".
-  const echteTn = d.tn.filter(t=>!t.istTeamer);
-  const nGesamt = echteTn.length;
-  const nW = echteTn.filter(t=>t.geschlecht==='w').length;
-  const nM = echteTn.filter(t=>t.geschlecht==='m').length;
-  const nD = echteTn.filter(t=>t.geschlecht==='d').length;
-  const nOhne = echteTn.filter(t=>!t.geschlecht).length;
-  const nTeam = d.tn.filter(t=>t.istTeamer).length;
-  // Stufe 17 (spec/16 §5a): jede Karte ist ein Filter-Button (id ∈ all/w/m/d/ohne/team).
+  // spec/23 §2: kein istTeamer-Ausschluss mehr — alle d.tn sind echte Teilnehmende.
+  const nGesamt = d.tn.length;
+  const nW = d.tn.filter(t=>t.geschlecht==='w').length;
+  const nM = d.tn.filter(t=>t.geschlecht==='m').length;
+  const nD = d.tn.filter(t=>t.geschlecht==='d').length;
+  const nOhne = d.tn.filter(t=>!t.geschlecht).length;
+  // Stufe 17 (spec/16 §5a): jede Karte ist ein Filter-Button (id ∈ all/w/m/d/ohne).
   const cards = [
     {id:'all', ic:'👥', num:nGesamt, lbl:'TN gesamt', show:true},
     {id:'w', ic:'♀️', num:nW, lbl:'Mädchen', show:true},
     {id:'m', ic:'♂️', num:nM, lbl:'Jungen', show:true},
     {id:'d', ic:'⚧️', num:nD, lbl:'Divers', show:nD>0},
-    {id:'team', ic:'🧑‍🏫', num:nTeam, lbl:'Mitarbeitende', show:nTeam>0},
     {id:'ohne', ic:'❓', num:nOhne, lbl:'ohne Angabe', show:nOhne>0}
   ];
   el.innerHTML = cards.filter(c=>c.show).map(c=>
@@ -2097,13 +2387,8 @@ function renderTnFilteredList(){
   el.innerHTML = list.map(t=>tnCardHTML(t, {inline:true})).join('');
 }
 function openTnLegend(){
-  // spec/22: Teamer-Kennzeichnung ergänzen (veg/vegan kommen bereits aus den TN_COUNTERS oben).
-  const extra = [
-    {icon:'🧑‍🏫', label:'Teamer', desc:'Als TN erfasst (für Zimmerbelegung/Besonderheiten), aber aus der Gruppeneinteilung ausgeschlossen.'}
-  ];
+  // spec/23 §2: Teamer-Legendeneintrag entfällt (istTeamer-Workaround entfernt).
   openSheet('Legende', `<div class="legend-list">` + TN_COUNTERS.map(c=>
-    `<div class="legend-item"><span class="ic">${c.icon}</span><div><b>${esc(c.label)}</b><br><span style="color:var(--muted)">${esc(c.desc)}</span></div></div>`
-  ).join('') + extra.map(c=>
     `<div class="legend-item"><span class="ic">${c.icon}</span><div><b>${esc(c.label)}</b><br><span style="color:var(--muted)">${esc(c.desc)}</span></div></div>`
   ).join('') + `</div>`);
 }
@@ -2178,18 +2463,27 @@ function renderMediList(){
   const el = document.getElementById('mediList');
   if(!el) return;
   const d = getData();
-  const list = [...d.medis].sort((a,b)=>(a.zeit||"").localeCompare(b.zeit||""));
+  // spec/23 §7: Einträge ohne Uhrzeit ans Ende (Gruppe "ohne feste Zeit") statt vorne einsortiert
+  // (leere Zeit würde mit normalem localeCompare fälschlich zuerst stehen).
+  const list = [...d.medis].sort((a,b)=>(a.zeit||'￿').localeCompare(b.zeit||'￿'));
   const sumEl = document.getElementById('mediSummary');
   if(sumEl) sumEl.textContent = `💊 Medikamenten-Plan (${list.length} ${list.length===1?'Eintrag':'Einträge'})`;
   if(!list.length){ el.innerHTML = `<div class="medi-empty">Noch keine Einträge.</div>`; return; }
   el.innerHTML = list.map(m=>{
-    const tn = d.tn.find(t=>t.id===m.tnId);
-    return `<div class="medi-card" onclick="openMediSheet('${m.id}')">
-      <div class="time">${esc(m.zeit||'--:--')}</div>
+    // spec/23 §7: ein Eintrag gehört entweder zu einem TN (tnId) oder zu einem MA (staffId) —
+    // MA-Einträge deutlich markiert/optisch getrennt, Erfassung bleibt aber im MA-Formular:
+    // Tap führt zum Info-Blatt statt zum (nur für TN gedachten) openMediSheet.
+    const isStaff = !!m.staffId;
+    const person = isStaff ? d.staff.find(s=>s.id===m.staffId) : d.tn.find(t=>t.id===m.tnId);
+    const name = person ? person.name : (isStaff ? '(MA gelöscht)' : '(TN gelöscht)');
+    const onclick = isStaff ? (person?`openStaffInfo('${m.staffId}')`:'') : `openMediSheet('${m.id}')`;
+    const zeitHTML = m.zeit ? esc(m.zeit) : `<span class="tninfo-muted">ohne feste Zeit</span>`;
+    return `<div class="medi-card${isStaff?' medi-staff':''}" onclick="${onclick}">
+      <div class="time">${zeitHTML}</div>
       <div class="mid">
-        <div class="mname">${esc(tn?tn.name:'(TN gelöscht)')} — ${esc(m.medikament||'')}</div>
+        <div class="mname">${isStaff?'🧑‍🏫 ':''}${esc(name)} — ${esc(m.medikament||'')}</div>
         ${m.notiz?`<div class="msub">${esc(m.notiz)}</div>`:''}
-        ${tn?zimmerZustaendigeNamesHTML(tn.zimmer):''}
+        ${person&&person.zimmer?zimmerZustaendigeNamesHTML(person.zimmer):''}
       </div>
     </div>`;
   }).join('');
@@ -2254,8 +2548,6 @@ function deleteMediConfirm(id){
 function onTnSearch(v){ tnSearchTerm = v; renderTnStatsListBody(); }
 function tnBadgesHTML(t){
   let out = '';
-  // spec/22: Teamer-Kennzeichnung ganz vorn, damit als-TN erfasste Teamer sofort erkennbar sind.
-  if(t.istTeamer) out += `<span class="tn-badge teamer">🧑‍🏫 Teamer</span>`;
   TN_COUNTERS.forEach(c=>{
     if(c.id==='schwimm' || !c.match(t)) return;
     // spec/22 (Nachtrag): Essenswahl neutral (grün) statt Warn-Optik; steht durch die Array-Reihenfolge
@@ -2366,15 +2658,10 @@ function renderTnStatsListBody(){
   const el = document.getElementById('tnStatsListBody');
   if(!el) return;
   const d = getData();
-  // spec/22 (Nachtrag 3): 'team' zeigt nur Teamer; alle übrigen Filter zeigen nur echte TN (ohne Teamer).
-  let list;
-  if(tnStatsFilter==='team'){
-    list = d.tn.filter(t=>t.istTeamer);
-  } else {
-    list = d.tn.filter(t=>!t.istTeamer);
-    if(tnStatsFilter==='w' || tnStatsFilter==='m' || tnStatsFilter==='d') list = list.filter(t=>t.geschlecht===tnStatsFilter);
-    else if(tnStatsFilter==='ohne') list = list.filter(t=>!t.geschlecht);
-  }
+  // spec/23 §2: kein 'team'-Sonderfall mehr — alle d.tn sind echte Teilnehmende.
+  let list = d.tn;
+  if(tnStatsFilter==='w' || tnStatsFilter==='m' || tnStatsFilter==='d') list = list.filter(t=>t.geschlecht===tnStatsFilter);
+  else if(tnStatsFilter==='ohne') list = list.filter(t=>!t.geschlecht);
   const q = tnSearchTerm.trim().toLowerCase();
   if(q) list = list.filter(t=>t.name.toLowerCase().includes(q));
   list = [...list].sort((a,b)=>a.name.localeCompare(b.name,'de'));
@@ -2457,7 +2744,7 @@ function tnMediDraftListHTML(){
   if(!tnMediDraft.length) return `<div class="medi-empty" style="padding:6px 0">Keine Medikamente erfasst.</div>`;
   return tnMediDraft.map((m,idx)=>`
     <div class="medi-card" style="cursor:default">
-      <div class="time">${esc(m.zeit||'--:--')}</div>
+      <div class="time">${m.zeit?esc(m.zeit):'<span class="tninfo-muted">ohne feste Zeit</span>'}</div>
       <div class="mid">
         <div class="mname">${esc(m.medikament||'')}</div>
         ${m.notiz?`<div class="msub">${esc(m.notiz)}</div>`:''}
@@ -2551,7 +2838,6 @@ function openTnSheet(id){
   const badeCur = t ? (t.bade||'') : 'alles';
   const allergienCur = t ? (t.allergien||'') : '';
   const essenCur = t ? (t.essen||'') : '';
-  const teamerCur = t ? !!t.istTeamer : false;
   tnMediDraft = t ? d.medis.filter(m=>m.tnId===t.id).map(m=>({zeit:m.zeit,medikament:m.medikament,notiz:m.notiz})) : [];
   tnMediDraftEditIdx = null;
   // Stufe 17 (spec/16 §3) + Feintuning 23.07.2026: Der „zuerst Zimmer anlegen"-Hinweis sitzt jetzt
@@ -2585,9 +2871,6 @@ function openTnSheet(id){
       </select></div>
     <div class="form-field"><label>Allergien</label>${tnAllergienFieldHTML(allergienCur)}</div>
     <div class="form-field"><label>🍽️ Essenswahl</label>${tnEssenChipsHTML(essenCur)}</div>
-    <div class="form-field"><label>Rolle</label>
-      <label class="tn-teamer-check"><input id="tfTeamer" type="checkbox" ${teamerCur?'checked':''}>
-        <span>🧑‍🏫 Teamer (als TN erfasst, aber <b>nicht</b> in der Gruppeneinteilung)</span></label></div>
     <div class="form-field"><label>💊 Medikamente</label>
       <div id="tnMediDraftList">${tnMediDraftListHTML()}</div>
       <div id="tnMediSubForm"></div>
@@ -2613,7 +2896,6 @@ function saveTn(id){
   const allergienMode = (document.querySelector('input[name="tfAllergienMode"]:checked')||{}).value;
   const allergien = (allergienMode==='vorhanden') ? document.getElementById('tfAllergienText').value.trim() : '';
   const essen = (document.querySelector('input[name="tfEssen"]:checked')||{}).value || '';
-  const istTeamer = !!(document.getElementById('tfTeamer')||{}).checked;
   const details = document.getElementById('tfDetails').value.trim();
   // Stufe 16: Selektor auf type=checkbox eingeschränkt — #sheetBody enthält jetzt zusätzlich die
   // Geschlecht-/Allergien-Radios im selben .toggle-chip-Look, die hier NICHT als Flags zählen dürfen.
@@ -2622,10 +2904,10 @@ function saveTn(id){
   let tnId = id;
   if(id){
     const t = d.tn.find(x=>x.id===id);
-    if(t) Object.assign(t, {name, alter: alterVal?Number(alterVal):"", zimmer, geschlecht, schwimm, bade, allergien, essen, istTeamer, details, flags});
+    if(t) Object.assign(t, {name, alter: alterVal?Number(alterVal):"", zimmer, geschlecht, schwimm, bade, allergien, essen, details, flags});
   } else {
     tnId = uid();
-    d.tn.push({ id:tnId, name, alter: alterVal?Number(alterVal):"", zimmer, geschlecht, schwimm, bade, allergien, essen, istTeamer, details, flags });
+    d.tn.push({ id:tnId, name, alter: alterVal?Number(alterVal):"", zimmer, geschlecht, schwimm, bade, allergien, essen, details, flags });
   }
   // Stufe 16 (spec/14 §4): Medikamente-Draft dauerhaft nach d.medis übertragen — alte Einträge
   // dieses TN entfernen, dann den kompletten Draft neu einfügen (einfacher als diffen).
@@ -3061,7 +3343,7 @@ function gruppeCreatePreviewCount(){
   const geschlecht = (document.querySelector('input[name="gcGeschlecht"]:checked')||{}).value || 'alle';
   const von = document.getElementById('gcAlterVon').value;
   const bis = document.getElementById('gcAlterBis').value;
-  let list = d.tn.filter(t=>!t.istTeamer); // spec/22: Teamer nicht in die Gruppeneinteilung
+  let list = d.tn; // spec/23 §3: kein istTeamer-Ausschluss mehr — alle d.tn sind echte Teilnehmende
   if(geschlecht==='w') list = list.filter(t=>t.geschlecht==='w');
   else if(geschlecht==='m') list = list.filter(t=>t.geschlecht==='m');
   if(von) list = list.filter(t=>t.alter && t.alter>=Number(von));
@@ -3117,7 +3399,7 @@ function gruppeAlterWort(alter){
 function gruppeRenderModeC(){
   const body = document.getElementById('gcModeBody'); if(!body) return;
   const d = getData();
-  const alterWerte = [...new Set(d.tn.filter(t=>t.alter && !t.istTeamer).map(t=>t.alter))].sort((a,b)=>a-b);
+  const alterWerte = [...new Set(d.tn.filter(t=>t.alter).map(t=>t.alter))].sort((a,b)=>a-b);
   const previewText = alterWerte.length
     ? `Legt automatisch ${alterWerte.length} Gruppe${alterWerte.length===1?'':'n'} an: ` + alterWerte.map(a=>gruppeAlterWort(a)).join(', ') + '.'
     : 'Keine TN mit Altersangabe vorhanden — es kann keine Gruppe angelegt werden.';
@@ -3130,7 +3412,7 @@ function gruppeRenderModeC(){
 }
 function createGruppenNachAlter(){
   const d = getData();
-  const mitAlter = d.tn.filter(t=>t.alter && !t.istTeamer); // spec/22: Teamer nicht in die Gruppeneinteilung
+  const mitAlter = d.tn.filter(t=>t.alter); // spec/23 §3: kein istTeamer-Ausschluss mehr
   if(!mitAlter.length){ alert('Keine TN mit Altersangabe vorhanden.'); return; }
   const alterWerte = [...new Set(mitAlter.map(t=>t.alter))].sort((a,b)=>a-b);
   alterWerte.forEach(alter=>{
@@ -3183,7 +3465,7 @@ function gruppeRandomPool(){
   const geschlecht = (document.querySelector('input[name="gcbGeschlecht"]:checked')||{}).value || 'alle';
   const von = document.getElementById('gcbAlterVon').value;
   const bis = document.getElementById('gcbAlterBis').value;
-  let list = d.tn.filter(t=>!t.istTeamer); // spec/22: Teamer nicht in die Gruppeneinteilung
+  let list = d.tn; // spec/23 §3: kein istTeamer-Ausschluss mehr — alle d.tn sind echte Teilnehmende
   if(geschlecht==='w') list = list.filter(t=>t.geschlecht==='w');
   else if(geschlecht==='m') list = list.filter(t=>t.geschlecht==='m');
   if(von) list = list.filter(t=>t.alter && t.alter>=Number(von));
@@ -3924,9 +4206,12 @@ function raumBetten(raum){
   const n = d.meta.betten ? d.meta.betten[raum] : undefined;
   return (typeof n === 'number' && n >= 0) ? n : RAUM_BETTEN_DEFAULT;
 }
+// spec/23 §6: MA zählen mit gegen die Bettenzahl (Marco-Entscheidung — MA erscheinen in der
+// Zimmer-Übersicht wie TN). Einzige Zählstelle — alle anderen Belegungs-Anzeigen (freie Betten
+// je Etage etc.) rufen raumBelegt() auf, zählen also automatisch nicht doppelt.
 function raumBelegt(raum){
   const d = getData();
-  return d.tn.filter(t => t.zimmer === raum).length;
+  return d.tn.filter(t => t.zimmer === raum).length + d.staff.filter(s => s.zimmer === raum).length;
 }
 /* Stufe 14 (spec/12): aus der einfachen Zuständig-Zeile wird eine öffenbare Zimmer-Karte
    (<details>, wiederverwendet wie schon beim Medi-Plan-Akkordeon aus Stufe 13). Geschlossen:
@@ -3948,7 +4233,16 @@ function roomCardHTML(raum, idx){
         <div class="name">${esc(t.name)}${t.alter?`<span class="tn-badge">${esc(String(t.alter))} J.</span>`:''}</div>
         <div class="flags">${tnBadgesHTML(t)}</div>
       </div>`).join('')
-    : `<div class="tn-empty">Noch kein TN diesem Zimmer zugeordnet.</div>`;
+    : '';
+  // spec/23 §6.2: MA in diesem Zimmer zusätzlich zeigen, klar als MA gekennzeichnet (🧑‍🏫), Tap -> Info-Blatt.
+  const staffHier = d.staff.filter(s=>s.zimmer===raum).sort((a,b)=>a.name.localeCompare(b.name,'de'));
+  const staffListHTML = staffHier.length
+    ? staffHier.map(s=>`<div class="tn-card" onclick="openStaffInfo('${s.id}')">
+        <div class="name">🧑‍🏫 ${esc(s.name)}${s.alter?`<span class="tn-badge">${esc(String(s.alter))} J.</span>`:''}</div>
+        <div class="flags">${maFlagBadgesHTML(s)}${maExtraBadgesHTML(s)}</div>
+      </div>`).join('')
+    : '';
+  const personenListHTML = (tnListHTML + staffListHTML) || `<div class="tn-empty">Noch niemand diesem Zimmer zugeordnet.</div>`;
   // spec/21 Punkt 1: Bearbeiten-Elemente nur anzeigen, wenn per ✏️-Stift aufgeklappt (roomEditOpen).
   const isEdit = roomEditOpen.has(String(idx));
   const editHTML = isEdit ? `
@@ -3982,8 +4276,8 @@ function roomCardHTML(raum, idx){
     <div class="body">
       ${editHTML}
       ${roomNoteBlockHTML(raum, idx)}
-      <div class="sec-h" style="margin-top:14px">TN in diesem Zimmer</div>
-      <div class="room-tn-list">${tnListHTML}</div>
+      <div class="sec-h" style="margin-top:14px">Personen in diesem Zimmer</div>
+      <div class="room-tn-list">${personenListHTML}</div>
     </div>
   </details>`;
 }
@@ -4098,18 +4392,23 @@ function raeumeZustRowsHTML(){
   // (Name → Zimmer/Etage), statt der Etagen-Gruppierung. Tap öffnet das Info-Blatt der Person.
   const pq = (zimmerPersonQuery||'').trim().toLowerCase();
   if(pq){
-    const treffer = d.tn.filter(t=>t.name.toLowerCase().includes(pq)).sort((a,b)=>a.name.localeCompare(b.name,'de'));
+    // spec/23 §6.4: Personensuche findet jetzt auch MA (🧑‍🏫-markiert), Tap -> openStaffInfo.
+    const tnTreffer = d.tn.filter(t=>t.name.toLowerCase().includes(pq)).map(t=>({p:t, isStaff:false}));
+    const staffTreffer = d.staff.filter(s=>s.name.toLowerCase().includes(pq)).map(s=>({p:s, isStaff:true}));
+    const treffer = [...tnTreffer, ...staffTreffer].sort((a,b)=>a.p.name.localeCompare(b.p.name,'de'));
     if(!treffer.length) return `<div class="tn-empty">Keine Person gefunden für „${esc(zimmerPersonQuery.trim())}".</div>`;
-    return treffer.map(t=>{
+    return treffer.map(({p:t, isStaff})=>{
       const raum = t.zimmer || '';
       const etage = raum ? (d.meta.etagen[raum]||'') : '';
       const ort = raum
         ? `🛏️ Zimmer ${esc(raum)}${etage?` · 🏠 ${esc(etage)}`:''}`
         : `<span style="color:var(--muted)">kein Zimmer zugeordnet</span>`;
-      return `<div class="tn-card" onclick="openTnInfo('${t.id}')">
-        <div class="name">${esc(t.name)}${t.alter?`<span class="tn-badge">${esc(String(t.alter))} J.</span>`:''}</div>
+      const onclick = isStaff ? `openStaffInfo('${t.id}')` : `openTnInfo('${t.id}')`;
+      const flagsHTML = isStaff ? (maFlagBadgesHTML(t)+maExtraBadgesHTML(t)) : tnBadgesHTML(t);
+      return `<div class="tn-card" onclick="${onclick}">
+        <div class="name">${isStaff?'🧑‍🏫 ':''}${esc(t.name)}${t.alter?`<span class="tn-badge">${esc(String(t.alter))} J.</span>`:''}</div>
         <div class="room-search-loc">${ort}</div>
-        <div class="flags">${tnBadgesHTML(t)}</div>
+        <div class="flags">${flagsHTML}</div>
       </div>`;
     }).join('');
   }
