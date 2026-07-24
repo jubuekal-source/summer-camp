@@ -1946,6 +1946,13 @@ const TN_COUNTERS = [
     match:t=> getData().medis.some(m=>m.tnId===t.id) || (t.flags||[]).includes('medis')},
   {id:'allergien', icon:'🥜', label:'Allergie', desc:'Hat eine oder mehrere Allergien — Details im TN-Formular.',
     match:t=>!!(t.allergien && t.allergien.trim())},
+  // spec/22 (Nachtrag): Essenswahl als eigene Besonderheiten-Counter (direkt nach der Allergie), damit
+  // veg/vegan im Mini-Dashboard sichtbar + filterbar ist. Quelle bleibt das Feld t.essen (Radio im
+  // Formular), NICHT ein Flag — deshalb aus den Flag-Chips (tnFlagChipsHTML) ausgeschlossen.
+  {id:'veget', icon:'🥗', label:'Vegetarisch', desc:'Bevorzugte Essenswahl: vegetarisch (steht direkt nach dem Allergie-Icon).',
+    match:t=>t.essen==='vegetarisch'},
+  {id:'vegan', icon:'🌱', label:'Vegan', desc:'Bevorzugte Essenswahl: vegan (steht direkt nach dem Allergie-Icon).',
+    match:t=>t.essen==='vegan'},
   {id:'schwimm', icon:'⚠️🏊', label:'Schwimmen/Baden', desc:'Schwimmfähigkeit nicht „sicher" und/oder Badeerlaubnis eingeschränkt.',
     match:t=>(t.schwimm && t.schwimm!=='sicher') || (t.bade && t.bade!=='alles')},
   {id:'zecken_nein', icon:'🚫🕷️', label:'Zecken', desc:'Zecken-Entfernung durch das Team NICHT erlaubt — Eltern sofort kontaktieren (Info an Eltern gilt aber immer).',
@@ -2083,10 +2090,8 @@ function renderTnFilteredList(){
   el.innerHTML = list.map(t=>tnCardHTML(t, {inline:true})).join('');
 }
 function openTnLegend(){
-  // spec/22: zusätzliche Legenden-Einträge für Essenswahl-Icons + Teamer-Kennzeichnung.
+  // spec/22: Teamer-Kennzeichnung ergänzen (veg/vegan kommen bereits aus den TN_COUNTERS oben).
   const extra = [
-    {icon:'🥗', label:'Vegetarisch', desc:'Bevorzugte Essenswahl: vegetarisch (steht direkt neben dem Allergie-Icon).'},
-    {icon:'🌱', label:'Vegan', desc:'Bevorzugte Essenswahl: vegan (steht direkt neben dem Allergie-Icon). „normal" bekommt bewusst kein Icon.'},
     {icon:'🧑‍🏫', label:'Teamer', desc:'Als TN erfasst (für Zimmerbelegung/Besonderheiten), aber aus der Gruppeneinteilung ausgeschlossen.'}
   ];
   openSheet('Legende', `<div class="legend-list">` + TN_COUNTERS.map(c=>
@@ -2240,30 +2245,19 @@ function deleteMediConfirm(id){
 
 /* ---- TN-Liste ---- */
 function onTnSearch(v){ tnSearchTerm = v; renderTnStatsListBody(); }
-/* spec/22: Essenswahl-Badge (neutral, keine Warnung). '' = normal → kein Icon (Übersicht sparen). */
-function essenBadgeHTML(t){
-  if(t.essen==='vegetarisch') return `<span class="tn-badge essen">🥗 vegetarisch</span>`;
-  if(t.essen==='vegan') return `<span class="tn-badge essen">🌱 vegan</span>`;
-  return '';
-}
 function tnBadgesHTML(t){
   let out = '';
   // spec/22: Teamer-Kennzeichnung ganz vorn, damit als-TN erfasste Teamer sofort erkennbar sind.
   if(t.istTeamer) out += `<span class="tn-badge teamer">🧑‍🏫 Teamer</span>`;
   TN_COUNTERS.forEach(c=>{
-    if(c.id==='schwimm') return;
-    // spec/22: Essenswahl-Icon direkt neben/nach dem Allergie-Icon platzieren (auch wenn keine Allergie).
-    if(c.id==='allergien'){
-      if(c.match(t)){
-        // spec/18: Allergie-Badge zeigt den eingetragenen Text (z. B. „🥜 Nüsse") statt nur „Allergie".
-        const label = (t.allergien && t.allergien.trim()) ? t.allergien.trim() : c.label;
-        out += `<span class="tn-badge warn">${c.icon} ${esc(label)}</span>`;
-      }
-      out += essenBadgeHTML(t);
-      return;
-    }
-    if(!c.match(t)) return;
-    out += `<span class="tn-badge warn">${c.icon} ${esc(c.label)}</span>`;
+    if(c.id==='schwimm' || !c.match(t)) return;
+    // spec/22 (Nachtrag): Essenswahl neutral (grün) statt Warn-Optik; steht durch die Array-Reihenfolge
+    // direkt nach dem Allergie-🥜.
+    if(c.id==='veget' || c.id==='vegan'){ out += `<span class="tn-badge essen">${c.icon} ${esc(c.label)}</span>`; return; }
+    // spec/18: Allergie-Badge zeigt den eingetragenen Text (z. B. „🥜 Nüsse") statt nur „Allergie".
+    let label = c.label;
+    if(c.id==='allergien' && t.allergien && t.allergien.trim()) label = t.allergien.trim();
+    out += `<span class="tn-badge warn">${c.icon} ${esc(label)}</span>`;
   });
   if((t.schwimm && t.schwimm!=='sicher') || (t.bade && t.bade!=='alles')){
     const sw = {sicher:'sicher',anfaenger:'Anfänger',nicht:'Nichtschwimmer'}[t.schwimm] || null;
@@ -2279,7 +2273,10 @@ function tnFlagBadgesOnly(t){
   let out = '';
   TN_COUNTERS.forEach(c=>{
     if(['schwimm','medis','allergien'].includes(c.id)) return;
-    if(c.match(t)) out += `<span class="tn-badge warn">${c.icon} ${esc(c.label)}</span>`;
+    if(!c.match(t)) return;
+    // spec/22 (Nachtrag): Essenswahl neutral (grün), übrige Flags in Warn-Optik.
+    const cls = (c.id==='veget' || c.id==='vegan') ? 'essen' : 'warn';
+    out += `<span class="tn-badge ${cls}">${c.icon} ${esc(c.label)}</span>`;
   });
   return out;
 }
@@ -2388,7 +2385,7 @@ function tnFlagChipsHTML(activeFlags){
   /* Stufe 16 (spec/14 §4): 'schwimm' war nie ein echter Flag-Chip (eigene Selects), 'medis' läuft
      jetzt über die inline Medikamente-Sektion, 'allergien' über das eigene Allergien-Feld — beide
      daher aus der Flag-Chip-Liste ausgeschlossen. */
-  return `<div class="toggle-chips">` + TN_COUNTERS.filter(c=>c.id!=='schwimm' && c.id!=='medis' && c.id!=='allergien').map(c=>{
+  return `<div class="toggle-chips">` + TN_COUNTERS.filter(c=>c.id!=='schwimm' && c.id!=='medis' && c.id!=='allergien' && c.id!=='veget' && c.id!=='vegan').map(c=>{
     const on = activeFlags.includes(c.id);
     const onchange = TN_HANDY_EXCLUSIVE.includes(c.id) ? `tnHandyExclusive(this)` : `this.parentElement.classList.toggle('on', this.checked)`;
     return `<label class="toggle-chip${on?' on':''}">
