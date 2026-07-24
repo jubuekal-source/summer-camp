@@ -1965,6 +1965,9 @@ const TN_COUNTERS = [
     match:t=>(t.flags||[]).includes('mitfahr_nein')},
   {id:'kleingruppe_nein', icon:'🚫🚶', label:'Kleingruppe', desc:'Darf NICHT ohne Aufsicht in Kleingruppe (ab 13) unterwegs sein.',
     match:t=>(t.flags||[]).includes('kleingruppe_nein')},
+  // spec/22 (Nachtrag 2): Eltern haben keine Erlaubnis für Klettergarten/Klettern erteilt.
+  {id:'klettern_nein', icon:'🚫🧗', label:'Klettern', desc:'Keine Eltern-Erlaubnis für Klettergarten/Klettern.',
+    match:t=>(t.flags||[]).includes('klettern_nein')},
   {id:'ticket_nein', icon:'🎫', label:'Ticket fehlt', desc:'Kein VVS-Ticket vorhanden — wichtig fürs Ausflugs-Team.',
     match:t=>(t.flags||[]).includes('ticket_nein')},
   /* Feedback 17.07.2026: aus einer Ja/Nein-Flag zwei Optionen gemacht (Zeitpunkt der Abgabe kann
@@ -2003,17 +2006,21 @@ function renderTnStats(){
   const el = document.getElementById('tnStats');
   if(!el) return;
   const d = getData();
-  const nGesamt = d.tn.length;
-  const nW = d.tn.filter(t=>t.geschlecht==='w').length;
-  const nM = d.tn.filter(t=>t.geschlecht==='m').length;
-  const nD = d.tn.filter(t=>t.geschlecht==='d').length;
-  const nOhne = d.tn.filter(t=>!t.geschlecht).length;
-  // Stufe 17 (spec/16 §5a): jede Karte ist jetzt ein Filter-Button (id ∈ all/w/m/d/ohne).
+  // spec/22 (Nachtrag 3): Teamer (istTeamer) zählen NICHT als Teilnehmende — eigene Kachel „Team".
+  const echteTn = d.tn.filter(t=>!t.istTeamer);
+  const nGesamt = echteTn.length;
+  const nW = echteTn.filter(t=>t.geschlecht==='w').length;
+  const nM = echteTn.filter(t=>t.geschlecht==='m').length;
+  const nD = echteTn.filter(t=>t.geschlecht==='d').length;
+  const nOhne = echteTn.filter(t=>!t.geschlecht).length;
+  const nTeam = d.tn.filter(t=>t.istTeamer).length;
+  // Stufe 17 (spec/16 §5a): jede Karte ist ein Filter-Button (id ∈ all/w/m/d/ohne/team).
   const cards = [
     {id:'all', ic:'👥', num:nGesamt, lbl:'TN gesamt', show:true},
     {id:'w', ic:'♀️', num:nW, lbl:'Mädchen', show:true},
     {id:'m', ic:'♂️', num:nM, lbl:'Jungen', show:true},
     {id:'d', ic:'⚧️', num:nD, lbl:'Divers', show:nD>0},
+    {id:'team', ic:'🧑‍🏫', num:nTeam, lbl:'Mitarbeitende', show:nTeam>0},
     {id:'ohne', ic:'❓', num:nOhne, lbl:'ohne Angabe', show:nOhne>0}
   ];
   el.innerHTML = cards.filter(c=>c.show).map(c=>
@@ -2359,9 +2366,15 @@ function renderTnStatsListBody(){
   const el = document.getElementById('tnStatsListBody');
   if(!el) return;
   const d = getData();
-  let list = d.tn;
-  if(tnStatsFilter==='w' || tnStatsFilter==='m' || tnStatsFilter==='d') list = list.filter(t=>t.geschlecht===tnStatsFilter);
-  else if(tnStatsFilter==='ohne') list = list.filter(t=>!t.geschlecht);
+  // spec/22 (Nachtrag 3): 'team' zeigt nur Teamer; alle übrigen Filter zeigen nur echte TN (ohne Teamer).
+  let list;
+  if(tnStatsFilter==='team'){
+    list = d.tn.filter(t=>t.istTeamer);
+  } else {
+    list = d.tn.filter(t=>!t.istTeamer);
+    if(tnStatsFilter==='w' || tnStatsFilter==='m' || tnStatsFilter==='d') list = list.filter(t=>t.geschlecht===tnStatsFilter);
+    else if(tnStatsFilter==='ohne') list = list.filter(t=>!t.geschlecht);
+  }
   const q = tnSearchTerm.trim().toLowerCase();
   if(q) list = list.filter(t=>t.name.toLowerCase().includes(q));
   list = [...list].sort((a,b)=>a.name.localeCompare(b.name,'de'));
