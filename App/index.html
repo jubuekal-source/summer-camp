@@ -743,7 +743,7 @@
     <div class="backbar"><button class="back" onclick="location.hash=''">‹ Dashboard</button></div>
     <header class="ph-head" style="background:linear-gradient(135deg,#F97316,#EA580C)">
       <h1>🧡 MA-Infos</h1>
-      <p>Rettungsschwimmer, Handyregeln &amp; Personen-Verwaltung</p>
+      <p>Badeaufsicht, Handyregeln &amp; Personen-Verwaltung</p>
     </header>
 
     <!-- spec/23 §9a: Legende, exakt das TN-Muster. -->
@@ -1600,7 +1600,7 @@ const MA_COUNTERS = [
     match:p=>!!p.fahrer},
   {id:'handy', icon:'📵', label:'Handy nachts', desc:'Eltern verlangen nächtliche Handy-Abgabe.',
     match:p=>p.handyregel===true},
-  {id:'rettung', icon:'🏊✅', label:'Rettungsschwimmer', desc:'Traut sich Badeaufsicht IM Wasser zu (Team-Einschätzung).',
+  {id:'rettung', icon:'🏊✅', label:'Badeaufsicht', desc:'Traut sich Badeaufsicht IM Wasser zu (Team-Einschätzung, eigene Abfrage — nicht zu verwechseln mit dem Rettungsschwimmerabzeichen unten).',
     match:p=>p.rettung_see===true},
   {id:'abzeichen', icon:'🏅', label:'Rettungsschwimmerabzeichen', desc:'Besitzt das Rettungsschwimmerabzeichen (Silber) — formaler Nachweis, unabhängig von der Team-Einschätzung.',
     match:p=>!!p.rettungsabzeichen}
@@ -1616,13 +1616,18 @@ function renderMaCounters(){
   const el = document.getElementById('maCounters');
   if(!el) return;
   const d = getData();
-  el.innerHTML = MA_COUNTERS.map(c=>{
+  // spec/24 (Handytest-Feedback): analog renderTnCounters() nur Chips zeigen, die tatsächlich
+  // belegt sind (n>0) — vorher wurden immer alle MA_COUNTERS gerendert. Ein aktiver Filter bleibt
+  // sichtbar, auch wenn er gerade auf 0 fällt.
+  const chips = MA_COUNTERS.map(c=>{
     const n = d.staff.filter(c.match).length;
+    if(n===0 && maFilter!==c.id) return '';
     const cls = ['tn-counter'];
     if(n>0) cls.push('has');
     if(maFilter===c.id) cls.push('active');
     return `<button type="button" class="${cls.join(' ')}" onclick="toggleMaFilter('${c.id}')">${c.icon} <span class="n">${n}</span></button>`;
   }).join('');
+  el.innerHTML = chips || `<div class="tn-empty" style="padding:6px 0;text-align:left">Noch keine Besonderheiten erfasst.</div>`;
 }
 function toggleMaFilter(id){
   maFilter = (maFilter===id) ? null : id;
@@ -1710,9 +1715,9 @@ function nextStaffColor(){
 function rettungBadgeHTML(p){
   const state = p.rettung_see===true ? 'ja' : p.rettung_see===false ? 'nein' : 'unbekannt';
   const icon = state==='ja' ? '✅' : state==='nein' ? '🚫' : '❔';
-  const label = state==='ja' ? 'Rettungsschwimmer: Ja (tippen für Nein)'
-    : state==='nein' ? 'Rettungsschwimmer: Nein (tippen für unbekannt)'
-    : 'Rettungsschwimmer: unbekannt (tippen für Ja)';
+  const label = state==='ja' ? 'Badeaufsicht: Ja (tippen für Nein)'
+    : state==='nein' ? 'Badeaufsicht: Nein (tippen für unbekannt)'
+    : 'Badeaufsicht: unbekannt (tippen für Ja)';
   return `<button type="button" class="ma-swim-btn state-${state}" onclick="event.stopPropagation();cycleRettung('${p.id}')" aria-label="${label}">🏊${icon}</button>`;
 }
 // Stufe 15 (spec/13): formales Abzeichen, unabhängig von der Team-Einschätzung rettungBadgeHTML() oben.
@@ -1733,6 +1738,39 @@ function maExtraBadgesHTML(p){
   if(p.handyregel===true) out += `<span class="tn-badge warn">📵 Handy nachts</span>`;
   if(p.abreise_frueher) out += `<span class="tn-badge warn">🕙🚙 ${esc(p.abreise_tag||'')}</span>`;
   if(p.fahrer) out += `<span class="tn-badge">🪪🚗 Fahrer</span>`;
+  return out;
+}
+/* spec/24 (Handytest-Feedback): Marco musste bisher nach Filtern über das Mini-Dashboard (z. B.
+   🥜 Allergie) jede Person zusätzlich einzeln öffnen, um den eigentlichen Wert (Allergie-Text,
+   Essenswahl, Schwimmen/Baden, Medikamente) zu sehen — die Karte zeigte nur, DASS ein Treffer
+   vorliegt, nicht WAS. Analog zum TN-Vorbild (tnBadgesHTML/inline) wird der konkrete Wert jetzt
+   direkt auf der Karte ergänzt, aber NUR solange ein Dashboard-Filter aktiv ist (Schnell-Find-
+   Funktion) — ohne Filter bleiben die Karten wie gehabt kompakt. Flags/Handy/Abreise/Fahrer/
+   Badeaufsicht/Abzeichen stehen bereits unabhängig vom Filter auf der Karte (s. u.), brauchen
+   hier keine Ergänzung. */
+function maDetailBadgesHTML(p){
+  if(!maFilter) return '';
+  let out = '';
+  if(maFilter==='allergien' && p.allergien && p.allergien.trim()){
+    out += `<span class="tn-badge warn">🥜 ${esc(p.allergien.trim())}</span>`;
+  }
+  if((maFilter==='veget' || maFilter==='vegan') && p.essen){
+    const label = {vegetarisch:'Vegetarisch', vegan:'Vegan'}[p.essen];
+    if(label) out += `<span class="tn-badge essen">🍽️ ${esc(label)}</span>`;
+  }
+  if(maFilter==='schwimm' && ((p.schwimm && p.schwimm!=='sicher') || (p.bade && p.bade!=='alles'))){
+    const sw = {sicher:'sicher',anfaenger:'Anfänger',nicht:'Nichtschwimmer'}[p.schwimm] || null;
+    const ba = {alles:'überall',nur_nsb:'nur NSB',verbot:'Badeverbot'}[p.bade] || null;
+    const parts = [sw,ba].filter(Boolean).join(' · ');
+    out += `<span class="tn-badge warn">⚠️🏊 ${esc(parts||'–')}</span>`;
+  }
+  if(maFilter==='medis'){
+    const medis = getData().medis.filter(m=>m.staffId===p.id).sort((a,b)=>(a.zeit||'').localeCompare(b.zeit||''));
+    if(medis.length){
+      const ml = medis.map(m=>`${m.zeit?esc(m.zeit)+' · ':''}${esc(m.medikament||'')}`).join(', ');
+      out += `<span class="tn-badge warn">💊 ${ml}</span>`;
+    }
+  }
   return out;
 }
 function cycleRettung(id){
@@ -1858,13 +1896,15 @@ function openStaffForm(id){
       <div id="tnMediSubForm"></div>
       <button type="button" class="tn-add-btn" onclick="openTnMediForm(null)">+ Medikament</button>
     </div>
-    <div class="form-field"><label class="tn-teamer-check"><input type="checkbox" id="mfFahrer" ${p&&p.fahrer?'checked':''}>
-      <span>🪪🚗 Führerschein &amp; bereit, Auto zu fahren</span></label></div>
-    <div class="form-field"><label>📵 Handyregelung</label>
+    <div class="form-field">
+      <label class="toggle-chip${p&&p.fahrer?' on':''}">
+        <input type="checkbox" id="mfFahrer" ${p&&p.fahrer?'checked':''} style="display:none"
+          onchange="this.parentElement.classList.toggle('on', this.checked)">🪪🚗 Führerschein &amp; bereit, Auto zu fahren</label></div>
+    <div class="form-field">
       <label class="toggle-chip${p&&p.handyregel===true?' on':''}">
         <input type="checkbox" id="mfHandyNacht" ${p&&p.handyregel===true?'checked':''} style="display:none"
           onchange="this.parentElement.classList.toggle('on', this.checked)">📱➡️ Eltern verlangen Abgabe in der Nacht</label></div>
-    <div class="form-field"><label>🕙🚙 Frühere Abreise</label>
+    <div class="form-field">
       <label class="toggle-chip${p&&p.abreise_frueher?' on':''}">
         <input type="checkbox" id="mfAbreiseFrueher" ${p&&p.abreise_frueher?'checked':''} style="display:none"
           onchange="mfAbreiseToggle(this)">🕙🚙 Reist früher ab</label>
@@ -1954,7 +1994,7 @@ function renderStaffList(){
         <button type="button" class="team-icon-btn sm" onclick="event.stopPropagation();staffMove('${p.id}',1)" aria-label="Nach unten">↓</button></span>`;
     return `<div class="tn-card" onclick="openStaffInfo('${p.id}')">
       <div class="name">${staffChip(p.id)}${rettungBadgeHTML(p)}${rettungsabzeichenBadgeHTML(p)}${moveHTML}</div>
-      <div class="flags">${maFlagBadgesHTML(p)}${maExtraBadgesHTML(p)}</div>
+      <div class="flags">${maFlagBadgesHTML(p)}${maExtraBadgesHTML(p)}${maDetailBadgesHTML(p)}</div>
       ${p.details?`<div class="details">${esc(p.details)}</div>`:''}
     </div>`;
   }).join('');
@@ -3786,7 +3826,7 @@ const DASH_TILES = [
   {id:'zimmer', icon:'🛏️', title:'Zimmer-Übersicht', color:'#FF6B4A', hash:'zimmer', sub:'Wer liegt wo'},
   {id:'gruppen', icon:'👥', title:'Gruppen', color:'#FFB23E', hash:'gruppen', sub:'Einteilung für unterwegs'},
   {id:'tn', icon:'⚠️', title:'TN-Infos', color:'#FFB23E', hash:'tn', sub:'Gesundheit, Sicherheit & Gruppen'},
-  {id:'ma', icon:'🧡', title:'MA-Infos', color:'#F97316', hash:'ma', sub:'Rettungsschwimmer & Handyregeln'},
+  {id:'ma', icon:'🧡', title:'MA-Infos', color:'#F97316', hash:'ma', sub:'Badeaufsicht & Handyregeln'},
   {id:'notizen', icon:'📝', title:'Notizen', color:'#34d399', hash:'notizen', sub:'Privat, nur dieses Gerät'},
   {id:'team', icon:'🤝', title:'Team', color:'#FFB23E', hash:'team', sub:'Unsere Werte'}
 ];
@@ -3907,7 +3947,7 @@ function renderDashGrid(){
     if(t.id==='ma'){
       const n = d.staff.filter(p=>p.rettung_see===true).length;
       badge = n>0 ? String(n) : '';
-      sub = n>0 ? `${n} Rettungsschwimmer bereit` : sub;
+      sub = n>0 ? `${n} Badeaufsicht bereit` : sub;
     }
     if(t.id==='wochenplan'){
       const n = Object.values(d.wochenplan||{}).filter(w=>w && w.html && w.html.trim()).length;
