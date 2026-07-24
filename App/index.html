@@ -909,6 +909,24 @@
         <button type="button" class="staff-cancel" id="hdrImageRemoveBtn" style="width:100%;margin-top:8px;display:none" onclick="hdrRemoveImage()">Bild entfernen</button>
       </div>
     </div>
+    <!-- spec/26 Punkt 2: Dashboard-Kachel-Farbmodus (Bunt/Verlauf A/Verlauf B/Einheitlich). -->
+    <div class="settings-block">
+      <div>
+        <label>🎨 Dashboard-Kachel-Farben</label>
+        <div class="settings-hint" style="text-align:left;margin:6px 0 10px">
+          Farbe der Balken unten auf den Dashboard-Kacheln. „Bunt" ist der neue Standard (löst die
+          bisherigen Farb-Dubletten, z. B. Zimmer/Zuständigkeiten). Bei „Einheitlich" gilt die gewählte
+          Farbe für alle Kacheln — und auch für den Zimmer-Header beim Dashboard-Einstieg.
+        </div>
+        <div class="toggle-chips" id="dashModeGroup">
+          <label class="toggle-chip"><input type="radio" name="dashIconMode" value="bunt" style="display:none" onchange="setDashIconMode(this.value)">Bunt</label>
+          <label class="toggle-chip"><input type="radio" name="dashIconMode" value="verlaufA" style="display:none" onchange="setDashIconMode(this.value)">Verlauf (kräftig)</label>
+          <label class="toggle-chip"><input type="radio" name="dashIconMode" value="verlaufB" style="display:none" onchange="setDashIconMode(this.value)">Verlauf (ruhig)</label>
+          <label class="toggle-chip"><input type="radio" name="dashIconMode" value="einheitlich" style="display:none" onchange="setDashIconMode(this.value)">Einheitlich</label>
+        </div>
+        <div class="hdr-swatches" id="dashColorSwatches" style="margin-top:12px;display:none"></div>
+      </div>
+    </div>
     <div class="settings-block">
       <div>
         <label>🛏️ Zimmer verwalten</label>
@@ -1026,7 +1044,8 @@ function defaultData(){
             roleBlockOverrides:{}, // spec/21 Punkt 4: Text-/Lösch-Overrides für ROLES.core-Items, key = roleId → { itemIdx: {text?, deleted?} }
             notfallKontakte:[], // spec/25: frei editierbare Notfall-Ansprechpersonen { id, name, telefon }, Standard bewusst leer
             appTitel:"Freizeit App", appIcon:"☀️", // spec/25: Haupttitel + Icon editierbar, Default = bisheriger Fest-Text
-            headerColor:"sonne", headerImage:null }, // spec/25: Dashboard-Header individualisierbar (Farb-Preset + optionales eigenes Bild)
+            headerColor:"sonne", headerImage:null, // spec/25: Dashboard-Header individualisierbar (Farb-Preset + optionales eigenes Bild)
+            dashIconMode:"bunt", dashIconColor:"sonne" }, // spec/26: Dashboard-Kachel-Farbmodus (bunt/verlaufA/verlaufB/einheitlich) + Preset-Farbe bei "einheitlich"
     staff: [],
     tn: [],
     medis: [],
@@ -1079,6 +1098,10 @@ function normalizeData(raw){
   // Migration (spec/25): Header-Individualisierung — Farb-Preset-ID (String) + optionale Bild-ID (String|null).
   if(typeof merged.meta.headerColor !== 'string' || !merged.meta.headerColor) merged.meta.headerColor = "sonne";
   if(typeof merged.meta.headerImage !== 'string') merged.meta.headerImage = null;
+  // Migration (spec/26): Dashboard-Kachel-Farbmodus — fehlender/unbekannter Wert → "bunt" (Standard,
+  // kuratiertes Dubletten-freies Set). dashIconColor nur relevant bei Modus "einheitlich", Default "sonne".
+  if(!['bunt','verlaufA','verlaufB','einheitlich'].includes(merged.meta.dashIconMode)) merged.meta.dashIconMode = "bunt";
+  if(typeof merged.meta.dashIconColor !== 'string' || !merged.meta.dashIconColor) merged.meta.dashIconColor = "sonne";
   // Migration (nachträgliche Vereinfachung nach Stufe 3): Ansprechperson Zecken/Wunden von
   // Einzel-ID auf Mehrfachauswahl (Array) umgestellt; Mitfahrt/TN-Infos gesamt entfallen.
   // Migration (Stufe 11): Ansprechperson Medikamenten-Plan (`ansprech.medis`) entfällt ersatzlos —
@@ -3884,6 +3907,44 @@ function hdrRemoveImage(){
   renderHdrImagePreview();
   applyHeaderStyle();
 }
+/* spec/26 Punkt 2: Dashboard-Kachel-Farbmodus in den Einstellungen (analog Header-Individualisierung
+   oben). Bei Modus "einheitlich" werden dieselben 6 Header-Presets als Kurzauswahl angeboten (Marcos
+   Entscheidung: Konsistenz statt eigenem freien Colorpicker). */
+function renderDashColorSettings(){
+  const group = document.getElementById('dashModeGroup');
+  if(!group) return;
+  const d = getData();
+  const mode = d.meta.dashIconMode || 'bunt';
+  group.querySelectorAll('.toggle-chip').forEach(l=>{
+    const input = l.querySelector('input');
+    const on = input.value === mode;
+    l.classList.toggle('on', on);
+    input.checked = on;
+  });
+  const sw = document.getElementById('dashColorSwatches');
+  if(sw){
+    sw.style.display = mode==='einheitlich' ? 'flex' : 'none';
+    if(mode==='einheitlich'){
+      const active = d.meta.dashIconColor || 'sonne';
+      sw.innerHTML = HEADER_PRESETS.map(p=>`<button type="button" class="hdr-swatch${p.id===active?' active':''}"
+        style="background:${p.bg}" onclick="setDashIconColor('${p.id}')" aria-label="${esc(p.label)}" title="${esc(p.label)}"></button>`).join('');
+    }
+  }
+}
+function setDashIconMode(mode){
+  const d = getData();
+  d.meta.dashIconMode = mode;
+  saveData(d);
+  renderDashColorSettings();
+  renderDashGrid();
+}
+function setDashIconColor(id){
+  const d = getData();
+  d.meta.dashIconColor = id;
+  saveData(d);
+  renderDashColorSettings();
+  renderDashGrid();
+}
 function renderHdrImagePreview(){
   const el = document.getElementById('hdrImagePreview');
   const removeBtn = document.getElementById('hdrImageRemoveBtn');
@@ -4075,15 +4136,20 @@ const DASH_TILES = [
   {id:'ersthilfe', icon:'🩹', title:'Erste Hilfe', color:'#22D3EE', hash:'ersthilfe', sub:'Wundversorgung & Zecken'},
   {id:'wochenplan', icon:'🗓️', title:'Wochenplan', color:'#A78BFA', hash:'wochenplan', sub:'Programm & Fotos je Tag'},
   {id:'zust', icon:'📋', title:'Zuständigkeiten', color:'#FF6B4A', hash:'zust', sub:'Rollen & Aufgaben'},
-  {id:'zimmer', icon:'🛏️', title:'Zimmer-Übersicht', color:'#FF6B4A', hash:'zimmer', sub:'Wer liegt wo'},
-  {id:'gruppen', icon:'👥', title:'Gruppen', color:'#FFB23E', hash:'gruppen', sub:'Einteilung für unterwegs'},
+  {id:'zimmer', icon:'🛏️', title:'Zimmer-Übersicht', color:'#14B8A6', hash:'zimmer', sub:'Wer liegt wo'},
+  {id:'gruppen', icon:'👥', title:'Gruppen', color:'#EC4899', hash:'gruppen', sub:'Einteilung für unterwegs'},
   {id:'tn', icon:'⚠️', title:'TN-Infos', color:'#FFB23E', hash:'tn', sub:'Gesundheit, Sicherheit & Gruppen'},
   {id:'ma', icon:'🧡', title:'MA-Infos', color:'#F97316', hash:'ma', sub:'Badeaufsicht & Handyregeln'},
   {id:'notizen', icon:'📝', title:'Notizen', color:'#34d399', hash:'notizen', sub:'Privat, nur dieses Gerät'},
-  {id:'team', icon:'🤝', title:'Team', color:'#FFB23E', hash:'team', sub:'Unsere Werte'}
+  {id:'team', icon:'🤝', title:'Team', color:'#6366F1', hash:'team', sub:'Unsere Werte'}
 ];
+/* spec/26 Punkt 2: obige `color`-Werte sind das kuratierte "Bunt"-Set (Standard, dublettenfrei —
+   vorher hatten Zimmer/Zuständigkeiten sowie Gruppen/TN-Infos/Team dieselbe Farbe). Für die
+   tatsächliche Anzeige nie direkt t.color lesen, sondern immer über dashTileColor() (siehe unten),
+   die je nach meta.dashIconMode Bunt/Verlauf A/Verlauf B/Einheitlich auflöst. */
 
 let roleBackHash = 'zust';
+let roleViaDashboard = false; // spec/26 Punkt 1: true = Zimmer-Rolle wurde über den Dashboard-Shortcut betreten (farbiger Hero-Header statt schlichtem .dhead-Kopf)
 let currentRoleId = null;
 
 function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
@@ -4186,10 +4252,33 @@ function removeNotionLink(key){
 }
 
 /* ---- Dashboard-Grid ---- */
+/* spec/26 Punkt 2: HSL→Hex für die beiden Verlauf-Rampen (Regenbogen A / ruhig Orange-Blau B).
+   Kein Farbwert wird einzeln hinterlegt — die Rampe wird aus Position im DASH_TILES-Array berechnet. */
+function hslToHex(h,s,l){
+  s/=100; l/=100;
+  const c=(1-Math.abs(2*l-1))*s;
+  const x=c*(1-Math.abs((h/60)%2-1));
+  const m=l-c/2;
+  let r=0,g=0,b=0;
+  if(h<60){r=c;g=x;b=0;} else if(h<120){r=x;g=c;b=0;} else if(h<180){r=0;g=c;b=x;}
+  else if(h<240){r=0;g=x;b=c;} else if(h<300){r=x;g=0;b=c;} else {r=c;g=0;b=x;}
+  const toHex=v=>Math.round((v+m)*255).toString(16).padStart(2,'0');
+  return '#'+toHex(r)+toHex(g)+toHex(b);
+}
+// Effektive Kachel-Farbe je nach gewähltem Modus (meta.dashIconMode). `index` = Position in DASH_TILES
+// (für die beiden Verlauf-Rampen), `d` optional bereits geladene Daten (vermeidet doppeltes getData()).
+function dashTileColor(t, index, d){
+  d = d || getData();
+  const mode = d.meta.dashIconMode || 'bunt';
+  if(mode==='einheitlich') return getHeaderPreset(d.meta.dashIconColor || 'sonne').bg;
+  if(mode==='verlaufA') return hslToHex(index*(300/9), 75, 55);
+  if(mode==='verlaufB') return hslToHex(20+index*(180/9), 70, 58);
+  return t.color; // 'bunt' (Standard)
+}
 function renderDashGrid(){
   const d = getData();
   const grid = document.getElementById('dashGrid');
-  grid.innerHTML = DASH_TILES.map(t=>{
+  grid.innerHTML = DASH_TILES.map((t,i)=>{
     let badge = '', sub = t.sub || '';
     if(t.id==='tn'){
       const n = d.tn.length;
@@ -4210,7 +4299,7 @@ function renderDashGrid(){
       <div class="emoji">${t.icon}</div>
       <div class="t">${esc(t.title)}<span class="tile-badge">${esc(badge)}</span></div>
       <div class="tile-sub">${esc(sub)}</div>
-      <div class="bar" style="background:${t.color}"></div>
+      <div class="bar" style="background:${dashTileColor(t,i,d)}"></div>
     </button>`;
   }).join('');
 }
@@ -4236,7 +4325,7 @@ function renderGrid(filter=""){
     shown++;
     const el=document.createElement('button');
     el.className="tile"+(r.info?" info-tile":"");
-    el.onclick=()=>{ roleBackHash='zust'; openRole(r.id); };
+    el.onclick=()=>{ roleBackHash='zust'; roleViaDashboard=false; openRole(r.id); };
     const assigned = (d.zust[r.id]||[]).map(sid=>d.staff.find(s=>s.id===sid)).filter(Boolean);
     const people = assigned.length ? `<div class="tile-people">${assigned.map(p=>
       `<span class="tile-person"><span class="d" style="background:${p.farbe}"></span>${esc(p.name)}</span>`).join('')}</div>` : '';
@@ -5015,7 +5104,18 @@ function openRoomStaffPicker(idx){
 function openRole(id){
   const r=ROLES.find(x=>x.id===id); if(!r)return;
   currentRoleId = id;
-  let h=`<div class="dhead"><div class="emoji">${r.icon}</div><h2>${esc(r.title)}</h2></div>`;
+  let h;
+  if(r.id==='zimmer' && roleViaDashboard){
+    // spec/26 Punkt 1: Dashboard-Einstieg bekommt denselben farbigen Hero-Header wie die anderen
+    // Dashboard-Views (.ph-head) statt des schlichten .dhead-Kopfs — Farbe = aktuelle Dashboard-
+    // Kachel-Farbe (dashTileColor, reagiert also automatisch auf Bunt/Verlauf/Einheitlich).
+    const dd = getData();
+    const tIdx = DASH_TILES.findIndex(x=>x.id==='zimmer');
+    const accent = dashTileColor(DASH_TILES[tIdx], tIdx, dd);
+    h = `<header class="ph-head" style="background:${accent}"><h1>🛏️ Zimmerzuständigkeiten &amp; Übersicht</h1><p>Wer liegt wo — Zimmer, Betten &amp; Zuständige</p></header>`;
+  } else {
+    h = `<div class="dhead"><div class="emoji">${r.icon}</div><h2>${esc(r.title)}</h2></div>`;
+  }
   /* Stufe 14 (spec/12): bei der Zimmer-Rolle gibt es bewusst KEINE bereichsweite "Zuständig:"-Zeile
      — Zuständigkeit ist pro Zimmer (siehe Zimmer-Karten unten), nicht für den Gesamtbereich. */
   /* Notiz Marco (spec/20): bei „programm“, „tagesleitung“ und „planung“ sind alle abwechselnd dran
@@ -5415,6 +5515,7 @@ function loadEinstellungen(){
   renderRaeumeSettings();
   renderHdrSwatches();
   renderHdrImagePreview();
+  renderDashColorSettings();
 }
 
 /* ---- Zimmer verwalten (Stufe 11, spec/09): Räume frei anlegen/umbenennen/löschen.
@@ -5893,6 +5994,7 @@ function route(){
   else if(h==='notizen'){ showView('notizen'); loadNotizen(); }
   else if(h==='einstellungen'){ showView('einstellungen'); loadEinstellungen(); }
   else if(h==='zust'){ showView('zust'); goHome(); }
+  else if(h==='zimmer'){ roleViaDashboard=true; roleBackHash=''; showView('zust'); openRole('zimmer'); } // spec/26 Punkt 1: Dashboard-Einstieg → Farb-Header + "Zurück" führt aufs Dashboard
   else if(ROLES.find(x=>x.id===h)){ showView('zust'); openRole(h); }
   else { showView('dashboard'); }
   window.scrollTo(0,0);
