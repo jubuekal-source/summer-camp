@@ -53,13 +53,16 @@
 
   header.top{
     position:relative; overflow:hidden;
-    background:linear-gradient(135deg,#FF6B4A 0%,#FF8A3D 45%,#FFB23E 100%);
+    /* spec/25: individualisierbar (Farb-Preset oder eigenes Bild) über CSS-Variablen, gesetzt von
+       applyHeaderStyle(). Fallback = bisheriges Fest-Design, damit ohne JS/vor erstem Laden nichts bricht. */
+    background:var(--hdr-bg, linear-gradient(135deg,#FF6B4A 0%,#FF8A3D 45%,#FFB23E 100%));
+    background-size:cover; background-position:center;
     padding:22px 20px 26px; border-radius:18px; box-shadow:var(--shadow);
   }
   header.top .sun{position:absolute;right:-30px;top:-30px;width:140px;height:140px;border-radius:50%;
     background:rgba(255,255,255,.18);filter:blur(2px)}
-  header.top h1{margin:0;font-size:1.5rem;font-weight:800;color:#1a1205;letter-spacing:-.3px;padding-right:44px}
-  header.top p{margin:4px 0 0;color:#4a2f10;font-weight:600;font-size:.92rem}
+  header.top h1{margin:0;font-size:1.5rem;font-weight:800;color:var(--hdr-text, #1a1205);letter-spacing:-.3px;padding-right:44px}
+  header.top p{margin:4px 0 0;color:var(--hdr-text2, #4a2f10);font-weight:600;font-size:.92rem}
 
   .gear{position:absolute;top:16px;right:16px;width:38px;height:38px;border-radius:50%;
     background:rgba(255,255,255,.28);border:none;color:#1a1205;font-size:1.05rem;cursor:pointer;
@@ -199,6 +202,13 @@
   .contact:last-child{border-bottom:none}
   .contact .role{font-size:.95rem;font-weight:600}
   .contact a{color:var(--accent2);font-weight:700;text-decoration:none;font-size:.95rem;white-space:nowrap}
+  /* spec/25: editierbare Notfall-Kontakte — Name+Nummer gruppiert, Bearbeiten/Löschen rechts (wie .team-item-row). */
+  .contact .contact-info{display:flex;align-items:center;gap:8px;flex:1;min-width:0;flex-wrap:wrap}
+  .contact .team-item-actions{flex:0 0 auto}
+  /* Farb-Swatches für die Header-Anpassung (Einstellungen). */
+  .hdr-swatches{display:flex;gap:10px;flex-wrap:wrap}
+  .hdr-swatch{width:38px;height:38px;border-radius:50%;border:3px solid transparent;cursor:pointer;padding:0}
+  .hdr-swatch.active{border-color:var(--text);box-shadow:0 0 0 2px var(--card)}
   ol.steps{list-style:none;margin:0;padding:0;counter-reset:s;display:flex;flex-direction:column;gap:10px}
   ol.steps li{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px 12px 46px;position:relative;font-size:.92rem}
   ol.steps li::before{counter-increment:s;content:counter(s);position:absolute;left:12px;top:12px;width:24px;height:24px;
@@ -620,8 +630,9 @@
 
     <div class="nfcard">
       <h3>☎️ Erreichbarkeit – Leitung</h3>
-      <div class="contact"><span class="role">Marco</span><a href="tel:+4917697318191">📞 0176 9731 8191</a></div>
-      <div class="contact"><span class="role">Simone</span><a href="tel:+4915208967567">📞 01520 89 67 567</a></div>
+      <!-- spec/25: Kontakte frei editierbar statt Fest-Text (id, name, telefon). -->
+      <div id="nfKontakteList"></div>
+      <button type="button" class="team-add-point" style="margin-top:8px" onclick="nfAddKontakt()">+ Kontakt hinzufügen</button>
     </div>
 
     <div class="sec-h" style="padding-left:2px">Sofort: die ersten Schritte</div>
@@ -770,11 +781,8 @@
       <p>Wundversorgung &amp; Zecken — Kurz-Nachschlagewerk</p>
     </header>
 
-    <div class="hint">
-      <span>⚠️</span>
-      <span>Vor JEDER Maßnahme: Einverständnis-Status in <a class="eh-link" style="margin:0" href="#tn">⚠️ TN-Infos</a> prüfen! (🚫🩸 = keine Wundversorgung erlaubt, 🚫🕷️ = Zecken nicht selbst entfernen)</span>
-    </div>
-
+    <!-- spec/25: allgemeiner Hinweis entfernt — redundant zu den Einzelschritten bei Zecken/Wunden,
+         die den TN-Infos-Check bereits als konkreten Verfahrensschritt enthalten (siehe EH_TOPICS unten). -->
     <div id="ehList"></div>
 
     <footer>Kein medizinischer Rat, sondern Team-Leitfaden. Im Zweifel: 112 / ärztliche Hilfe &amp; Freizeitleitung + Eltern informieren.</footer>
@@ -859,6 +867,14 @@
         → Einstellungen → „Dunkler Modus" → „Dunklen Modus für Web-Inhalte erzwingen" ausschalten.
       </div>
       <div>
+        <label for="setAppIcon">App-Icon (Emoji)</label>
+        <input id="setAppIcon" type="text" placeholder="☀️" maxlength="4">
+      </div>
+      <div>
+        <label for="setAppTitel">App-Titel</label>
+        <input id="setAppTitel" type="text" placeholder="Freizeit App">
+      </div>
+      <div>
         <label for="setTitelZusatz">Titelzusatz (optional)</label>
         <input id="setTitelZusatz" type="text" placeholder="z. B. Herbstfreizeit">
       </div>
@@ -869,6 +885,28 @@
       <div>
         <label for="setStand">Stand</label>
         <input id="setStand" type="text" placeholder="z. B. Juli">
+      </div>
+    </div>
+    <!-- spec/25: Header individualisierbar — Farb-Preset (Standard = bisheriges Orange) oder eigenes Bild. -->
+    <div class="settings-block">
+      <div>
+        <label>🎨 Header-Farbe</label>
+        <div class="settings-hint" style="text-align:left;margin:6px 0 10px">
+          Farbe des großen Kopfbereichs auf dem Dashboard. Standard ist die bisherige Sonnen-Farbe.
+        </div>
+        <div class="hdr-swatches" id="hdrSwatches"></div>
+      </div>
+      <div style="margin-top:18px">
+        <label>🖼️ Eigenes Header-Bild (optional)</label>
+        <div class="settings-hint" style="text-align:left;margin:6px 0 10px">
+          Ersetzt die Farbe durch ein eigenes Foto (z. B. Freizeitgelände). Wird komprimiert und nur lokal
+          gespeichert. Ein Bild hat Vorrang vor der Farbauswahl oben — zum Zurückschalten auf die Farbe
+          erst „Bild entfernen" tippen.
+        </div>
+        <div id="hdrImagePreview"></div>
+        <button type="button" class="team-add-point" onclick="document.getElementById('hdrImageInput').click()">📷 Bild wählen</button>
+        <input type="file" id="hdrImageInput" accept="image/*" style="display:none" onchange="hdrHandleImageFile(event)">
+        <button type="button" class="staff-cancel" id="hdrImageRemoveBtn" style="width:100%;margin-top:8px;display:none" onclick="hdrRemoveImage()">Bild entfernen</button>
       </div>
     </div>
     <div class="settings-block">
@@ -985,7 +1023,10 @@ function defaultData(){
             etagenColors:{}, // spec/22: frei wählbare Farbe je Etage (key: etageLabel → {color, fill:boolean}) — nur Rahmen oder ganze Etage einfärben
             roomNotes:{}, // spec/22: freie Notiz je Zimmer (key: zimmerLabel → text)
             notionLinks:{}, // Feintuning 23.07.2026: frei betitelbare öffentliche Notion-Links (key → {url,title}), Teil des Exports
-            roleBlockOverrides:{} }, // spec/21 Punkt 4: Text-/Lösch-Overrides für ROLES.core-Items, key = roleId → { itemIdx: {text?, deleted?} }
+            roleBlockOverrides:{}, // spec/21 Punkt 4: Text-/Lösch-Overrides für ROLES.core-Items, key = roleId → { itemIdx: {text?, deleted?} }
+            notfallKontakte:[], // spec/25: frei editierbare Notfall-Ansprechpersonen { id, name, telefon }, Standard bewusst leer
+            appTitel:"Freizeit App", appIcon:"☀️", // spec/25: Haupttitel + Icon editierbar, Default = bisheriger Fest-Text
+            headerColor:"sonne", headerImage:null }, // spec/25: Dashboard-Header individualisierbar (Farb-Preset + optionales eigenes Bild)
     staff: [],
     tn: [],
     medis: [],
@@ -1029,6 +1070,15 @@ function normalizeData(raw){
   // Migration (spec/21 Punkt 4): Overrides für "Worauf muss ich achten?"-Blöcke (Zimmer-Rolle).
   // Fehlt/kein Objekt → {} (kein Datenverlust, Original-Texte aus ROLES.core greifen dann ungefiltert).
   if(!merged.meta.roleBlockOverrides || typeof merged.meta.roleBlockOverrides !== 'object' || Array.isArray(merged.meta.roleBlockOverrides)) merged.meta.roleBlockOverrides = {};
+  // Migration (spec/25): Notfall-Kontakte frei editierbar statt Fest-Text — fehlt/kein Array → [] (kein
+  // automatisches Vorbefüllen, Marco trägt seine eigenen Kontakte ein).
+  if(!Array.isArray(merged.meta.notfallKontakte)) merged.meta.notfallKontakte = [];
+  // Migration (spec/25): App-Titel/-Icon editierbar — fehlender Wert → bisheriger Fest-Text als Default.
+  if(typeof merged.meta.appTitel !== 'string' || !merged.meta.appTitel) merged.meta.appTitel = "Freizeit App";
+  if(typeof merged.meta.appIcon !== 'string' || !merged.meta.appIcon) merged.meta.appIcon = "☀️";
+  // Migration (spec/25): Header-Individualisierung — Farb-Preset-ID (String) + optionale Bild-ID (String|null).
+  if(typeof merged.meta.headerColor !== 'string' || !merged.meta.headerColor) merged.meta.headerColor = "sonne";
+  if(typeof merged.meta.headerImage !== 'string') merged.meta.headerImage = null;
   // Migration (nachträgliche Vereinfachung nach Stufe 3): Ansprechperson Zecken/Wunden von
   // Einzel-ID auf Mehrfachauswahl (Array) umgestellt; Mitfahrt/TN-Infos gesamt entfallen.
   // Migration (Stufe 11): Ansprechperson Medikamenten-Plan (`ansprech.medis`) entfällt ersatzlos —
@@ -1196,6 +1246,8 @@ async function collectWochenplanImages(){
   });
   // Stufe 19 (spec/17): auch die Etagen-Lagepläne gehören in den Export-Snapshot.
   Object.values(d.meta.etagenPlan || {}).forEach(id=>{ if(id) ids.add(id); });
+  // spec/25: eigenes Header-Bild ebenfalls mitexportieren, sonst fehlt es nach Import auf anderen Geräten.
+  if(d.meta.headerImage) ids.add(d.meta.headerImage);
   const images = {};
   for(const id of ids){
     const dataUrl = await imgGet(id);
@@ -3648,6 +3700,200 @@ function renderEhView(){
         ${ehTnLinkHTML(t.tnFilter)}
       </div>
     </details>`).join('');
+  setupEhAccordions();
+}
+/* spec/25: nur ein Thema gleichzeitig offen — analog setupTnAccordions(). Da renderEhView() das
+   ehList-innerHTML bei jedem Aufruf komplett neu erzeugt (neue <details>-Knoten), OHNE "wired"-Flag
+   erneut verdrahten (alte Listener hängen an inzwischen entfernten Knoten und stören nicht). */
+function setupEhAccordions(){
+  const group = document.getElementById('ehList');
+  if(!group) return;
+  group.querySelectorAll('details').forEach(det=>{
+    det.addEventListener('toggle', ()=>{
+      if(det.open) group.querySelectorAll('details').forEach(other=>{ if(other!==det) other.open = false; });
+    });
+  });
+}
+
+/* ============ Notfall-Kontakte (spec/25) ============
+   Frei editierbare Liste { id, name, telefon } statt Fest-Text (Marco/Simone waren hartkodiert).
+   Muster analog zu raeumeAddRoom/raeumeEditRoom (Zimmer verwalten, Stufe 11). */
+function renderNotfallKontakte(){
+  const el = document.getElementById('nfKontakteList');
+  if(!el) return;
+  const d = getData();
+  const list = d.meta.notfallKontakte || [];
+  if(!list.length){ el.innerHTML = `<div class="staff-empty">Noch keine Kontakte hinterlegt. Über „+ Kontakt hinzufügen" eintragen.</div>`; return; }
+  el.innerHTML = list.map(k=>`
+    <div class="contact">
+      <span class="contact-info"><span class="role">${esc(k.name)}</span><a href="tel:${esc((k.telefon||'').replace(/\s+/g,''))}">📞 ${esc(k.telefon)}</a></span>
+      <span class="team-item-actions">
+        <button type="button" class="team-icon-btn sm" onclick="nfEditKontakt('${k.id}')" aria-label="Kontakt bearbeiten">✏️</button>
+        <button type="button" class="team-icon-btn sm" onclick="nfDeleteKontaktConfirm('${k.id}')" aria-label="Kontakt löschen">🗑️</button>
+      </span>
+    </div>`).join('');
+}
+function nfAddKontakt(){
+  openSheet('Kontakt hinzufügen', `
+    <div class="form-field">
+      <label for="nfKontaktName">Name / Rolle</label>
+      <input id="nfKontaktName" type="text" placeholder="z. B. Freizeitleitung" autocomplete="off">
+    </div>
+    <div class="form-field" style="margin-top:10px">
+      <label for="nfKontaktTel">Telefonnummer</label>
+      <input id="nfKontaktTel" type="tel" placeholder="z. B. 0176 9731 8191" autocomplete="off">
+    </div>
+    <button type="button" class="staff-add-btn" style="margin-top:12px" onclick="nfAddKontaktSave()">Kontakt hinzufügen</button>`);
+  const inp = document.getElementById('nfKontaktName');
+  inp.focus();
+  inp.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); document.getElementById('nfKontaktTel').focus(); } });
+  document.getElementById('nfKontaktTel').addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); nfAddKontaktSave(); } });
+}
+function nfAddKontaktSave(){
+  const name = document.getElementById('nfKontaktName').value.trim();
+  const tel = document.getElementById('nfKontaktTel').value.trim();
+  if(!name || !tel) return;
+  const d = getData();
+  d.meta.notfallKontakte.push({ id: uid(), name, telefon: tel });
+  saveData(d);
+  closeSheet();
+  renderNotfallKontakte();
+}
+function nfEditKontakt(id){
+  const d = getData();
+  const k = d.meta.notfallKontakte.find(x=>x.id===id); if(!k) return;
+  openSheet('Kontakt bearbeiten', `
+    <div class="form-field">
+      <label for="nfKontaktName">Name / Rolle</label>
+      <input id="nfKontaktName" type="text" autocomplete="off">
+    </div>
+    <div class="form-field" style="margin-top:10px">
+      <label for="nfKontaktTel">Telefonnummer</label>
+      <input id="nfKontaktTel" type="tel" autocomplete="off">
+    </div>
+    <button type="button" class="staff-add-btn" style="margin-top:12px" onclick="nfEditKontaktSave('${id}')">Speichern</button>`);
+  document.getElementById('nfKontaktName').value = k.name; // per JS gesetzt (Anführungszeichen/Emoji sicher)
+  document.getElementById('nfKontaktTel').value = k.telefon;
+  const inp = document.getElementById('nfKontaktName');
+  inp.focus(); inp.select();
+  inp.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); document.getElementById('nfKontaktTel').focus(); } });
+  document.getElementById('nfKontaktTel').addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); nfEditKontaktSave(id); } });
+}
+function nfEditKontaktSave(id){
+  const name = document.getElementById('nfKontaktName').value.trim();
+  const tel = document.getElementById('nfKontaktTel').value.trim();
+  if(!name || !tel) return;
+  const d = getData();
+  const k = d.meta.notfallKontakte.find(x=>x.id===id); if(!k) return;
+  k.name = name; k.telefon = tel;
+  saveData(d);
+  closeSheet();
+  renderNotfallKontakte();
+}
+function nfDeleteKontaktConfirm(id){
+  const d = getData();
+  const k = d.meta.notfallKontakte.find(x=>x.id===id); if(!k) return;
+  openSheet('Kontakt löschen', `<div class="confirm-box">
+    <p>Kontakt „${esc(k.name)}" wirklich löschen?</p>
+    <div class="confirm-actions">
+      <button type="button" class="staff-cancel" onclick="closeSheet()">Abbrechen</button>
+      <button type="button" class="staff-danger" onclick="nfDeleteKontaktDo('${id}')">Löschen</button>
+    </div></div>`);
+}
+function nfDeleteKontaktDo(id){
+  const d = getData();
+  d.meta.notfallKontakte = d.meta.notfallKontakte.filter(x=>x.id!==id);
+  saveData(d);
+  closeSheet();
+  renderNotfallKontakte();
+}
+
+/* ============ Header-Individualisierung (spec/25) ============
+   Farb-Preset (Standard = bisheriges Orange "sonne") oder alternativ ein eigenes Foto. Ein gesetztes
+   Bild hat Vorrang vor der Farbauswahl (siehe applyHeaderStyle) — bewusst KEIN automatisches Löschen
+   des Bilds beim Farbe-Wechseln, das wäre ein überraschender Datenverlust; nur "Bild entfernen" räumt auf. */
+const HEADER_PRESETS = [
+  { id:'sonne',    label:'Sonne (Standard)', bg:'linear-gradient(135deg,#FF6B4A 0%,#FF8A3D 45%,#FFB23E 100%)', text:'#1a1205', text2:'#4a2f10' },
+  { id:'meer',     label:'Meer',             bg:'linear-gradient(135deg,#22D3EE 0%,#0EA5E9 50%,#0284C7 100%)', text:'#ffffff', text2:'#e0f6fd' },
+  { id:'wiese',    label:'Wiese',            bg:'linear-gradient(135deg,#4ADE80 0%,#22C55E 50%,#15803D 100%)', text:'#ffffff', text2:'#e5fbee' },
+  { id:'beere',    label:'Beere',            bg:'linear-gradient(135deg,#F472B6 0%,#EC4899 50%,#BE185D 100%)', text:'#ffffff', text2:'#fde3ef' },
+  { id:'lavendel', label:'Lavendel',         bg:'linear-gradient(135deg,#A78BFA 0%,#8B5CF6 50%,#6D28D9 100%)', text:'#ffffff', text2:'#ece5fd' },
+  { id:'nacht',    label:'Nacht',            bg:'linear-gradient(135deg,#334155 0%,#1E293B 60%,#0F172A 100%)', text:'#ffffff', text2:'#cbd5e1' }
+];
+function getHeaderPreset(id){ return HEADER_PRESETS.find(p=>p.id===id) || HEADER_PRESETS[0]; }
+let _hdrImgUrl = null, _hdrImgLoadedFor = null; // Cache des geladenen Header-Bilds, vermeidet Neuladen aus IndexedDB bei jedem Aufruf
+async function applyHeaderStyle(){
+  const header = document.querySelector('header.top');
+  if(!header) return;
+  const d = getData();
+  const preset = getHeaderPreset(d.meta.headerColor || 'sonne');
+  if(d.meta.headerImage){
+    if(_hdrImgLoadedFor !== d.meta.headerImage){
+      try{ _hdrImgUrl = await imgGet(d.meta.headerImage); }catch(e){ _hdrImgUrl = null; }
+      _hdrImgLoadedFor = d.meta.headerImage;
+    }
+    if(_hdrImgUrl){
+      // Dunkler Verlauf über dem Foto, damit Titel/Zahnrad auf jedem Bild lesbar bleiben.
+      header.style.setProperty('--hdr-bg', `linear-gradient(rgba(10,12,18,.42),rgba(10,12,18,.42)), url("${_hdrImgUrl}")`);
+      header.style.setProperty('--hdr-text', '#ffffff');
+      header.style.setProperty('--hdr-text2', '#f1f1f1');
+      return;
+    }
+  }
+  header.style.setProperty('--hdr-bg', preset.bg);
+  header.style.setProperty('--hdr-text', preset.text);
+  header.style.setProperty('--hdr-text2', preset.text2);
+}
+function renderHdrSwatches(){
+  const el = document.getElementById('hdrSwatches');
+  if(!el) return;
+  const d = getData();
+  const active = d.meta.headerColor || 'sonne';
+  el.innerHTML = HEADER_PRESETS.map(p=>`<button type="button" class="hdr-swatch${p.id===active?' active':''}"
+    style="background:${p.bg}" onclick="setHeaderColor('${p.id}')" aria-label="${esc(p.label)}" title="${esc(p.label)}"></button>`).join('');
+}
+function setHeaderColor(id){
+  const d = getData();
+  d.meta.headerColor = id;
+  saveData(d);
+  renderHdrSwatches();
+  applyHeaderStyle();
+}
+function hdrHandleImageFile(ev){
+  const file = ev.target.files && ev.target.files[0];
+  ev.target.value = '';
+  if(!file) return;
+  compressAndStoreImage(file).then(async id=>{
+    const d = getData();
+    const oldId = d.meta.headerImage;
+    d.meta.headerImage = id;
+    saveData(d);
+    if(oldId && oldId!==id){ try{ await imgDelete(oldId); }catch(e){ /* alte Bild-Leiche in IndexedDB ignorieren, unkritisch */ } }
+    _hdrImgUrl = null; _hdrImgLoadedFor = null;
+    renderHdrImagePreview();
+    await applyHeaderStyle();
+  }).catch(()=>{ alert('Bild konnte nicht verarbeitet werden.'); });
+}
+function hdrRemoveImage(){
+  const d = getData();
+  const oldId = d.meta.headerImage;
+  d.meta.headerImage = null;
+  saveData(d);
+  if(oldId) imgDelete(oldId).catch(()=>{});
+  _hdrImgUrl = null; _hdrImgLoadedFor = null;
+  renderHdrImagePreview();
+  applyHeaderStyle();
+}
+function renderHdrImagePreview(){
+  const el = document.getElementById('hdrImagePreview');
+  const removeBtn = document.getElementById('hdrImageRemoveBtn');
+  if(!el) return;
+  const d = getData();
+  if(!d.meta.headerImage){ el.innerHTML=''; if(removeBtn) removeBtn.style.display='none'; return; }
+  if(removeBtn) removeBtn.style.display='';
+  imgGet(d.meta.headerImage).then(url=>{
+    if(url) el.innerHTML = `<img src="${url}" alt="Header-Bild" style="width:100%;border-radius:12px;margin-top:8px;display:block">`;
+  });
 }
 
 /* ============ Team (Stufe 8, spec/08_team.md) ============ */
@@ -5160,11 +5406,15 @@ function deleteWpImageConfirm(id){
 /* ---- Einstellungen ---- */
 function loadEinstellungen(){
   const d = getData();
+  document.getElementById('setAppIcon').value = d.meta.appIcon || "☀️";
+  document.getElementById('setAppTitel').value = d.meta.appTitel || "Freizeit App";
   document.getElementById('setTitelZusatz').value = d.meta.titelZusatz || "";
   document.getElementById('setZeitraum').value = d.meta.zeitraum || "";
   document.getElementById('setStand').value = d.meta.stand || "";
   document.getElementById('setTheme').value = d.meta.theme || "system";
   renderRaeumeSettings();
+  renderHdrSwatches();
+  renderHdrImagePreview();
 }
 
 /* ---- Zimmer verwalten (Stufe 11, spec/09): Räume frei anlegen/umbenennen/löschen.
@@ -5307,9 +5557,12 @@ function raeumeDeleteRoomDo(idx){
   renderRaeumeZustList();
 }
 function bindEinstellungen(){
-  ['setTitelZusatz','setZeitraum','setStand'].forEach(id=>{
+  ['setAppIcon','setAppTitel','setTitelZusatz','setZeitraum','setStand'].forEach(id=>{
     document.getElementById(id).addEventListener('input', ()=>{
       const d = getData();
+      // spec/25: App-Icon/-Titel editierbar, leeres Feld fällt auf den Fest-Default zurück (kein leerer Header).
+      d.meta.appIcon = document.getElementById('setAppIcon').value.trim() || "☀️";
+      d.meta.appTitel = document.getElementById('setAppTitel').value.trim() || "Freizeit App";
       d.meta.titelZusatz = document.getElementById('setTitelZusatz').value;
       d.meta.zeitraum = document.getElementById('setZeitraum').value;
       d.meta.stand = document.getElementById('setStand').value;
@@ -5579,7 +5832,10 @@ if(window.matchMedia){
 
 function updateMetaDisplay(){
   const d = getData();
-  document.getElementById('dashTitle').textContent = "☀️ Freizeit App" + (d.meta.titelZusatz ? " · "+d.meta.titelZusatz : "");
+  // spec/25: Icon + Haupttitel jetzt editierbar (Default = bisheriger Fest-Text "☀️ Freizeit App").
+  const titel = (d.meta.appIcon || "☀️") + " " + (d.meta.appTitel || "Freizeit App");
+  document.getElementById('dashTitle').textContent = titel + (d.meta.titelZusatz ? " · "+d.meta.titelZusatz : "");
+  document.title = d.meta.appTitel || "Freizeit App"; // Browser-/Homescreen-Titel mitziehen
   const sub = document.getElementById('dashSubtitle');
   if(d.meta.zeitraum){ sub.textContent = d.meta.zeitraum; sub.style.display = "block"; }
   else { sub.textContent=""; sub.style.display = "none"; }
@@ -5627,7 +5883,7 @@ function route(){
   wpFlushSave(); // beim Verlassen der Wochenplan-View ausstehende Textänderung sofort sichern
   const h=location.hash.replace('#','');
   if(!h || h==='dashboard'){ showView('dashboard'); }
-  else if(h==='notfall'){ showView('notfall'); }
+  else if(h==='notfall'){ showView('notfall'); renderNotfallKontakte(); }
   else if(h==='team'){ showView('team'); teamEditMode=false; renderTeamView(); }
   else if(h==='tn'){ showView('tn'); renderTnView(); }
   else if(h==='gruppen'){ showView('tn'); renderTnView(); openTnGruppen(); } // Deep-Link zum Gruppen-Akkordeon (z. B. aus Ausflug-Rolle)
@@ -5676,6 +5932,7 @@ document.getElementById('search').addEventListener('input', e=>renderGrid(e.targ
 migrateOldKeys();
 applyTheme();
 updateMetaDisplay();
+applyHeaderStyle(); // spec/25: Header-Farbe/-Bild direkt beim Start setzen
 renderDashGrid();
 renderGrid();
 bindNotizen();
