@@ -743,7 +743,7 @@
     <div class="backbar"><button class="back" onclick="location.hash=''">‹ Dashboard</button></div>
     <header class="ph-head" style="background:linear-gradient(135deg,#F97316,#EA580C)">
       <h1>🧡 MA-Infos</h1>
-      <p>Badeaufsicht, Handyregeln &amp; Personen-Verwaltung</p>
+      <p>Mitarbeiter-Verwaltung &amp; Infos</p>
     </header>
 
     <!-- spec/23 §9a: Legende, exakt das TN-Muster. -->
@@ -1598,7 +1598,7 @@ const MA_COUNTERS = [
     match:p=>!!p.abreise_frueher},
   {id:'fahrer', icon:'🪪🚗', label:'Führerschein/fährt', desc:'Hat Führerschein und ist bereit, Auto zu fahren.',
     match:p=>!!p.fahrer},
-  {id:'handy', icon:'📵', label:'Handy nachts', desc:'Eltern verlangen nächtliche Handy-Abgabe.',
+  {id:'handy', icon:'🌙📵', label:'Handy nachts', desc:'Eltern verlangen nächtliche Handy-Abgabe.',
     match:p=>p.handyregel===true},
   {id:'rettung', icon:'🏊✅', label:'Badeaufsicht', desc:'Traut sich Badeaufsicht IM Wasser zu (Team-Einschätzung, eigene Abfrage — nicht zu verwechseln mit dem Rettungsschwimmerabzeichen unten).',
     match:p=>p.rettung_see===true},
@@ -1735,7 +1735,7 @@ function maFlagBadgesHTML(p){
 // spec/23 §4b: Uhrzeit-Icons eindeutig getrennt — 🕙🚙 = frühere Abreise, 🪪🚗 = Führerschein/fährt.
 function maExtraBadgesHTML(p){
   let out = '';
-  if(p.handyregel===true) out += `<span class="tn-badge warn">📵 Handy nachts</span>`;
+  if(p.handyregel===true) out += `<span class="tn-badge warn">🌙📵 Handy nachts</span>`;
   if(p.abreise_frueher) out += `<span class="tn-badge warn">🕙🚙 ${esc(p.abreise_tag||'')}</span>`;
   if(p.fahrer) out += `<span class="tn-badge">🪪🚗 Fahrer</span>`;
   return out;
@@ -2596,6 +2596,12 @@ function tnBadgesHTML(t){
     // spec/18: Allergie-Badge zeigt den eingetragenen Text (z. B. „🥜 Nüsse") statt nur „Allergie".
     let label = c.label;
     if(c.id==='allergien' && t.allergien && t.allergien.trim()) label = t.allergien.trim();
+    // spec/24-Nachtrag (Abgleich mit MA-Fix): Medis zeigten bisher nur das generische Label „Medis"
+    // statt der konkreten Medikamente/Uhrzeit — jetzt wie bei Allergie den Wert direkt sichtbar.
+    if(c.id==='medis'){
+      const medis = getData().medis.filter(m=>m.tnId===t.id).sort((a,b)=>(a.zeit||'').localeCompare(b.zeit||''));
+      if(medis.length) label = medis.map(m=>`${m.zeit?m.zeit+' · ':''}${m.medikament||''}`).join(', ');
+    }
     out += `<span class="tn-badge warn">${c.icon} ${esc(label)}</span>`;
   });
   if((t.schwimm && t.schwimm!=='sicher') || (t.bade && t.bade!=='alles')){
