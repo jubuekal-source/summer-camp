@@ -3937,6 +3937,8 @@ function setDashIconMode(mode){
   saveData(d);
   renderDashColorSettings();
   renderDashGrid();
+  applyDashHeaderColors();
+  if(currentRoleId==='zimmer') openRole('zimmer'); // Zimmer-Header sofort mit neuem Modus neu zeichnen, falls gerade offen
 }
 function setDashIconColor(id){
   const d = getData();
@@ -3944,6 +3946,8 @@ function setDashIconColor(id){
   saveData(d);
   renderDashColorSettings();
   renderDashGrid();
+  applyDashHeaderColors();
+  if(currentRoleId==='zimmer') openRole('zimmer');
 }
 function renderHdrImagePreview(){
   const el = document.getElementById('hdrImagePreview');
@@ -4274,6 +4278,74 @@ function dashTileColor(t, index, d){
   if(mode==='verlaufA') return hslToHex(index*(300/9), 75, 55);
   if(mode==='verlaufB') return hslToHex(20+index*(180/9), 70, 58);
   return t.color; // 'bunt' (Standard)
+}
+/* spec/26 Nachbesserung (24.07.2026, Marcos Feedback): nicht nur der Unterstrich auf der Dashboard-
+   Kachel soll den gewählten Farbmodus zeigen, sondern auch der farbige Hero-Header, der beim Öffnen
+   der jeweiligen Ansicht erscheint — sonst wirkt z. B. „Einheitlich = Blau" gewählt, aber TN-Infos
+   öffnet sich trotzdem mit einem gelben Header. Betrifft alle Ansichten mit eigenem Rollen-Header;
+   Ausnahme „Einstellungen" (hat keine Dashboard-Kachel, bleibt bei der bisherigen Fest-Farbe). */
+function shadeHex(hex, pct){
+  const r=parseInt(hex.slice(1,3),16), g=parseInt(hex.slice(3,5),16), b=parseInt(hex.slice(5,7),16);
+  const adj=v=>Math.max(0,Math.min(255,Math.round(v+(pct<0?v:255-v)*pct)));
+  const toHex=v=>v.toString(16).padStart(2,'0');
+  return '#'+toHex(adj(r))+toHex(adj(g))+toHex(adj(b));
+}
+function hexLuminance(hex){
+  const r=parseInt(hex.slice(1,3),16), g=parseInt(hex.slice(3,5),16), b=parseInt(hex.slice(5,7),16);
+  return (0.299*r+0.587*g+0.114*b)/255;
+}
+// Handverlesene Original-Verläufe (unverändert seit Stufe 1–25), nur solange die zugehörige
+// Bunt-Farbe der Kachel unverändert ist. Fällt eine Kachel hier raus (aktuell: team, wegen neuer
+// Bunt-Farbe aus spec/26 Punkt 2), greift der generische Abdunkel-Fallback in tileHeaderStyle().
+const BUNT_HEADER_GRADIENTS = {
+  notfall:{bg:'linear-gradient(135deg,#E5484D,#B4232A)', text:'#fff', text2:'#ffe3e3'},
+  zust:{bg:'linear-gradient(135deg,#FF6B4A,#FF8A3D)', text:'#1a1205', text2:'#4a2f10'},
+  tn:{bg:'linear-gradient(135deg,#FFB23E,#F59E0B)', text:'#fff', text2:'rgba(255,255,255,.85)'},
+  ma:{bg:'linear-gradient(135deg,#F97316,#EA580C)', text:'#fff', text2:'rgba(255,255,255,.85)'},
+  ersthilfe:{bg:'linear-gradient(135deg,#22D3EE,#0891B2)', text:'#fff', text2:'rgba(255,255,255,.85)'},
+  wochenplan:{bg:'linear-gradient(135deg,#A78BFA,#7C3AED)', text:'#fff', text2:'rgba(255,255,255,.85)'},
+  notizen:{bg:'linear-gradient(135deg,#34d399,#0ea5e9)', text:'#fff', text2:'rgba(255,255,255,.85)'}
+};
+// Liefert {bg,text,text2} für den Rollen-Header einer Dashboard-Kachel, passend zum aktuellen
+// meta.dashIconMode. Bunt nutzt wo vorhanden den handverlesenen Original-Verlauf (keine Verschiebung
+// im Standardmodus); alle anderen Fälle (Verlauf A/B, Einheitlich, sowie "team" auch in Bunt) werden
+// aus der Kachel-Farbe berechnet: 22% dunklerer Verlaufspartner + Textfarbe nach Kontrast-Faustregel.
+function tileHeaderStyle(tileId, d){
+  d = d || getData();
+  const mode = d.meta.dashIconMode || 'bunt';
+  if(mode==='bunt' && BUNT_HEADER_GRADIENTS[tileId]) return BUNT_HEADER_GRADIENTS[tileId];
+  if(mode==='einheitlich'){
+    const preset = getHeaderPreset(d.meta.dashIconColor || 'sonne');
+    return {bg:preset.bg, text:preset.text, text2:preset.text2};
+  }
+  const idx = DASH_TILES.findIndex(t=>t.id===tileId);
+  const tile = DASH_TILES[idx];
+  const base = mode==='bunt' ? tile.color : dashTileColor(tile, idx, d);
+  const dark = shadeHex(base, -0.22);
+  const light = hexLuminance(base) > 0.6;
+  return { bg:`linear-gradient(135deg,${base},${dark})`, text: light?'#1a1205':'#fff', text2: light?'#4a2f10':'rgba(255,255,255,.85)' };
+}
+const ROLE_HEADER_ELEMENTS = [
+  {q:'#view-notfall .nf-head', tileId:'notfall'},
+  {q:'#view-zust .zust-head', tileId:'zust'},
+  {q:'#view-tn .ph-head', tileId:'tn'},
+  {q:'#view-ma .ph-head', tileId:'ma'},
+  {q:'#view-ersthilfe .ph-head', tileId:'ersthilfe'},
+  {q:'#view-wochenplan .ph-head', tileId:'wochenplan'},
+  {q:'#view-notizen .ph-head', tileId:'notizen'},
+  {q:'#view-team .team-head', tileId:'team'}
+];
+function applyDashHeaderColors(){
+  const d = getData();
+  ROLE_HEADER_ELEMENTS.forEach(({q,tileId})=>{
+    const el = document.querySelector(q);
+    if(!el) return;
+    const s = tileHeaderStyle(tileId, d);
+    el.style.background = s.bg;
+    const h1 = el.querySelector('h1'), p = el.querySelector('p');
+    if(h1) h1.style.color = s.text;
+    if(p) p.style.color = s.text2;
+  });
 }
 function renderDashGrid(){
   const d = getData();
@@ -5110,9 +5182,8 @@ function openRole(id){
     // Dashboard-Views (.ph-head) statt des schlichten .dhead-Kopfs — Farbe = aktuelle Dashboard-
     // Kachel-Farbe (dashTileColor, reagiert also automatisch auf Bunt/Verlauf/Einheitlich).
     const dd = getData();
-    const tIdx = DASH_TILES.findIndex(x=>x.id==='zimmer');
-    const accent = dashTileColor(DASH_TILES[tIdx], tIdx, dd);
-    h = `<header class="ph-head" style="background:${accent}"><h1>🛏️ Zimmerzuständigkeiten &amp; Übersicht</h1><p>Wer liegt wo — Zimmer, Betten &amp; Zuständige</p></header>`;
+    const s = tileHeaderStyle('zimmer', dd);
+    h = `<header class="ph-head" style="background:${s.bg}"><h1 style="color:${s.text}">🛏️ Zimmerzuständigkeiten &amp; Übersicht</h1><p style="color:${s.text2}">Wer liegt wo — Zimmer, Betten &amp; Zuständige</p></header>`;
   } else {
     h = `<div class="dhead"><div class="emoji">${r.icon}</div><h2>${esc(r.title)}</h2></div>`;
   }
@@ -6035,6 +6106,7 @@ migrateOldKeys();
 applyTheme();
 updateMetaDisplay();
 applyHeaderStyle(); // spec/25: Header-Farbe/-Bild direkt beim Start setzen
+applyDashHeaderColors(); // spec/26 Nachbesserung: Rollen-Header direkt beim Start an den gewählten Dashboard-Farbmodus anpassen
 renderDashGrid();
 renderGrid();
 bindNotizen();
