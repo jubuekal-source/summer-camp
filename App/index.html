@@ -451,6 +451,31 @@
   .tn-badge{font-size:.72rem;background:var(--card2);border:1px solid var(--line);color:var(--muted);
     padding:2px 8px;border-radius:10px;font-weight:700}
   .tn-badge.warn{color:var(--accent2);border-color:#5a4422}
+  /* spec/22: Essenswahl (neutral/grün, keine Warnung) + Teamer-Kennzeichnung (blau). */
+  .tn-badge.essen{color:#7dd88f;border-color:#2f5a3a}
+  .tn-badge.teamer{color:#8fb8ff;border-color:#2f4a6a}
+  /* spec/22: Teamer-Checkbox im TN-Formular + Fill-Checkbox im Etagen-Farbsheet. */
+  .tn-teamer-check{display:flex;align-items:flex-start;gap:10px;cursor:pointer;font-size:.9rem;line-height:1.35}
+  .tn-teamer-check input{margin-top:3px;flex:0 0 auto;width:18px;height:18px;accent-color:var(--accent)}
+  /* spec/22: Personensuche-Treffer im Zimmer-Reiter — Ortszeile (Zimmer/Etage). */
+  .room-search-loc{font-size:.82rem;color:var(--muted);margin-top:4px;font-weight:600}
+  /* spec/22: Zimmer-Karten-Aktionen (Sortier-Pfeile + Bearbeiten) rechts in der Summary. */
+  .room-summary-actions{display:flex;gap:4px;margin-left:auto}
+  /* spec/22: freie Notiz je Zimmer. */
+  .room-note-block{margin-top:12px}
+  .room-note-text{background:var(--card2);border:1px solid var(--line);border-radius:10px;
+    padding:8px 10px;font-size:.88rem;color:var(--text);margin-bottom:8px;white-space:pre-wrap;overflow-wrap:break-word}
+  .room-note-btn{width:100%;padding:9px;border-radius:10px;border:1px dashed var(--line);
+    background:none;color:var(--muted);font:inherit;font-weight:600;font-size:.82rem;cursor:pointer}
+  .room-note-btn:active{transform:scale(.99)}
+  /* spec/22: Teamer-Sortier-Pfeile in der MA-Karte (rechts). */
+  .staff-move-actions{display:flex;gap:4px;margin-left:auto}
+  /* spec/22: schwebender Zurück-Button unten links, in jeder Ansicht außer Dashboard. */
+  .global-back{position:fixed;left:14px;bottom:calc(16px + env(safe-area-inset-bottom));z-index:60;
+    width:52px;height:52px;border-radius:50%;border:1px solid var(--line);background:var(--card);
+    color:var(--accent2);font-size:1.7rem;line-height:1;align-items:center;justify-content:center;
+    box-shadow:0 4px 16px rgba(0,0,0,.4);opacity:.94;cursor:pointer;display:none;padding-bottom:3px}
+  .global-back:active{transform:scale(.9)}
   .tn-empty, .medi-empty{color:var(--muted);font-size:.9rem;padding:14px 0;text-align:center}
   /* Stufe 16 (spec/14 §7): mitschwebender Schließen-Pfeil, nur sichtbar wenn ein Akkordeon offen ist. */
   .tn-floating-close{position:fixed;right:14px;top:50%;transform:translateY(-50%);z-index:40;
@@ -722,7 +747,7 @@
     <div class="tn-counters" id="maCounters" style="margin-top:16px"></div>
 
     <div class="staff-block" style="margin-top:16px">
-      <h3>👥 Unser Team</h3>
+      <h3 id="staffCountHead">👥 Unser Team</h3>
       <div class="staff-add">
         <input id="staffNameInput" type="text" placeholder="Name eingeben …" autocomplete="off">
         <button type="button" class="staff-add-btn" onclick="addStaff()" aria-label="Person hinzufügen">+</button>
@@ -813,7 +838,7 @@
     <div class="backbar"><button class="back" onclick="location.hash=''">‹ Dashboard</button></div>
     <header class="ph-head" style="background:linear-gradient(135deg,#60A5FA,#3B82F6)">
       <h1>⚙️ Einstellungen</h1>
-      <p>Titel, Zeitraum &amp; Stand anpassen</p>
+      <p>Darstellung, Titel, Zimmer, Export &amp; Zurücksetzen</p>
     </header>
     <div class="settings-block">
       <div>
@@ -953,6 +978,8 @@ function defaultData(){
     schemaVersion: 1,
     meta: { titelZusatz:"", zeitraum:"", stand:"", theme:"system", handyregelTeam:"", raeume:[], betten:{},
             etagen:{}, etagenOrder:[], etagenPlan:{}, // Stufe 19 (spec/17): Etagen-Gruppierung + Lageplan-Bild je Etage
+            etagenColors:{}, // spec/22: frei wählbare Farbe je Etage (key: etageLabel → {color, fill:boolean}) — nur Rahmen oder ganze Etage einfärben
+            roomNotes:{}, // spec/22: freie Notiz je Zimmer (key: zimmerLabel → text)
             notionLinks:{}, // Feintuning 23.07.2026: frei betitelbare öffentliche Notion-Links (key → {url,title}), Teil des Exports
             roleBlockOverrides:{} }, // spec/21 Punkt 4: Text-/Lösch-Overrides für ROLES.core-Items, key = roleId → { itemIdx: {text?, deleted?} }
     staff: [],
@@ -988,6 +1015,10 @@ function normalizeData(raw){
   if(!merged.meta.etagen || typeof merged.meta.etagen !== 'object' || Array.isArray(merged.meta.etagen)) merged.meta.etagen = {};
   if(!Array.isArray(merged.meta.etagenOrder)) merged.meta.etagenOrder = [];
   if(!merged.meta.etagenPlan || typeof merged.meta.etagenPlan !== 'object' || Array.isArray(merged.meta.etagenPlan)) merged.meta.etagenPlan = {};
+  // Migration (spec/22): Etagen-Farben { etageLabel: {color, fill} } + freie Zimmer-Notiz { zimmerLabel: text }.
+  // Fehlt/kein Objekt → {} (kein Datenverlust; ohne Eintrag greift die Standard-Rahmenfarbe / keine Notiz).
+  if(!merged.meta.etagenColors || typeof merged.meta.etagenColors !== 'object' || Array.isArray(merged.meta.etagenColors)) merged.meta.etagenColors = {};
+  if(!merged.meta.roomNotes || typeof merged.meta.roomNotes !== 'object' || Array.isArray(merged.meta.roomNotes)) merged.meta.roomNotes = {};
   // Migration (Feintuning 23.07.2026): frei betitelbare öffentliche Notion-Links (key → {url,title}).
   // Fehlt/kein Objekt → {} (kein Datenverlust). Wird über getData() mitexportiert, also teamweit geteilt.
   if(!merged.meta.notionLinks || typeof merged.meta.notionLinks !== 'object' || Array.isArray(merged.meta.notionLinks)) merged.meta.notionLinks = {};
@@ -1042,6 +1073,10 @@ function normalizeData(raw){
     merged.tn.forEach(t=>{
       if(t.geschlecht === undefined) t.geschlecht = '';
       if(t.allergien === undefined) t.allergien = '';
+      // Migration (spec/22): Essenswahl ('' = normal/keine Angabe, 'vegetarisch', 'vegan') +
+      // Teamer-Flag (als TN erfasst, aber aus der Gruppeneinteilung ausgeschlossen).
+      if(t.essen === undefined) t.essen = '';
+      if(t.istTeamer === undefined) t.istTeamer = false;
     });
   }
   // Migration (Stufe 17, spec/16 §4a): neue MA-Felder für "frühere Abreise" (Freitext-Tag,
@@ -1655,6 +1690,9 @@ function renderStaffList(){
   const el = document.getElementById('staffList');
   if(!el) return;
   const d = getData();
+  // spec/22: Teamer-Counter oben aktualisieren (Gesamtzahl, unabhängig vom Filter).
+  const head = document.getElementById('staffCountHead');
+  if(head) head.textContent = `👥 Unser Team (${d.staff.length})`;
   if(!d.staff.length){
     el.innerHTML = `<div class="staff-empty">Noch keine Mitarbeitenden angelegt. Leg sie oben an.</div>`;
     return;
@@ -1665,12 +1703,26 @@ function renderStaffList(){
     if(c) list = list.filter(c.match);
   }
   if(!list.length){ el.innerHTML = `<div class="staff-empty">Keine Treffer für diesen Filter.</div>`; return; }
-  el.innerHTML = list.map(p=>`
-    <div class="tn-card" onclick="openStaffMenu('${p.id}')">
-      <div class="name">${staffChip(p.id)}${rettungBadgeHTML(p)}${rettungsabzeichenBadgeHTML(p)}</div>
+  // spec/22: Sortier-Pfeile nur ohne aktiven Filter (bei Filter wäre der „Nachbar" nicht sichtbar).
+  el.innerHTML = list.map(p=>{
+    const moveHTML = maFilter ? '' : `<span class="staff-move-actions">
+        <button type="button" class="team-icon-btn sm" onclick="event.stopPropagation();staffMove('${p.id}',-1)" aria-label="Nach oben">↑</button>
+        <button type="button" class="team-icon-btn sm" onclick="event.stopPropagation();staffMove('${p.id}',1)" aria-label="Nach unten">↓</button></span>`;
+    return `<div class="tn-card" onclick="openStaffMenu('${p.id}')">
+      <div class="name">${staffChip(p.id)}${rettungBadgeHTML(p)}${rettungsabzeichenBadgeHTML(p)}${moveHTML}</div>
       <div class="flags">${maFlagBadgesHTML(p)}${maExtraBadgesHTML(p)}</div>
       ${p.details?`<div class="details">${esc(p.details)}</div>`:''}
-    </div>`).join('');
+    </div>`;
+  }).join('');
+}
+/* spec/22: Mitarbeitende (Teamer) in d.staff hoch/runter sortieren (per id, unabhängig vom Filter). */
+function staffMove(id, dir){
+  const d = getData();
+  const i = d.staff.findIndex(s=>s.id===id); if(i<0) return;
+  const j = i + dir; if(j<0 || j>=d.staff.length) return;
+  const tmp = d.staff[i]; d.staff[i] = d.staff[j]; d.staff[j] = tmp;
+  saveData(d);
+  renderStaffList();
 }
 function addStaff(){
   const input = document.getElementById('staffNameInput');
@@ -1982,13 +2034,17 @@ function renderTnCounters(){
   const el = document.getElementById('tnCounters');
   if(!el) return;
   const d = getData();
-  el.innerHTML = TN_COUNTERS.map(c=>{
+  // spec/22: nur Chips zeigen, die tatsächlich belegt sind (n>0) — spart Übersicht bei Kategorien,
+  // die es (noch) nicht gibt. Ein aktiver Filter bleibt sichtbar, auch wenn er gerade auf 0 fällt.
+  const chips = TN_COUNTERS.map(c=>{
     const n = d.tn.filter(c.match).length;
+    if(n===0 && tnFilter!==c.id) return '';
     const cls = ['tn-counter'];
     if(n>0) cls.push('has');
     if(tnFilter===c.id) cls.push('active');
     return `<button type="button" class="${cls.join(' ')}" onclick="toggleTnFilter('${c.id}')">${c.icon} <span class="n">${n}</span></button>`;
   }).join('');
+  el.innerHTML = chips || `<div class="tn-empty" style="padding:6px 0;text-align:left">Noch keine Besonderheiten erfasst.</div>`;
 }
 function toggleTnFilter(id){
   tnFilter = (tnFilter===id) ? null : id;
@@ -2027,7 +2083,15 @@ function renderTnFilteredList(){
   el.innerHTML = list.map(t=>tnCardHTML(t, {inline:true})).join('');
 }
 function openTnLegend(){
+  // spec/22: zusätzliche Legenden-Einträge für Essenswahl-Icons + Teamer-Kennzeichnung.
+  const extra = [
+    {icon:'🥗', label:'Vegetarisch', desc:'Bevorzugte Essenswahl: vegetarisch (steht direkt neben dem Allergie-Icon).'},
+    {icon:'🌱', label:'Vegan', desc:'Bevorzugte Essenswahl: vegan (steht direkt neben dem Allergie-Icon). „normal" bekommt bewusst kein Icon.'},
+    {icon:'🧑‍🏫', label:'Teamer', desc:'Als TN erfasst (für Zimmerbelegung/Besonderheiten), aber aus der Gruppeneinteilung ausgeschlossen.'}
+  ];
   openSheet('Legende', `<div class="legend-list">` + TN_COUNTERS.map(c=>
+    `<div class="legend-item"><span class="ic">${c.icon}</span><div><b>${esc(c.label)}</b><br><span style="color:var(--muted)">${esc(c.desc)}</span></div></div>`
+  ).join('') + extra.map(c=>
     `<div class="legend-item"><span class="ic">${c.icon}</span><div><b>${esc(c.label)}</b><br><span style="color:var(--muted)">${esc(c.desc)}</span></div></div>`
   ).join('') + `</div>`);
 }
@@ -2176,14 +2240,30 @@ function deleteMediConfirm(id){
 
 /* ---- TN-Liste ---- */
 function onTnSearch(v){ tnSearchTerm = v; renderTnStatsListBody(); }
+/* spec/22: Essenswahl-Badge (neutral, keine Warnung). '' = normal → kein Icon (Übersicht sparen). */
+function essenBadgeHTML(t){
+  if(t.essen==='vegetarisch') return `<span class="tn-badge essen">🥗 vegetarisch</span>`;
+  if(t.essen==='vegan') return `<span class="tn-badge essen">🌱 vegan</span>`;
+  return '';
+}
 function tnBadgesHTML(t){
   let out = '';
+  // spec/22: Teamer-Kennzeichnung ganz vorn, damit als-TN erfasste Teamer sofort erkennbar sind.
+  if(t.istTeamer) out += `<span class="tn-badge teamer">🧑‍🏫 Teamer</span>`;
   TN_COUNTERS.forEach(c=>{
-    if(c.id==='schwimm' || !c.match(t)) return;
-    // spec/18: Allergie-Badge zeigt den eingetragenen Text (z. B. „🥜 Nüsse") statt nur „Allergie".
-    let label = c.label;
-    if(c.id==='allergien' && t.allergien && t.allergien.trim()) label = t.allergien.trim();
-    out += `<span class="tn-badge warn">${c.icon} ${esc(label)}</span>`;
+    if(c.id==='schwimm') return;
+    // spec/22: Essenswahl-Icon direkt neben/nach dem Allergie-Icon platzieren (auch wenn keine Allergie).
+    if(c.id==='allergien'){
+      if(c.match(t)){
+        // spec/18: Allergie-Badge zeigt den eingetragenen Text (z. B. „🥜 Nüsse") statt nur „Allergie".
+        const label = (t.allergien && t.allergien.trim()) ? t.allergien.trim() : c.label;
+        out += `<span class="tn-badge warn">${c.icon} ${esc(label)}</span>`;
+      }
+      out += essenBadgeHTML(t);
+      return;
+    }
+    if(!c.match(t)) return;
+    out += `<span class="tn-badge warn">${c.icon} ${esc(c.label)}</span>`;
   });
   if((t.schwimm && t.schwimm!=='sicher') || (t.bade && t.bade!=='alles')){
     const sw = {sicher:'sicher',anfaenger:'Anfänger',nicht:'Nichtschwimmer'}[t.schwimm] || null;
@@ -2346,6 +2426,20 @@ function tnAllergienModeToggle(input){
   const ta = document.getElementById('tfAllergienText');
   if(ta) ta.style.display = (input.value==='vorhanden') ? '' : 'none';
 }
+/* ---- Essenswahl (spec/22): 3 Radio-Chips, gleiches Muster wie Geschlecht. '' = normal (kein Icon). ---- */
+function tnEssenChipsHTML(current){
+  const opts = [{id:'',icon:'🍽️',label:'normal'},{id:'vegetarisch',icon:'🥗',label:'vegetarisch'},{id:'vegan',icon:'🌱',label:'vegan'}];
+  return `<div class="toggle-chips" id="tfEssenGroup">` + opts.map(o=>{
+    const on = (current||'')===o.id;
+    return `<label class="toggle-chip${on?' on':''}">
+      <input type="radio" name="tfEssen" value="${o.id}" ${on?'checked':''} style="display:none"
+        onchange="tnEssenRadioToggle(this)">${o.icon} ${esc(o.label)}</label>`;
+  }).join('') + `</div>`;
+}
+function tnEssenRadioToggle(input){
+  document.querySelectorAll('#tfEssenGroup .toggle-chip').forEach(l=>l.classList.remove('on'));
+  input.parentElement.classList.add('on');
+}
 /* ---- Medikamente inline im TN-Formular (Stufe 16, spec/14 §4): schreibt/liest tnMediDraft,
    erst saveTn() überträgt den Draft dauerhaft nach d.medis. Kein eigener Bottom-Sheet-Stack —
    das kleine Unter-Formular rendert inline in #tnMediSubForm. ---- */
@@ -2446,6 +2540,8 @@ function openTnSheet(id){
   const schwimmCur = t ? (t.schwimm||'') : 'sicher';
   const badeCur = t ? (t.bade||'') : 'alles';
   const allergienCur = t ? (t.allergien||'') : '';
+  const essenCur = t ? (t.essen||'') : '';
+  const teamerCur = t ? !!t.istTeamer : false;
   tnMediDraft = t ? d.medis.filter(m=>m.tnId===t.id).map(m=>({zeit:m.zeit,medikament:m.medikament,notiz:m.notiz})) : [];
   tnMediDraftEditIdx = null;
   // Stufe 17 (spec/16 §3) + Feintuning 23.07.2026: Der „zuerst Zimmer anlegen"-Hinweis sitzt jetzt
@@ -2478,6 +2574,10 @@ function openTnSheet(id){
         <option value="verbot"${badeCur==='verbot'?' selected':''}>Badeverbot</option>
       </select></div>
     <div class="form-field"><label>Allergien</label>${tnAllergienFieldHTML(allergienCur)}</div>
+    <div class="form-field"><label>🍽️ Essenswahl</label>${tnEssenChipsHTML(essenCur)}</div>
+    <div class="form-field"><label>Rolle</label>
+      <label class="tn-teamer-check"><input id="tfTeamer" type="checkbox" ${teamerCur?'checked':''}>
+        <span>🧑‍🏫 Teamer (als TN erfasst, aber <b>nicht</b> in der Gruppeneinteilung)</span></label></div>
     <div class="form-field"><label>💊 Medikamente</label>
       <div id="tnMediDraftList">${tnMediDraftListHTML()}</div>
       <div id="tnMediSubForm"></div>
@@ -2502,6 +2602,8 @@ function saveTn(id){
   const bade = document.getElementById('tfBade').value || null;
   const allergienMode = (document.querySelector('input[name="tfAllergienMode"]:checked')||{}).value;
   const allergien = (allergienMode==='vorhanden') ? document.getElementById('tfAllergienText').value.trim() : '';
+  const essen = (document.querySelector('input[name="tfEssen"]:checked')||{}).value || '';
+  const istTeamer = !!(document.getElementById('tfTeamer')||{}).checked;
   const details = document.getElementById('tfDetails').value.trim();
   // Stufe 16: Selektor auf type=checkbox eingeschränkt — #sheetBody enthält jetzt zusätzlich die
   // Geschlecht-/Allergien-Radios im selben .toggle-chip-Look, die hier NICHT als Flags zählen dürfen.
@@ -2510,10 +2612,10 @@ function saveTn(id){
   let tnId = id;
   if(id){
     const t = d.tn.find(x=>x.id===id);
-    if(t) Object.assign(t, {name, alter: alterVal?Number(alterVal):"", zimmer, geschlecht, schwimm, bade, allergien, details, flags});
+    if(t) Object.assign(t, {name, alter: alterVal?Number(alterVal):"", zimmer, geschlecht, schwimm, bade, allergien, essen, istTeamer, details, flags});
   } else {
     tnId = uid();
-    d.tn.push({ id:tnId, name, alter: alterVal?Number(alterVal):"", zimmer, geschlecht, schwimm, bade, allergien, details, flags });
+    d.tn.push({ id:tnId, name, alter: alterVal?Number(alterVal):"", zimmer, geschlecht, schwimm, bade, allergien, essen, istTeamer, details, flags });
   }
   // Stufe 16 (spec/14 §4): Medikamente-Draft dauerhaft nach d.medis übertragen — alte Einträge
   // dieses TN entfernen, dann den kompletten Draft neu einfügen (einfacher als diffen).
@@ -2949,7 +3051,7 @@ function gruppeCreatePreviewCount(){
   const geschlecht = (document.querySelector('input[name="gcGeschlecht"]:checked')||{}).value || 'alle';
   const von = document.getElementById('gcAlterVon').value;
   const bis = document.getElementById('gcAlterBis').value;
-  let list = d.tn;
+  let list = d.tn.filter(t=>!t.istTeamer); // spec/22: Teamer nicht in die Gruppeneinteilung
   if(geschlecht==='w') list = list.filter(t=>t.geschlecht==='w');
   else if(geschlecht==='m') list = list.filter(t=>t.geschlecht==='m');
   if(von) list = list.filter(t=>t.alter && t.alter>=Number(von));
@@ -3005,7 +3107,7 @@ function gruppeAlterWort(alter){
 function gruppeRenderModeC(){
   const body = document.getElementById('gcModeBody'); if(!body) return;
   const d = getData();
-  const alterWerte = [...new Set(d.tn.filter(t=>t.alter).map(t=>t.alter))].sort((a,b)=>a-b);
+  const alterWerte = [...new Set(d.tn.filter(t=>t.alter && !t.istTeamer).map(t=>t.alter))].sort((a,b)=>a-b);
   const previewText = alterWerte.length
     ? `Legt automatisch ${alterWerte.length} Gruppe${alterWerte.length===1?'':'n'} an: ` + alterWerte.map(a=>gruppeAlterWort(a)).join(', ') + '.'
     : 'Keine TN mit Altersangabe vorhanden — es kann keine Gruppe angelegt werden.';
@@ -3018,7 +3120,7 @@ function gruppeRenderModeC(){
 }
 function createGruppenNachAlter(){
   const d = getData();
-  const mitAlter = d.tn.filter(t=>t.alter);
+  const mitAlter = d.tn.filter(t=>t.alter && !t.istTeamer); // spec/22: Teamer nicht in die Gruppeneinteilung
   if(!mitAlter.length){ alert('Keine TN mit Altersangabe vorhanden.'); return; }
   const alterWerte = [...new Set(mitAlter.map(t=>t.alter))].sort((a,b)=>a-b);
   alterWerte.forEach(alter=>{
@@ -3071,7 +3173,7 @@ function gruppeRandomPool(){
   const geschlecht = (document.querySelector('input[name="gcbGeschlecht"]:checked')||{}).value || 'alle';
   const von = document.getElementById('gcbAlterVon').value;
   const bis = document.getElementById('gcbAlterBis').value;
-  let list = d.tn;
+  let list = d.tn.filter(t=>!t.istTeamer); // spec/22: Teamer nicht in die Gruppeneinteilung
   if(geschlecht==='w') list = list.filter(t=>t.geschlecht==='w');
   else if(geschlecht==='m') list = list.filter(t=>t.geschlecht==='m');
   if(von) list = list.filter(t=>t.alter && t.alter>=Number(von));
@@ -3860,15 +3962,29 @@ function roomCardHTML(raum, idx){
     <summary>
       <span class="room-summary-label">🛏️ Zimmer ${esc(raum)}</span>
       <span class="room-summary-belegt">${belegt}/${betten} belegt</span>
-      <button type="button" class="team-icon-btn sm room-edit-toggle" onclick="event.preventDefault();event.stopPropagation();toggleRoomEdit(${idx})" aria-label="Zimmer bearbeiten">✏️</button>
+      <span class="room-summary-actions">
+        <button type="button" class="team-icon-btn sm" onclick="event.preventDefault();event.stopPropagation();roomMove(${idx},-1)" aria-label="Zimmer nach oben">↑</button>
+        <button type="button" class="team-icon-btn sm" onclick="event.preventDefault();event.stopPropagation();roomMove(${idx},1)" aria-label="Zimmer nach unten">↓</button>
+        <button type="button" class="team-icon-btn sm" onclick="event.preventDefault();event.stopPropagation();toggleRoomEdit(${idx})" aria-label="Zimmer bearbeiten">✏️</button>
+      </span>
       <span class="room-summary-chips">${chipsStatic}</span>
     </summary>
     <div class="body">
       ${editHTML}
+      ${roomNoteBlockHTML(raum, idx)}
       <div class="sec-h" style="margin-top:14px">TN in diesem Zimmer</div>
       <div class="room-tn-list">${tnListHTML}</div>
     </div>
   </details>`;
+}
+/* spec/22: freie Notiz je Zimmer (Anzeige im Lese-Bereich + Button zum Bearbeiten). */
+function roomNoteBlockHTML(raum, idx){
+  const d = getData();
+  const note = (d.meta.roomNotes && d.meta.roomNotes[raum]) || '';
+  return `<div class="room-note-block">
+    ${note ? `<div class="room-note-text">📝 ${esc(note)}</div>` : ''}
+    <button type="button" class="room-note-btn" onclick="roomNoteEdit(${idx})">📝 ${note?'Notiz bearbeiten':'Notiz hinzufügen'}</button>
+  </div>`;
 }
 
 /* Stufe 19 (spec/17): Anzeige-Filter (nur Laufzeit, kein Datenmodell). null = alle Etagen zeigen. */
@@ -3876,6 +3992,65 @@ let zimmerEtageFilter = null;
 function setEtageFilter(idx){
   const d = getData();
   zimmerEtageFilter = (idx < 0) ? null : (d.meta.etagenOrder[idx] || null);
+  renderRaeumeZustList();
+}
+
+/* spec/22: Personensuche über alle Zimmer (nur Laufzeit). Leerer String = normale Etagen-Ansicht. */
+let zimmerPersonQuery = '';
+function onZimmerPersonSearch(v){
+  zimmerPersonQuery = v || '';
+  renderRaeumeZustList();
+}
+
+/* spec/22: Single-Open für Etagen-Akkordeons — öffne ich eine Etage, schließt sich die vorher
+   offene automatisch (gleiches Muster wie wireRoleAccordions). Wird nach jedem (Neu-)Aufbau der
+   Zimmer-Liste verdrahtet. Ohne Guard würde das programmatische Schließen erneut toggle-Events
+   auslösen; da wir aber nur andere schließen (nicht das gerade geöffnete), terminiert das sauber. */
+function wireEtageAccordions(){
+  const el = document.getElementById('raeumeZustList');
+  if(!el) return;
+  const dets = Array.from(el.querySelectorAll('details.etage-card'));
+  dets.forEach(det=>{
+    if(det._etageWired) return; // nicht doppelt binden bei erneutem renderRaeumeZustList()
+    det._etageWired = true;
+    det.addEventListener('toggle', ()=>{
+      if(det.open){
+        dets.forEach(o=>{ if(o!==det && o.open) o.open = false; });
+        const s = det.querySelector('summary');
+        if(s) requestAnimationFrame(()=>s.scrollIntoView({behavior:'smooth', block:'start'}));
+      }
+    });
+  });
+}
+
+/* spec/22: individuelle Etagen-Farbe wählen (Rahmen; optional ganze Etage einfärben). */
+function etageColorPick(ordIdx){
+  const d = getData(); const etage = d.meta.etagenOrder[ordIdx]; if(etage===undefined) return;
+  const cur = (d.meta.etagenColors && d.meta.etagenColors[etage]) || {};
+  const color = cur.color || '#4F86C6';
+  const fill = !!cur.fill;
+  openSheet('Etage „' + etage + '" einfärben', `<div class="etage-color-sheet">
+    <div class="form-field"><label for="etageColorInput">Farbe</label>
+      <input id="etageColorInput" type="color" value="${esc(color)}" style="width:100%;height:46px;padding:2px;border-radius:10px;border:1px solid var(--line);background:var(--card2)"></div>
+    <label class="tn-teamer-check" style="margin-top:6px"><input id="etageColorFill" type="checkbox" ${fill?'checked':''}>
+      <span>Ganze Etage einfärben (nicht nur den Rahmen)</span></label>
+    <div class="form-actions" style="margin-top:14px">
+      ${cur.color?`<button type="button" class="staff-danger" onclick="setEtageColor(${ordIdx}, true)">Farbe entfernen</button>`:''}
+      <button type="button" class="form-save" onclick="setEtageColor(${ordIdx}, false)">Übernehmen</button>
+    </div></div>`);
+}
+function setEtageColor(ordIdx, remove){
+  const d = getData(); const etage = d.meta.etagenOrder[ordIdx]; if(etage===undefined) return;
+  if(!d.meta.etagenColors) d.meta.etagenColors = {};
+  if(remove){
+    delete d.meta.etagenColors[etage];
+  } else {
+    const color = (document.getElementById('etageColorInput')||{}).value || '#4F86C6';
+    const fill = !!(document.getElementById('etageColorFill')||{}).checked;
+    d.meta.etagenColors[etage] = { color, fill };
+  }
+  saveData(d);
+  closeSheet();
   renderRaeumeZustList();
 }
 
@@ -3909,6 +4084,25 @@ function raeumeZustRowsHTML(){
   if(!raeume.length && !d.meta.etagenOrder.length){
     return `<div class="staff-empty">Noch keine Zimmer angelegt.</div>`;
   }
+  // spec/22: Personensuche über alle Zimmer/Etagen hinweg — bei aktiver Suche flache Trefferliste
+  // (Name → Zimmer/Etage), statt der Etagen-Gruppierung. Tap öffnet das Info-Blatt der Person.
+  const pq = (zimmerPersonQuery||'').trim().toLowerCase();
+  if(pq){
+    const treffer = d.tn.filter(t=>t.name.toLowerCase().includes(pq)).sort((a,b)=>a.name.localeCompare(b.name,'de'));
+    if(!treffer.length) return `<div class="tn-empty">Keine Person gefunden für „${esc(zimmerPersonQuery.trim())}".</div>`;
+    return treffer.map(t=>{
+      const raum = t.zimmer || '';
+      const etage = raum ? (d.meta.etagen[raum]||'') : '';
+      const ort = raum
+        ? `🛏️ Zimmer ${esc(raum)}${etage?` · 🏠 ${esc(etage)}`:''}`
+        : `<span style="color:var(--muted)">kein Zimmer zugeordnet</span>`;
+      return `<div class="tn-card" onclick="openTnInfo('${t.id}')">
+        <div class="name">${esc(t.name)}${t.alter?`<span class="tn-badge">${esc(String(t.alter))} J.</span>`:''}</div>
+        <div class="room-search-loc">${ort}</div>
+        <div class="flags">${tnBadgesHTML(t)}</div>
+      </div>`;
+    }).join('');
+  }
   // Zimmer-Index-Liste je Etagen-Label (+ "Ohne Etage"-Sammelgruppe).
   const roomsByEtage = {};
   const ohne = [];
@@ -3928,6 +4122,16 @@ function raeumeZustRowsHTML(){
   d.meta.etagenOrder.forEach((etage, ordIdx)=>{
     if(zimmerEtageFilter && zimmerEtageFilter !== etage) return;
     const rooms = roomsByEtage[etage] || [];
+    // spec/22: freie Betten dieser Etage (Summe über Zimmer, nie negativ).
+    let etageFrei = 0;
+    rooms.forEach(r=>{ etageFrei += Math.max(0, raumBetten(r.raum) - raumBelegt(r.raum)); });
+    // spec/22: individuelle Etagen-Farbe (Rahmen; optional ganze Etage einfärben).
+    const col = (d.meta.etagenColors && d.meta.etagenColors[etage]) || null;
+    let etageStyle = '';
+    if(col && col.color){
+      etageStyle = `border-color:${col.color};border-width:2px;`;
+      if(col.fill) etageStyle += `background:${col.color}22;`;
+    }
     const planId = d.meta.etagenPlan[etage] || '';
     const planHTML = planId
       ? `<details class="det etage-plan-acc"><summary>🖼️ Lageplan anzeigen</summary><div class="body">
@@ -3938,11 +4142,12 @@ function raeumeZustRowsHTML(){
              </div></div>
          </div></details>`
       : `<button type="button" class="etage-plan-upload" onclick="etagePlanPick(${ordIdx})">🖼️ Lageplan hochladen (PNG/JPG)</button>`;
-    html += `<details class="det etage-card" data-etage="${ordIdx}" open>
+    html += `<details class="det etage-card${col&&col.color?' colored':''}" data-etage="${ordIdx}"${etageStyle?` style="${etageStyle}"`:''}>
       <summary>
         <span class="etage-summary-label">🏠 ${esc(etage)}</span>
-        <span class="etage-summary-count">${rooms.length} ${rooms.length===1?'Zimmer':'Zimmer'}</span>
+        <span class="etage-summary-count">${rooms.length} Zimmer · 🛏️ ${etageFrei} frei</span>
         <span class="etage-summary-actions">
+          <button type="button" class="team-icon-btn sm" onclick="event.preventDefault();event.stopPropagation();etageColorPick(${ordIdx})" aria-label="Etage einfärben">🎨</button>
           <button type="button" class="team-icon-btn sm" onclick="event.preventDefault();event.stopPropagation();etageMove(${ordIdx},-1)" aria-label="Nach oben">↑</button>
           <button type="button" class="team-icon-btn sm" onclick="event.preventDefault();event.stopPropagation();etageMove(${ordIdx},1)" aria-label="Nach unten">↓</button>
           <button type="button" class="team-icon-btn sm" onclick="event.preventDefault();event.stopPropagation();etageRename(${ordIdx})" aria-label="Etage umbenennen">✏️</button>
@@ -3956,10 +4161,12 @@ function raeumeZustRowsHTML(){
     </details>`;
   });
   if(ohne.length && !zimmerEtageFilter){
-    html += `<details class="det etage-card" data-etage="ohne" open>
+    let ohneFrei = 0;
+    ohne.forEach(r=>{ ohneFrei += Math.max(0, raumBetten(r.raum) - raumBelegt(r.raum)); });
+    html += `<details class="det etage-card" data-etage="ohne">
       <summary>
         <span class="etage-summary-label">📦 Ohne Etage</span>
-        <span class="etage-summary-count">${ohne.length} Zimmer</span>
+        <span class="etage-summary-count">${ohne.length} Zimmer · 🛏️ ${ohneFrei} frei</span>
       </summary>
       <div class="body">${ohne.map(r=>roomCardHTML(r.raum, r.idx)).join('')}</div>
     </details>`;
@@ -3977,15 +4184,15 @@ function renderRaeumeZustList(){
     .filter(det=>det.open).map(det=>det.dataset.idx));
   const openEt = new Set(Array.from(el.querySelectorAll('details.etage-card'))
     .filter(det=>det.open).map(det=>det.dataset.etage));
-  const wasRendered = el.dataset.rendered === '1';
   el.innerHTML = raeumeZustRowsHTML();
   el.querySelectorAll('details.room-card').forEach(det=>{ if(openIdx.has(det.dataset.idx)) det.open = true; });
-  // Etagen-Akkordeons: beim allerersten Rendern default offen (open im HTML); danach den vorigen
-  // Zustand respektieren, damit ein zugeklapptes Akkordeon nicht bei jedem Re-Render aufspringt.
-  if(wasRendered){
-    el.querySelectorAll('details.etage-card').forEach(det=>{ det.open = openEt.has(det.dataset.etage); });
-  }
+  // spec/22: Etagen-Akkordeons sind jetzt standardmäßig ZU (kein `open` mehr im HTML). Beim
+  // Neuzeichnen (z. B. nach Teamer-Zuweisung im Sheet) den vorher offenen Zustand wiederherstellen,
+  // damit die gerade offene Etage nicht zuklappt. Beim Betreten des Reiters (frischer openRole-Aufbau)
+  // gibt es keinen Vorzustand → alle bleiben zu, wie gewünscht.
+  el.querySelectorAll('details.etage-card').forEach(det=>{ det.open = openEt.has(det.dataset.etage); });
   el.dataset.rendered = '1';
+  wireEtageAccordions(); // spec/22: Single-Open (eine offene Etage schließt die andere)
   renderEtagePlanImages();
 }
 /* Lageplan-Bilder nachladen (async, IndexedDB) — wie renderWpImages die Bild-src nachträgt. */
@@ -4005,6 +4212,44 @@ function roomSetEtage(idx, value){
   saveData(d);
   renderRaeumeZustList();
   renderRaeumeSettings();
+}
+/* ---- spec/22: Zimmer innerhalb ihrer Etage per Pfeil sortieren (wie Etagen). Getauscht wird die
+   Position im meta.raeume-Array — nur mit dem direkten Nachbarn DERSELBEN Etage (bzw. „Ohne Etage"),
+   damit die Sortierung sich intuitiv nur innerhalb der sichtbaren Gruppe bewegt. Alle label-keyed
+   Daten (Betten/Etage/Notiz/Zuständigkeit) bleiben beim Label, das Verschieben ist also verlustfrei. */
+function roomMove(idx, dir){
+  const d = getData();
+  const raeume = d.meta.raeume; const raum = raeume[idx]; if(raum===undefined) return;
+  const e = d.meta.etagen[raum] || null;
+  const sib = raeume.map((r,i)=>({r,i})).filter(o=>((d.meta.etagen[o.r]||null)===e)).map(o=>o.i);
+  const p = sib.indexOf(idx); const q = p + dir;
+  if(p < 0 || q < 0 || q >= sib.length) return;
+  const a = sib[p], b = sib[q];
+  const tmp = raeume[a]; raeume[a] = raeume[b]; raeume[b] = tmp;
+  saveData(d);
+  renderRaeumeZustList();
+  renderRaeumeSettings();
+}
+/* ---- spec/22: freie Notiz je Zimmer bearbeiten/löschen ---- */
+function roomNoteEdit(idx){
+  const d = getData(); const raum = d.meta.raeume[idx]; if(raum===undefined) return;
+  const cur = (d.meta.roomNotes && d.meta.roomNotes[raum]) || '';
+  openSheet('Notiz — Zimmer ' + raum, `<div class="form-field">
+      <textarea id="roomNoteText" placeholder="z. B. Etagenbett oben defekt, direkt neben dem Teamerzimmer …">${esc(cur)}</textarea></div>
+    <div class="form-actions">
+      ${cur?`<button type="button" class="staff-danger" onclick="roomNoteSave(${idx}, true)">Notiz löschen</button>`:''}
+      <button type="button" class="form-save" onclick="roomNoteSave(${idx}, false)">Speichern</button>
+    </div>`);
+  const ta = document.getElementById('roomNoteText'); if(ta) ta.focus();
+}
+function roomNoteSave(idx, del){
+  const d = getData(); const raum = d.meta.raeume[idx]; if(raum===undefined) return;
+  if(!d.meta.roomNotes) d.meta.roomNotes = {};
+  const val = del ? '' : ((document.getElementById('roomNoteText')||{}).value || '').trim();
+  if(val) d.meta.roomNotes[raum] = val; else delete d.meta.roomNotes[raum];
+  saveData(d);
+  closeSheet();
+  renderRaeumeZustList();
 }
 /* ---- Etagen sortieren / umbenennen / löschen (Handler nutzen den etagenOrder-INDEX) ---- */
 function etageMove(ordIdx, dir){
@@ -4036,6 +4281,11 @@ function etageRenameSave(ordIdx){
       else if(d.meta.etagenPlan[oldE]) imgDelete(d.meta.etagenPlan[oldE]);
       delete d.meta.etagenPlan[oldE];
     }
+    // spec/22: Etagen-Farbe mitwandern (bei Kollision Zielfarbe behalten).
+    if(d.meta.etagenColors && Object.prototype.hasOwnProperty.call(d.meta.etagenColors, oldE)){
+      if(!d.meta.etagenColors[val]) d.meta.etagenColors[val] = d.meta.etagenColors[oldE];
+      delete d.meta.etagenColors[oldE];
+    }
     // etagenOrder: existiert der Zielname schon (Zusammenführen), alten Slot entfernen; sonst umbenennen.
     const existingIdx = d.meta.etagenOrder.indexOf(val);
     if(existingIdx >= 0 && existingIdx !== ordIdx) d.meta.etagenOrder.splice(ordIdx, 1);
@@ -4061,6 +4311,7 @@ function etageDeleteDo(ordIdx){
   Object.keys(d.meta.etagen).forEach(raum=>{ if(d.meta.etagen[raum]===etage) delete d.meta.etagen[raum]; });
   const planId = d.meta.etagenPlan[etage];
   delete d.meta.etagenPlan[etage];
+  if(d.meta.etagenColors) delete d.meta.etagenColors[etage]; // spec/22: Farbe mit entfernen
   d.meta.etagenOrder.splice(ordIdx, 1);
   if(zimmerEtageFilter === etage) zimmerEtageFilter = null;
   saveData(d);
@@ -4183,6 +4434,7 @@ function openRole(id){
        achten?"-Akkordeon (Muster wie das Medi-Plan-Akkordeon aus Stufe 13) — erst die Hinweise,
        dann die eigentliche Zimmer-Übersicht als öffenbare Karten. */
     zimmerCoreEditMode = false; // beim (Wieder-)Öffnen der Rolle immer wieder Lese-Ansicht
+    zimmerPersonQuery = ''; // spec/22: Personensuche beim Betreten zurücksetzen (Etagen starten zu)
     h+=`<details class="det" style="margin-top:4px">
       <summary>🧭 Worauf muss ich achten?
         <button type="button" id="zimmerCoreEditToggle" class="team-icon-btn sm" style="margin-left:auto"
@@ -4194,6 +4446,7 @@ function openRole(id){
       </div>
     </details>`;
     h+=`<div class="sec-h" style="margin-top:18px">Zimmer-Übersicht</div>`;
+    h+=`<div class="searchbar" style="margin-bottom:10px"><input id="zimmerPersonSearch" type="search" placeholder="🔍 Person in allen Zimmern suchen …" autocomplete="off" oninput="onZimmerPersonSearch(this.value)"></div>`;
     h+=`<div id="raeumeZustList">${raeumeZustRowsHTML()}</div>`;
     h+=`<button type="button" class="team-add-point" onclick="raeumeAddRoom()">+ Zimmer</button>`;
   }
@@ -4243,6 +4496,7 @@ function openRole(id){
 
   detailBody().innerHTML=h;
   wireRoleAccordions();
+  wireEtageAccordions(); // spec/22: Single-Open der Etagen auch beim ersten Aufbau der Zimmer-Rolle
 
   const ta=document.getElementById('noteArea'), tag=document.getElementById('savedTag');
   let t=null;
@@ -4253,12 +4507,14 @@ function openRole(id){
 
   home().style.display="none"; detail().classList.add('active');
   window.scrollTo(0,0);
+  updateGlobalBack();
   if(location.hash!=="#"+id) location.hash=id;
 }
 
 function goHome(){
   detail().classList.remove('active'); home().style.display="block";
   window.scrollTo(0,0);
+  updateGlobalBack();
 }
 
 /* ---- Notizen (Dashboard-Kachel: Allgemein + je Tag, wird später vom Wochenplan mitgenutzt) ---- */
@@ -4659,6 +4915,11 @@ function raeumeEditRoomSave(idx){
       d.meta.etagen[val] = d.meta.etagen[oldRaum];
       delete d.meta.etagen[oldRaum];
     }
+    // spec/22: freie Zimmer-Notiz mit umbenennen.
+    if(d.meta.roomNotes && Object.prototype.hasOwnProperty.call(d.meta.roomNotes, oldRaum)){
+      d.meta.roomNotes[val] = d.meta.roomNotes[oldRaum];
+      delete d.meta.roomNotes[oldRaum];
+    }
   }
   saveData(d);
   closeSheet();
@@ -4683,6 +4944,7 @@ function raeumeDeleteRoomDo(idx){
   delete d.zust[roomZustKey(raum)];
   delete d.meta.betten[raum];
   delete d.meta.etagen[raum]; // Stufe 19 (spec/17): Etagen-Zuordnung mit entfernen
+  if(d.meta.roomNotes) delete d.meta.roomNotes[raum]; // spec/22: freie Notiz mit entfernen
   d.meta.raeume.splice(idx,1);
   saveData(d);
   closeSheet();
@@ -4974,6 +5236,36 @@ function showView(name){
   document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
   const v=document.getElementById('view-'+name);
   if(v) v.classList.add('active');
+  updateGlobalBack();
+}
+
+/* ---- spec/22: schwebender Zurück-Button unten links (in jeder Ansicht außer Dashboard) ----
+   Bewusst KEINE eigene Navigations-Logik: der Button klickt einfach den sichtbaren „‹ Zurück"/
+   „‹ Dashboard"-Button der aktiven View an — exakt wie der Wisch-zurück (setupSwipeBack). Dadurch
+   läuft er automatisch in jeder Ansicht korrekt und ist nur sichtbar, wenn es dort etwas zum
+   Zurückgehen gibt (das Dashboard selbst hat keinen .back → Button bleibt aus). */
+function ensureGlobalBack(){
+  let b = document.getElementById('globalBack');
+  if(!b){
+    b = document.createElement('button');
+    b.id = 'globalBack'; b.type = 'button'; b.className = 'global-back';
+    b.setAttribute('aria-label','Zurück'); b.textContent = '‹';
+    b.onclick = globalBackClick;
+    document.body.appendChild(b);
+  }
+  return b;
+}
+function globalBackClick(){
+  const backs = document.querySelectorAll('.view.active .back');
+  for(const b of backs){ if(b.offsetParent !== null){ b.click(); return; } }
+  location.hash = ''; // Fallback: zum Dashboard
+}
+function updateGlobalBack(){
+  const btn = ensureGlobalBack();
+  let show = false;
+  const backs = document.querySelectorAll('.view.active .back');
+  for(const b of backs){ if(b.offsetParent !== null){ show = true; break; } }
+  btn.style.display = show ? 'flex' : 'none';
 }
 
 function route(){
