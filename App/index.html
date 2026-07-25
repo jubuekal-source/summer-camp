@@ -509,6 +509,33 @@
   .toggle-chip.on{border-color:var(--accent);background:rgba(255,107,74,.14);color:var(--text)}
   .toggle-chip:active{transform:scale(.96)}
 
+  /* ===== Check-In-View (spec/27): schlanke Abhak-Liste, eigene Sicht auf die tn-Datensätze ===== */
+  .ci-counter{display:flex;gap:10px;flex-wrap:wrap;margin:14px 0 6px}
+  .ci-count{flex:1 1 120px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px;text-align:center}
+  .ci-count .n{font-size:1.5rem;font-weight:800;color:var(--accent2)}
+  .ci-count .l{font-size:.78rem;color:var(--muted);font-weight:700;margin-top:2px}
+  .ci-count.warn .n{color:#ff8a6a}
+  .ci-card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin-bottom:10px;border-left:4px solid var(--line)}
+  .ci-card.done{border-left-color:#34d399}
+  .ci-card.crit{border-left-color:#ff5a5a}
+  .ci-card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
+  .ci-name{font-weight:800;font-size:1rem;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .ci-sub{color:var(--muted);font-size:.8rem;margin-top:3px}
+  .ci-present{display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:12px;border:1px solid var(--line);background:var(--card2);font-weight:800;font-size:.9rem;cursor:pointer;white-space:nowrap}
+  .ci-present.on{border-color:#34d399;background:rgba(52,211,153,.16);color:var(--text)}
+  .ci-present input{width:20px;height:20px;accent-color:#34d399}
+  .ci-row{display:flex;align-items:center;gap:8px;margin-top:10px;flex-wrap:wrap}
+  .ci-row-l{font-size:.82rem;font-weight:700;color:var(--text);flex:1 1 110px;min-width:100px}
+  .ci-seg{display:inline-flex;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+  .ci-seg button{padding:7px 11px;border:none;background:var(--card2);color:var(--muted);font:inherit;font-size:.78rem;font-weight:700;cursor:pointer;border-left:1px solid var(--line)}
+  .ci-seg button:first-child{border-left:none}
+  .ci-seg button:active{transform:scale(.96)}
+  .ci-seg button.on{background:rgba(255,107,74,.18);color:var(--text)}
+  .ci-seg button.on.good{background:rgba(52,211,153,.2)}
+  .ci-seg button.on.bad{background:rgba(255,90,90,.2)}
+  .ci-editbtn{width:100%;margin-top:10px;padding:9px;border-radius:10px;border:1px dashed var(--line);background:none;color:var(--accent2);font:inherit;font-weight:700;font-size:.82rem;cursor:pointer}
+  .ci-editbtn:active{transform:scale(.99)}
+
   .form-field{margin-top:14px}
   .form-field label{font-size:.82rem;color:var(--muted);font-weight:700;display:block;margin-bottom:6px}
   .form-field input, .form-field select, .form-field textarea{width:100%;padding:12px;border-radius:12px;
@@ -749,6 +776,19 @@
     <div class="aside" style="margin-top:22px">🔒 Daten bleiben nur auf diesem Gerät. Details im TN-Ordner.</div>
   </div><!-- /view-tn -->
 
+  <!-- VIEW: CHECK-IN (spec/27) — Abhak-Liste als eigene Sicht auf die TN-Datenbank -->
+  <div class="view" id="view-einchecken">
+    <div class="backbar"><button class="back" onclick="location.hash=''">‹ Dashboard</button></div>
+    <header class="ph-head" style="background:linear-gradient(135deg,#FACC15,#F59E0B)">
+      <h1>📥 Check-In</h1>
+      <p>Ankunft abhaken — Anwesenheit, Dokumente, Fahrkarte</p>
+    </header>
+    <div class="ci-counter" id="ciCounter"></div>
+    <div class="searchbar" style="margin:10px 0"><input id="ciSearch" type="search" placeholder="🔍 TN suchen …" autocomplete="off" oninput="renderCheckinList(this.value)"></div>
+    <div id="ciList"></div>
+    <div class="aside" style="margin-top:22px">🔒 Daten bleiben lokal. Am Ende exportieren &amp; auf dem Sammelgerät zusammenführen (Einstellungen → „Check-In zusammenführen").</div>
+  </div><!-- /view-einchecken -->
+
   <!-- VIEW: MA-INFOS (Personen-Verwaltung Stufe 2, Badges/Handyregel Stufe 4) -->
   <div class="view" id="view-ma">
     <div class="backbar"><button class="back" onclick="location.hash=''">‹ Dashboard</button></div>
@@ -959,6 +999,21 @@
         <button type="button" class="staff-cancel" style="width:100%;margin-top:8px" onclick="openImportPasteSheet()">Inhalt einfügen</button>
       </div>
     </div>
+    <!-- spec/27: getrennter Merge-Import NUR für Check-In-Daten (paralleles Einchecken auf mehreren Geräten). -->
+    <div class="settings-block">
+      <div>
+        <label>🔀 Check-In zusammenführen</label>
+        <div class="settings-hint" style="text-align:left;margin:6px 0 0">
+          Führt <b>nur</b> die Check-In-Daten (Anwesenheit, Dokumente, Fahrkarte) aus der Datei eines
+          anderen Teamers mit deiner Liste zusammen – alle übrigen Daten bleiben unangetastet. Für
+          paralleles Einchecken: am Ende sammelt ein Gerät alle Dateien ein und exportiert die
+          komplette Liste zurück. Voraussetzung: alle sind aus derselben Grunddatei gestartet.
+        </div>
+        <button type="button" class="form-save" style="width:100%;margin-top:10px" onclick="document.getElementById('ciMergeFileInput').click()">📄 Check-In-Datei wählen</button>
+        <input type="file" id="ciMergeFileInput" accept=".fzx,.json" style="display:none" onchange="handleCheckinMergeFile(event)">
+        <button type="button" class="staff-cancel" style="width:100%;margin-top:8px" onclick="openCheckinMergePasteSheet()">Inhalt einfügen</button>
+      </div>
+    </div>
     <div class="settings-block">
       <div>
         <label>Mitarbeitende</label>
@@ -1060,6 +1115,19 @@ function defaultData(){
   };
 }
 
+// spec/27: Check-In-Status je TN. Unterobjekt mit Tri-State-Feldern + per-Feld-Zeitstempeln (ts)
+// als Grundlage für den geräteübergreifenden Merge (Last-Write-Wins: neuerer ts gewinnt).
+// ticket (Fahrkarte) lebt weiter im tn.flags-Array (ticket_nein), hat aber hier seinen ts-Eintrag.
+function normalizeCheckin(c){
+  const base = { anwesend:false, versicherung:"", kinderausweis:"", impfausweis:"", medikamente:"", unterlagen:"", ts:{} };
+  if(!c || typeof c!=='object' || Array.isArray(c)) return base;
+  const out = Object.assign(base, c);
+  out.anwesend = !!out.anwesend;
+  ['versicherung','kinderausweis','impfausweis','medikamente','unterlagen'].forEach(k=>{ if(typeof out[k]!=='string') out[k]=""; });
+  if(!out.ts || typeof out.ts!=='object' || Array.isArray(out.ts)) out.ts = {};
+  return out;
+}
+
 // Fehlende Felder auffüllen + Migrationen anwenden (Datenmodell kann sich zwischen Stufen erweitern).
 // Wird sowohl von getData() (localStorage) als auch vom Import (Stufe 5) verwendet, damit beide
 // Wege exakt dieselbe Migrationslogik durchlaufen.
@@ -1152,6 +1220,8 @@ function normalizeData(raw){
       if(t.allergien === undefined) t.allergien = '';
       // Migration (spec/22): Essenswahl ('' = normal/keine Angabe, 'vegetarisch', 'vegan').
       if(t.essen === undefined) t.essen = '';
+      // Migration (spec/27): Check-In-Status je TN (immer normalisieren → ts-Objekt existiert garantiert).
+      t.checkin = normalizeCheckin(t.checkin);
     });
   }
   // Migration (spec/23 §8): der istTeamer-Workaround (MA doppelt als TN erfasst, nur um ihnen
@@ -3040,6 +3110,8 @@ function saveTn(id){
   closeSheet();
   renderTnView();
   renderDashGrid();
+  // spec/27: falls die Check-In-Liste offen ist, mit erhaltenem Suchbegriff auffrischen (geänderte Flags/Name).
+  if(document.getElementById('view-einchecken').classList.contains('active')) renderCheckinList(ciCurrentQuery());
 }
 function deleteTn(id){
   const d = getData();
@@ -3061,6 +3133,7 @@ function deleteTnConfirm(id){
   closeSheet();
   renderTnView();
   renderDashGrid();
+  if(document.getElementById('view-einchecken').classList.contains('active')) renderCheckinList(ciCurrentQuery());
 }
 
 /* ---- Alle TN löschen (Stufe 17, spec/16 §2) — nur aus den Einstellungen aufrufbar, zweistufig
@@ -3095,6 +3168,109 @@ function confirmDeleteAllTnDo(){
   saveData(d);
   closeSheet();
   renderTnView();
+  renderDashGrid();
+}
+
+/* ============ Check-In-View (spec/27) ============
+   Eigene, schlanke Sicht auf DIESELBEN d.tn-Datensätze — nur die für den Check-In relevanten Felder.
+   Schreibt direkt in tn.checkin; die Fahrkarte schreibt bewusst ins bestehende ticket_nein-Flag,
+   damit sie im TN-Dashboard (🎫) sichtbar bleibt. Jede Änderung setzt einen Zeitstempel (ts.<feld>)
+   → Grundlage für den geräteübergreifenden Merge-Import (siehe applyCheckinMerge). */
+const CI_DOCS = [
+  {key:'versicherung',  label:'Versicherungskarte'},
+  {key:'kinderausweis', label:'Kinderausweis'},
+  {key:'impfausweis',   label:'Impfausweis'}
+];
+function ciField(t){ return (t.checkin && typeof t.checkin==='object') ? t.checkin : (t.checkin = normalizeCheckin(null)); }
+function renderCheckinView(){
+  const inp = document.getElementById('ciSearch'); if(inp) inp.value = '';
+  renderCheckinList('');
+}
+function renderCheckinCounter(){
+  const d = getData();
+  const total = d.tn.length;
+  const da = d.tn.filter(t=>ciField(t).anwesend).length;
+  // "Dokument fehlt" = irgendein Dokument/Unterlagen ausdrücklich auf "fehlt" gesetzt (Nachfass-Liste).
+  const fehlt = d.tn.filter(t=>{ const c=ciField(t); return ['versicherung','kinderausweis','impfausweis','unterlagen'].some(k=>c[k]==='fehlt'); }).length;
+  const el = document.getElementById('ciCounter'); if(!el) return;
+  el.innerHTML =
+    `<div class="ci-count"><div class="n">${da} / ${total}</div><div class="l">eingecheckt</div></div>`+
+    `<div class="ci-count ${fehlt?'warn':''}"><div class="n">${fehlt}</div><div class="l">Dokument fehlt</div></div>`;
+}
+function renderCheckinList(q){
+  renderCheckinCounter();
+  const d = getData();
+  const term = (q||'').trim().toLowerCase();
+  const box = document.getElementById('ciList'); if(!box) return;
+  if(!d.tn.length){ box.innerHTML = `<div class="tn-empty">Noch keine Teilnehmenden angelegt. Erst über ⚠️ TN-Infos anlegen oder die Grunddatei importieren.</div>`; return; }
+  const list = d.tn.filter(t=>!term || (t.name||'').toLowerCase().includes(term))
+                   .sort((a,b)=>(a.name||'').localeCompare(b.name||'','de'));
+  if(!list.length){ box.innerHTML = `<div class="tn-empty">Kein Treffer für „${esc(q)}".</div>`; return; }
+  box.innerHTML = list.map(t=>ciCardHTML(t)).join('');
+}
+function ciCardHTML(t){
+  const c = ciField(t);
+  const flags = t.flags||[];
+  const krit = flags.includes('kritisch');
+  const medis = flags.includes('medis');
+  const ticketFehlt = flags.includes('ticket_nein');
+  const badges = [];
+  if(krit)  badges.push('<span class="tn-badge warn">🆘 kritisch</span>');
+  if(medis) badges.push('<span class="tn-badge warn">💊 Medis</span>');
+  const sub = [t.alter?('Alter '+esc(String(t.alter))):'', t.zimmer?('🛏️ '+esc(t.zimmer)):''].filter(Boolean).join(' · ');
+  const docRows = CI_DOCS.map(doc=>ciSegHTML(t.id, doc.key, doc.label, c[doc.key], ['abgegeben','behalten','fehlt'])).join('');
+  const mediRow = medis ? ciSegHTML(t.id, 'medikamente', '💊 Medikamente', c.medikamente, ['abgegeben','behalten']) : '';
+  const unterlagenRow = ciSegHTML(t.id, 'unterlagen', 'Unterlagen', c.unterlagen, ['ok','fehlt']);
+  // Fahrkarte = ticket_nein-Flag (invertiert: "da" = Flag aus). "da" wird nur als bestätigt markiert,
+  // wenn schon einmal getippt (ts.ticket gesetzt) — sonst bleibt der Status offen/ungetippt.
+  const ticketRow =
+    `<div class="ci-row"><span class="ci-row-l">🎫 Fahrkarte</span>`+
+    `<div class="ci-seg">`+
+      `<button type="button" class="${(!ticketFehlt && c.ts.ticket)?'on good':''}" onclick="ciSetTicket('${t.id}',true)">da</button>`+
+      `<button type="button" class="${ticketFehlt?'on bad':''}" onclick="ciSetTicket('${t.id}',false)">fehlt</button>`+
+    `</div></div>`;
+  return `<div class="ci-card ${c.anwesend?'done':''} ${krit?'crit':''}">
+    <div class="ci-card-top">
+      <div style="min-width:0"><div class="ci-name">${esc(t.name)} ${badges.join(' ')}</div>${sub?`<div class="ci-sub">${sub}</div>`:''}</div>
+      <label class="ci-present ${c.anwesend?'on':''}"><input type="checkbox" ${c.anwesend?'checked':''} onchange="ciSetPresent('${t.id}',this.checked)">da</label>
+    </div>
+    ${docRows}${mediRow}${ticketRow}${unterlagenRow}
+    <button type="button" class="ci-editbtn" onclick="openTnSheet('${t.id}')">✏️ TN bearbeiten (Besonderheiten, Eltern-Notiz …)</button>
+  </div>`;
+}
+function ciSegHTML(id, field, label, val, opts){
+  const cls = {abgegeben:'good', behalten:'good', ok:'good', fehlt:'bad'};
+  const btns = opts.map(o=>`<button type="button" class="${val===o?('on '+(cls[o]||'')):''}" onclick="ciSetField('${id}','${field}','${o}')">${o}</button>`).join('');
+  return `<div class="ci-row"><span class="ci-row-l">${label}</span><div class="ci-seg">${btns}</div></div>`;
+}
+function ciCurrentQuery(){ const i=document.getElementById('ciSearch'); return i?i.value:''; }
+function ciSetField(id, field, val){
+  const d = getData();
+  const t = d.tn.find(x=>x.id===id); if(!t) return;
+  const c = ciField(t);
+  c[field] = (c[field]===val) ? "" : val; // erneut auf denselben Wert tippen = zurücksetzen
+  c.ts[field] = Date.now();
+  saveData(d);
+  renderCheckinList(ciCurrentQuery());
+}
+function ciSetPresent(id, on){
+  const d = getData();
+  const t = d.tn.find(x=>x.id===id); if(!t) return;
+  const c = ciField(t);
+  c.anwesend = !!on; c.ts.anwesend = Date.now();
+  saveData(d);
+  renderCheckinList(ciCurrentQuery());
+}
+function ciSetTicket(id, present){
+  const d = getData();
+  const t = d.tn.find(x=>x.id===id); if(!t) return;
+  t.flags = t.flags||[];
+  const has = t.flags.includes('ticket_nein');
+  if(present && has)  t.flags = t.flags.filter(f=>f!=='ticket_nein'); // "da" → Flag entfernen
+  if(!present && !has) t.flags.push('ticket_nein');                    // "fehlt" → Flag setzen
+  ciField(t).ts.ticket = Date.now();
+  saveData(d);
+  renderCheckinList(ciCurrentQuery());
   renderDashGrid();
 }
 
@@ -5196,6 +5372,11 @@ function openRole(id){
   h+=whoBadgeHTML(r);
   if(r.intro) h+=`<div class="intro">${fmtInline(r.intro)}</div>`;
 
+  /* spec/27: direkter Sprung in die Check-In-Abhak-Liste (eigene Sicht auf die TN-Datenbank). */
+  if(r.id==='checkin'){
+    h+=`<button type="button" class="form-save" style="width:100%;margin:8px 0 4px;font-size:1rem;padding:14px" onclick="location.hash='einchecken'">📥 Check-In-Liste öffnen</button>`;
+  }
+
   /* Feintuning 23.07.2026: öffentlicher Notion-Link fürs Video-Team (frei betitelbar, teamweit geteilt). */
   if(r.id==='video'){
     h+=notionLinkBlockHTML('video', 'Öffentlicher Notion-Link zur Bild- & Videosammlung — alle MA laden hier ihre Fotos/Videos hoch bzw. finden nach der Freizeit die Sammlung.');
@@ -5961,6 +6142,122 @@ async function doImportConfirm(){
   location.reload();
 }
 
+/* ============ Check-In-Merge-Import (spec/27) ============
+   Getrennt vom Voll-Import (der ersetzt alles). Übernimmt NUR tn.checkin-Felder + das ticket_nein-Flag,
+   feldweise per Last-Write-Wins (neuerer Zeitstempel gewinnt). Grunddaten (Namen, Besonderheiten,
+   Medi-Plan, Wochenplan …) werden nicht angefasst. Zuordnung über die TN-id → alle Geräte müssen aus
+   DERSELBEN Grunddatei gestartet sein, sonst matchen die IDs nicht. Die Quell-Exportdatei auf der
+   Platte wird nie verändert (Import lädt immer nur in den lokalen Bestand). */
+let _pendingCiMergeEnv = null;
+let _pendingCiIncoming = null;
+
+function handleCheckinMergeFile(ev){
+  const file = ev.target.files && ev.target.files[0];
+  ev.target.value = '';
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = ()=> processCheckinMergeText(String(reader.result));
+  reader.onerror = ()=> alert('Datei konnte nicht gelesen werden.');
+  reader.readAsText(file);
+}
+function openCheckinMergePasteSheet(){
+  openSheet('Check-In zusammenführen', `
+    <div class="form-field"><label>Export-Inhalt einfügen</label>
+      <textarea id="ciMergePaste" style="min-height:140px" placeholder="Inhalt der Check-In-Export-Datei hier einfügen…"></textarea></div>
+    <div class="form-actions">
+      <button type="button" class="staff-cancel" onclick="closeSheet()">Abbrechen</button>
+      <button type="button" class="form-save" onclick="processCheckinMergeText(document.getElementById('ciMergePaste').value)">Weiter</button>
+    </div>`);
+}
+function processCheckinMergeText(text){
+  let env;
+  try{ env = JSON.parse(text); }catch(e){ alert('Ungültige Datei: kein gültiges JSON.'); return; }
+  if(!env || env.fzappExport !== true){ alert('Das ist keine gültige Freizeit-App-Exportdatei.'); return; }
+  if(env.encrypted){
+    _pendingCiMergeEnv = env;
+    openSheet('Check-In zusammenführen', `
+      <div class="form-field"><label>Passwort</label>
+        <input id="ciMergePw" type="password" placeholder="Export-Passwort" autocomplete="current-password"></div>
+      <div class="form-actions">
+        <button type="button" class="staff-cancel" onclick="closeSheet()">Abbrechen</button>
+        <button type="button" class="form-save" onclick="ciMergeDecryptAndPreview()">Entschlüsseln</button>
+      </div>`);
+  } else if(env.data){
+    previewCheckinMerge(env.data);
+  } else {
+    alert('Die Datei enthält keine lesbaren Daten.');
+  }
+}
+async function ciMergeDecryptAndPreview(){
+  const pw = document.getElementById('ciMergePw').value;
+  if(!pw){ alert('Bitte Passwort eingeben.'); return; }
+  try{
+    const dataObj = await decryptJSON(_pendingCiMergeEnv, pw);
+    previewCheckinMerge(dataObj);
+  }catch(e){
+    alert('Falsches Passwort oder beschädigte Datei.');
+  }
+}
+// Kern: mutiert d in-place, gibt Statistik zurück. Für die Vorschau auf einer Kopie laufen lassen.
+function applyCheckinMerge(d, incomingTn){
+  const byId = {}; d.tn.forEach(t=>byId[t.id]=t);
+  const CI_FIELDS = ['anwesend','versicherung','kinderausweis','impfausweis','medikamente','unterlagen'];
+  let changed=0, matched=0, unmatched=0;
+  (incomingTn||[]).forEach(inc=>{
+    const loc = byId[inc.id];
+    if(!loc){ unmatched++; return; }
+    matched++;
+    loc.checkin = normalizeCheckin(loc.checkin);
+    const ic = normalizeCheckin(inc.checkin);
+    const lc = loc.checkin;
+    CI_FIELDS.forEach(f=>{
+      const its = ic.ts[f]||0, lts = lc.ts[f]||0;
+      if(its > lts){ if(lc[f] !== ic[f]) changed++; lc[f] = ic[f]; lc.ts[f] = its; }
+    });
+    // Fahrkarte (ticket_nein-Flag) über ts.ticket zusammenführen.
+    const its = ic.ts.ticket||0, lts = lc.ts.ticket||0;
+    if(its > lts){
+      const incFehlt = (inc.flags||[]).includes('ticket_nein');
+      const locFehlt = (loc.flags||[]).includes('ticket_nein');
+      if(incFehlt !== locFehlt){
+        loc.flags = loc.flags||[];
+        if(incFehlt && !locFehlt) loc.flags.push('ticket_nein');
+        if(!incFehlt && locFehlt) loc.flags = loc.flags.filter(f=>f!=='ticket_nein');
+        changed++;
+      }
+      lc.ts.ticket = its;
+    }
+  });
+  return {changed, matched, unmatched, total:(incomingTn||[]).length};
+}
+function previewCheckinMerge(dataObj){
+  if(dataObj._images) delete dataObj._images;
+  const inc = normalizeData(dataObj); // stellt sicher, dass tn.checkin/ts existieren
+  _pendingCiIncoming = inc.tn;
+  const trial = JSON.parse(JSON.stringify(getData())); // Probelauf auf Kopie, ohne zu speichern
+  const st = applyCheckinMerge(trial, inc.tn);
+  openSheet('Check-In zusammenführen', `<div class="confirm-box">
+    <p><b>Vorschau:</b><br>
+    ${st.matched} von ${st.total} TN zugeordnet · <b>${st.changed}</b> Feld-Aktualisierung(en)${st.unmatched?`<br>⚠️ ${st.unmatched} TN nicht gefunden (andere Grunddatei?)`:''}</p>
+    <p>Es werden <b>nur Check-In-Felder</b> ergänzt (neuerer Stand gewinnt). Alle übrigen Daten bleiben unverändert.</p>
+    <div class="confirm-actions">
+      <button type="button" class="staff-cancel" onclick="closeSheet()">Abbrechen</button>
+      <button type="button" class="form-save" onclick="doCheckinMerge()">Zusammenführen</button>
+    </div></div>`);
+}
+function doCheckinMerge(){
+  if(!_pendingCiIncoming) return;
+  const d = getData();
+  const st = applyCheckinMerge(d, _pendingCiIncoming);
+  saveData(d);
+  _pendingCiIncoming = null;
+  _pendingCiMergeEnv = null;
+  closeSheet();
+  renderDashGrid();
+  if(document.getElementById('view-einchecken').classList.contains('active')) renderCheckinView();
+  alert(`Check-In zusammengeführt ✓\n${st.changed} Aktualisierung(en) übernommen.`);
+}
+
 /* ---- Alle Daten löschen (App zurücksetzen) ---- */
 function confirmResetAll(){
   openSheet('Gesamten App-Inhalt zurücksetzen', `<div class="confirm-box">
@@ -6058,6 +6355,8 @@ function route(){
   else if(h==='notfall'){ showView('notfall'); renderNotfallKontakte(); }
   else if(h==='team'){ showView('team'); teamEditMode=false; renderTeamView(); }
   else if(h==='tn'){ showView('tn'); renderTnView(); }
+  else if(h==='einchecken'){ showView('einchecken'); renderCheckinView(); } // spec/27: Check-In-Abhak-Liste
+
   else if(h==='gruppen'){ showView('tn'); renderTnView(); openTnGruppen(); } // Deep-Link zum Gruppen-Akkordeon (z. B. aus Ausflug-Rolle)
   else if(h==='ma'){ showView('ma'); renderMaView(); }
   else if(h==='ersthilfe'){ showView('ersthilfe'); renderEhView(); }
