@@ -510,11 +510,6 @@
   .toggle-chip:active{transform:scale(.96)}
 
   /* ===== Check-In-View (spec/27): schlanke Abhak-Liste, eigene Sicht auf die tn-Datensätze ===== */
-  .ci-counter{display:flex;gap:10px;flex-wrap:wrap;margin:14px 0 6px}
-  .ci-count{flex:1 1 120px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px;text-align:center}
-  .ci-count .n{font-size:1.5rem;font-weight:800;color:var(--accent2)}
-  .ci-count .l{font-size:.78rem;color:var(--muted);font-weight:700;margin-top:2px}
-  .ci-count.warn .n{color:#ff8a6a}
   .ci-card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin-bottom:10px;border-left:4px solid var(--line)}
   .ci-card.done{border-left-color:#34d399}
   .ci-card.crit{border-left-color:#ff5a5a}
@@ -535,6 +530,24 @@
   .ci-seg button.on.bad{background:rgba(255,90,90,.2)}
   .ci-editbtn{width:100%;margin-top:10px;padding:9px;border-radius:10px;border:1px dashed var(--line);background:none;color:var(--accent2);font:inherit;font-weight:700;font-size:.82rem;cursor:pointer}
   .ci-editbtn:active{transform:scale(.99)}
+  /* spec/27 Nachbesserung: aufklappbare TN-Zeilen + Filter (Alle/Offen/Eingecheckt) für schnellen Überblick. */
+  .ci-head{display:flex;align-items:center;justify-content:space-between;gap:8px;cursor:pointer}
+  .ci-headmain{display:flex;align-items:center;gap:8px;min-width:0}
+  .ci-caret{color:var(--muted);font-size:.8rem;transition:transform .15s;flex:0 0 auto}
+  .ci-card.open .ci-caret{transform:rotate(90deg)}
+  .ci-hbadge{font-size:.92rem;flex:0 0 auto}
+  .ci-status{font-size:.8rem;font-weight:800;white-space:nowrap;flex:0 0 auto}
+  .ci-status.ok{color:#34d399}
+  .ci-status.open{color:var(--muted)}
+  .ci-warn{color:#ff8a6a}
+  .ci-body{display:none}
+  .ci-card.open .ci-body{display:block;margin-top:4px;padding-top:10px;border-top:1px solid var(--line)}
+  .ci-filterbar{display:flex;gap:8px;margin:10px 0 8px}
+  .ci-filter{flex:1;padding:9px 6px;border-radius:12px;border:1px solid var(--line);background:var(--card2);color:var(--muted);font:inherit;font-size:.82rem;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px}
+  .ci-filter.on{border-color:var(--accent);background:rgba(255,107,74,.14);color:var(--text)}
+  .ci-filter:active{transform:scale(.97)}
+  .ci-fn{font-size:.74rem;opacity:.85;background:var(--card);border:1px solid var(--line);border-radius:8px;padding:0 6px;font-weight:800}
+  .ci-fehlt{font-size:.82rem;color:#ff8a6a;font-weight:700;margin:0 0 10px;text-align:center}
 
   .form-field{margin-top:14px}
   .form-field label{font-size:.82rem;color:var(--muted);font-weight:700;display:block;margin-bottom:6px}
@@ -783,10 +796,12 @@
       <h1>📥 Check-In</h1>
       <p>Ankunft abhaken — Anwesenheit, Dokumente, Fahrkarte</p>
     </header>
-    <div class="ci-counter" id="ciCounter"></div>
     <div class="searchbar" style="margin:10px 0"><input id="ciSearch" type="search" placeholder="🔍 TN suchen …" autocomplete="off" oninput="renderCheckinList(this.value)"></div>
+    <div class="ci-filterbar" id="ciFilterBar"></div>
+    <div class="ci-fehlt" id="ciFehlt"></div>
     <div id="ciList"></div>
-    <div class="aside" style="margin-top:22px">🔒 Daten bleiben lokal. Am Ende exportieren &amp; auf dem Sammelgerät zusammenführen (Einstellungen → „Check-In zusammenführen").</div>
+    <button type="button" class="tn-add-btn" style="margin-top:16px" onclick="openExportSheet()">📤 Check-In-Stand exportieren (verschlüsselt)</button>
+    <div class="aside" style="margin-top:16px">🔒 Daten bleiben lokal. Zum Sammeln: jeder exportiert hier, ein Gerät führt alle über „Einstellungen → 🔀 Check-In zusammenführen" zusammen und exportiert die komplette Liste zurück.</div>
   </div><!-- /view-einchecken -->
 
   <!-- VIEW: MA-INFOS (Personen-Verwaltung Stufe 2, Badges/Handyregel Stufe 4) -->
@@ -3181,31 +3196,45 @@ const CI_DOCS = [
   {key:'kinderausweis', label:'Kinderausweis'},
   {key:'impfausweis',   label:'Impfausweis'}
 ];
+let ciFilter = 'alle';               // 'alle' | 'offen' | 'da' — Nachbesserung spec/27
+const ciExpanded = new Set();          // welche TN-Karten aktuell aufgeklappt sind (überlebt Neu-Render)
 function ciField(t){ return (t.checkin && typeof t.checkin==='object') ? t.checkin : (t.checkin = normalizeCheckin(null)); }
+function ciCurrentQuery(){ const i=document.getElementById('ciSearch'); return i?i.value:''; }
 function renderCheckinView(){
+  ciFilter = 'alle'; ciExpanded.clear();
   const inp = document.getElementById('ciSearch'); if(inp) inp.value = '';
   renderCheckinList('');
 }
-function renderCheckinCounter(){
-  const d = getData();
+function ciCounts(d){
   const total = d.tn.length;
   const da = d.tn.filter(t=>ciField(t).anwesend).length;
-  // "Dokument fehlt" = irgendein Dokument/Unterlagen ausdrücklich auf "fehlt" gesetzt (Nachfass-Liste).
-  const fehlt = d.tn.filter(t=>{ const c=ciField(t); return ['versicherung','kinderausweis','impfausweis','unterlagen'].some(k=>c[k]==='fehlt'); }).length;
-  const el = document.getElementById('ciCounter'); if(!el) return;
-  el.innerHTML =
-    `<div class="ci-count"><div class="n">${da} / ${total}</div><div class="l">eingecheckt</div></div>`+
-    `<div class="ci-count ${fehlt?'warn':''}"><div class="n">${fehlt}</div><div class="l">Dokument fehlt</div></div>`;
+  return { total, da, offen: total-da };
 }
+function ciAnyFehlt(c){ return ['versicherung','kinderausweis','impfausweis','unterlagen'].some(k=>c[k]==='fehlt'); }
+// Kopfzeile (Filter-Chips + Fehlt-Hinweis) unabhängig von der Liste aktualisieren → billig bei jedem Tap.
+function renderCiChrome(d){
+  const c = ciCounts(d);
+  const bar = document.getElementById('ciFilterBar');
+  if(bar){
+    const chip = (key,label,n)=>`<button type="button" class="ci-filter ${ciFilter===key?'on':''}" onclick="ciSetFilter('${key}')">${label}<span class="ci-fn">${n}</span></button>`;
+    bar.innerHTML = chip('alle','Alle',c.total) + chip('offen','Offen',c.offen) + chip('da','Eingecheckt',c.da);
+  }
+  const fehltN = d.tn.filter(t=>ciAnyFehlt(ciField(t))).length;
+  const fe = document.getElementById('ciFehlt');
+  if(fe) fe.textContent = fehltN ? ('⚠ '+fehltN+' TN mit fehlendem Dokument') : '';
+}
+function ciSetFilter(f){ ciFilter = f; renderCheckinList(ciCurrentQuery()); }
 function renderCheckinList(q){
-  renderCheckinCounter();
   const d = getData();
-  const term = (q||'').trim().toLowerCase();
+  renderCiChrome(d);
   const box = document.getElementById('ciList'); if(!box) return;
   if(!d.tn.length){ box.innerHTML = `<div class="tn-empty">Noch keine Teilnehmenden angelegt. Erst über ⚠️ TN-Infos anlegen oder die Grunddatei importieren.</div>`; return; }
-  const list = d.tn.filter(t=>!term || (t.name||'').toLowerCase().includes(term))
-                   .sort((a,b)=>(a.name||'').localeCompare(b.name||'','de'));
-  if(!list.length){ box.innerHTML = `<div class="tn-empty">Kein Treffer für „${esc(q)}".</div>`; return; }
+  const term = (q||'').trim().toLowerCase();
+  let list = d.tn.filter(t=>!term || (t.name||'').toLowerCase().includes(term));
+  if(ciFilter==='offen') list = list.filter(t=>!ciField(t).anwesend);
+  else if(ciFilter==='da') list = list.filter(t=>ciField(t).anwesend);
+  list.sort((a,b)=>(a.name||'').localeCompare(b.name||'','de'));
+  if(!list.length){ box.innerHTML = `<div class="tn-empty">${term?('Kein Treffer für „'+esc(q)+'".'):'Keine TN in dieser Ansicht.'}</div>`; return; }
   box.innerHTML = list.map(t=>ciCardHTML(t)).join('');
 }
 function ciCardHTML(t){
@@ -3214,14 +3243,15 @@ function ciCardHTML(t){
   const krit = flags.includes('kritisch');
   const medis = flags.includes('medis');
   const ticketFehlt = flags.includes('ticket_nein');
-  const badges = [];
-  if(krit)  badges.push('<span class="tn-badge warn">🆘 kritisch</span>');
-  if(medis) badges.push('<span class="tn-badge warn">💊 Medis</span>');
+  const open = ciExpanded.has(t.id);
+  const badges = []; if(krit) badges.push('🆘'); if(medis) badges.push('💊');
+  const statusTxt = c.anwesend ? '✓ da' : 'offen';
+  const warn = ciAnyFehlt(c) ? ' <span class="ci-warn">⚠</span>' : '';
   const sub = [t.alter?('Alter '+esc(String(t.alter))):'', t.zimmer?('🛏️ '+esc(t.zimmer)):''].filter(Boolean).join(' · ');
   const docRows = CI_DOCS.map(doc=>ciSegHTML(t.id, doc.key, doc.label, c[doc.key], ['abgegeben','behalten','fehlt'])).join('');
   const mediRow = medis ? ciSegHTML(t.id, 'medikamente', '💊 Medikamente', c.medikamente, ['abgegeben','behalten']) : '';
   const unterlagenRow = ciSegHTML(t.id, 'unterlagen', 'Unterlagen', c.unterlagen, ['ok','fehlt']);
-  // Fahrkarte = ticket_nein-Flag (invertiert: "da" = Flag aus). "da" wird nur als bestätigt markiert,
+  // Fahrkarte = ticket_nein-Flag (invertiert: "da" = Flag aus). "da" nur als bestätigt markiert,
   // wenn schon einmal getippt (ts.ticket gesetzt) — sonst bleibt der Status offen/ungetippt.
   const ticketRow =
     `<div class="ci-row"><span class="ci-row-l">🎫 Fahrkarte</span>`+
@@ -3229,13 +3259,20 @@ function ciCardHTML(t){
       `<button type="button" class="${(!ticketFehlt && c.ts.ticket)?'on good':''}" onclick="ciSetTicket('${t.id}',true)">da</button>`+
       `<button type="button" class="${ticketFehlt?'on bad':''}" onclick="ciSetTicket('${t.id}',false)">fehlt</button>`+
     `</div></div>`;
-  return `<div class="ci-card ${c.anwesend?'done':''} ${krit?'crit':''}">
-    <div class="ci-card-top">
-      <div style="min-width:0"><div class="ci-name">${esc(t.name)} ${badges.join(' ')}</div>${sub?`<div class="ci-sub">${sub}</div>`:''}</div>
-      <label class="ci-present ${c.anwesend?'on':''}"><input type="checkbox" ${c.anwesend?'checked':''} onchange="ciSetPresent('${t.id}',this.checked)">da</label>
+  return `<div class="ci-card ${c.anwesend?'done':''} ${krit?'crit':''} ${open?'open':''}" id="cicard_${t.id}">
+    <div class="ci-head" onclick="ciToggle('${t.id}')">
+      <div class="ci-headmain">
+        <span class="ci-caret">▸</span>
+        <span class="ci-name">${esc(t.name)}${badges.length?` <span class="ci-hbadge">${badges.join(' ')}</span>`:''}</span>
+      </div>
+      <span class="ci-status ${c.anwesend?'ok':'open'}">${statusTxt}${warn}</span>
     </div>
-    ${docRows}${mediRow}${ticketRow}${unterlagenRow}
-    <button type="button" class="ci-editbtn" onclick="openTnSheet('${t.id}')">✏️ TN bearbeiten (Besonderheiten, Eltern-Notiz …)</button>
+    <div class="ci-body">
+      ${sub?`<div class="ci-sub">${sub}</div>`:''}
+      <label class="ci-present ${c.anwesend?'on':''}"><input type="checkbox" ${c.anwesend?'checked':''} onchange="ciSetPresent('${t.id}',this.checked)">anwesend</label>
+      ${docRows}${mediRow}${ticketRow}${unterlagenRow}
+      <button type="button" class="ci-editbtn" onclick="openTnSheet('${t.id}')">✏️ TN bearbeiten (Besonderheiten, Eltern-Notiz …)</button>
+    </div>
   </div>`;
 }
 function ciSegHTML(id, field, label, val, opts){
@@ -3243,7 +3280,19 @@ function ciSegHTML(id, field, label, val, opts){
   const btns = opts.map(o=>`<button type="button" class="${val===o?('on '+(cls[o]||'')):''}" onclick="ciSetField('${id}','${field}','${o}')">${o}</button>`).join('');
   return `<div class="ci-row"><span class="ci-row-l">${label}</span><div class="ci-seg">${btns}</div></div>`;
 }
-function ciCurrentQuery(){ const i=document.getElementById('ciSearch'); return i?i.value:''; }
+// Nur die eine Karte neu zeichnen (nicht die ganze Liste) → Aufklapp-Zustand, Scrollposition und der
+// aktuelle Filter bleiben erhalten; die Person verschwindet beim Einchecken nicht mitten im Bearbeiten.
+function ciRefreshCard(id){
+  const d = getData();
+  const t = d.tn.find(x=>x.id===id);
+  const el = document.getElementById('cicard_'+id);
+  if(t && el) el.outerHTML = ciCardHTML(t);
+  renderCiChrome(d);
+}
+function ciToggle(id){
+  if(ciExpanded.has(id)) ciExpanded.delete(id); else ciExpanded.add(id);
+  ciRefreshCard(id);
+}
 function ciSetField(id, field, val){
   const d = getData();
   const t = d.tn.find(x=>x.id===id); if(!t) return;
@@ -3251,7 +3300,7 @@ function ciSetField(id, field, val){
   c[field] = (c[field]===val) ? "" : val; // erneut auf denselben Wert tippen = zurücksetzen
   c.ts[field] = Date.now();
   saveData(d);
-  renderCheckinList(ciCurrentQuery());
+  ciRefreshCard(id);
 }
 function ciSetPresent(id, on){
   const d = getData();
@@ -3259,7 +3308,7 @@ function ciSetPresent(id, on){
   const c = ciField(t);
   c.anwesend = !!on; c.ts.anwesend = Date.now();
   saveData(d);
-  renderCheckinList(ciCurrentQuery());
+  ciRefreshCard(id);
 }
 function ciSetTicket(id, present){
   const d = getData();
@@ -3270,7 +3319,7 @@ function ciSetTicket(id, present){
   if(!present && !has) t.flags.push('ticket_nein');                    // "fehlt" → Flag setzen
   ciField(t).ts.ticket = Date.now();
   saveData(d);
-  renderCheckinList(ciCurrentQuery());
+  ciRefreshCard(id);
   renderDashGrid();
 }
 
