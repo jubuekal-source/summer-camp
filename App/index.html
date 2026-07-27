@@ -783,6 +783,8 @@
             <div class="tn-counters" id="tnCounters"></div>
             <button type="button" class="tn-info-btn" onclick="openTnLegend()" aria-label="Legende">ℹ️</button>
           </div>
+          <!-- spec/33: eigener, vom 💊-Filter unabhängiger Zugang zum zentralen Medi-Plan über alle TN. -->
+          <button type="button" class="ma-quali-toggle" id="tnMediPlanToggleBtn" style="margin-top:8px" onclick="toggleTnMediPlan()">📋 Gesamter Medikamenten-Plan</button>
           <div id="tnBesonderheitenBody" style="margin-top:10px"></div>
         </div>
       </details>
@@ -1318,15 +1320,34 @@ function normalizeData(raw){
   if(!Array.isArray(merged.gruppen)) merged.gruppen = [];
   // Migration (spec/23 §1): medis.staffId — ein Medi-Eintrag gehört entweder zu einem TN
   // (tnId gesetzt) oder zu einem MA (staffId gesetzt). Fehlt das Feld (Alt-Daten) → null.
-  if(Array.isArray(merged.medis)){
-    merged.medis.forEach(m=>{
-      if(m.staffId === undefined) m.staffId = null;
-      // Migration (spec/32): alternative Zeitangabe statt fester Uhrzeit (Nur bei Bedarf/Vor dem
-      // Frühstück/Zum Frühstück/Individuell). Fehlt → '' (kein Datenverlust, verhält sich wie bisher).
-      if(m.zeitTyp === undefined) m.zeitTyp = '';
-      if(m.zeitCustom === undefined) m.zeitCustom = '';
+  if(!Array.isArray(merged.medis)) merged.medis = [];
+  merged.medis.forEach(m=>{
+    if(m.staffId === undefined) m.staffId = null;
+    // Migration (spec/33): `zeitTyp` (Einzelauswahl, spec/32) → `zeitTags` (Array, mehrere Optionen
+    // gleichzeitig möglich) — Marcos Handytest-Feedback zu spec/32: die 4 Zeitpunkt-Optionen dürfen
+    // sich nicht gegenseitig ausschließen (z. B. "zum Frühstück" UND "zum Mittagessen" möglich).
+    // Alter Wert wandert 1:1 als Ein-Element-Array um, kein Datenverlust.
+    if(m.zeitTags === undefined) m.zeitTags = m.zeitTyp ? [m.zeitTyp] : [];
+    if(m.zeitCustom === undefined) m.zeitCustom = '';
+    delete m.zeitTyp;
+  });
+  // Migration (spec/33): das bisherige personengebundene `medis`-Flag ("⚠️ Medikamenteneinnahme
+  // nachtragen!", spec/32 §2) wird durch einen eigenen Medikamenten-Eintrag mit dem Tag 'nachtragen'
+  // ersetzt. Grund (Marcos Feedback): die Checkbox stand an einer eigenen, verwirrenden Stelle UND
+  // ließ sich nicht mehr entfernen, sobald doch klar wurde, dass die Person keine Medis nimmt — als
+  // normaler, jederzeit löschbarer Medi-Eintrag ist beides gelöst. Läuft nur einmalig: das Flag wird
+  // direkt danach aus flags entfernt, macht die Migration idempotent (kein doppeltes Anlegen bei
+  // erneutem normalizeData-Aufruf).
+  ['tn','staff'].forEach(key=>{
+    if(!Array.isArray(merged[key])) return;
+    merged[key].forEach(person=>{
+      if(Array.isArray(person.flags) && person.flags.includes('medis')){
+        merged.medis.push({ id:uid(), tnId: key==='tn'?person.id:null, staffId: key==='staff'?person.id:null,
+          zeit:'', zeitTags:['nachtragen'], zeitCustom:'', medikament:'', notiz:'' });
+        person.flags = person.flags.filter(f=>f!=='medis');
+      }
     });
-  }
+  });
   return merged;
 }
 function getData(){
@@ -1786,8 +1807,8 @@ const MA_FLAGS = [
 const MA_COUNTERS = [
   {id:'kritisch', icon:'🆘', label:'Kritisch', desc:'Lebensbedrohliche Besonderheit — vom Team manuell markiert.',
     match:p=>(p.flags||[]).includes('kritisch')},
-  {id:'medis', icon:'💊', label:'Medis', desc:'Nimmt regelmäßig Medikamente — siehe Medikamenten-Plan. Zeigt „⚠️ Nachtragen", wenn nur die Checkbox gesetzt ist, aber noch keine echten Einträge vorliegen.',
-    match:p=> getData().medis.some(m=>m.staffId===p.id) || (p.flags||[]).includes('medis')},
+  {id:'medis', icon:'💊', label:'Medis', desc:'Nimmt regelmäßig Medikamente — siehe Medikamenten-Plan. Ein Eintrag mit nur dem Tag „Nachtragen" zeigt „⚠️ Nachtragen", solange der genaue Plan noch fehlt.',
+    match:p=> getData().medis.some(m=>m.staffId===p.id)},
   {id:'allergien', icon:'🥜', label:'Allergie', desc:'Hat eine oder mehrere Allergien — Details im MA-Formular.',
     match:p=>!!(p.allergien && p.allergien.trim())},
   {id:'veget', icon:'🥗', label:'Vegetarisch', desc:'Bevorzugte Essenswahl: vegetarisch.',
@@ -2061,15 +2082,18 @@ function maDetailBadgesHTML(p){
     const parts = [sw,ba].filter(Boolean).join(' · ');
     out += `<span class="tn-badge warn">⚠️🏊 ${esc(parts||'–')}</span>`;
   }
+  // spec/33: "Nachtragen" ist jetzt selbst ein Medi-Eintrag statt eines separaten Flags — kein
+  // Sonderfall-Fallback mehr nötig, mediEntryLabel deckt das automatisch mit ab.
   if(maFilter==='medis'){
     const medis = getData().medis.filter(m=>m.staffId===p.id).sort((a,b)=>(a.zeit||'').localeCompare(b.zeit||''));
-    if(medis.length){
-      const ml = medis.map(m=>{ const zl = mediZeitPlainLabel(m); return `${zl?esc(zl)+' · ':''}${esc(m.medikament||'')}`; }).join(', ');
-      out += `<span class="tn-badge warn">💊 ${ml}</span>`;
-    } else if((p.flags||[]).includes('medis')){
-      // spec/32: Flag ohne echte Einträge = "wissen nur, dass Medis genommen werden, Plan fehlt noch".
-      out += `<span class="tn-badge warn">💊 ⚠️ Nachtragen</span>`;
-    }
+    if(medis.length) out += `<span class="tn-badge warn">💊 ${medis.map(m=>esc(mediEntryLabel(m))).join(', ')}</span>`;
+  }
+  // spec/33 (Bugfix, Parität zu tnDetailBadgesHTML): kritisch hatte hier bisher gar keinen eigenen
+  // Fall — Tap auf 🆘 zeigte dadurch keinen Hinweistext an. Nutzt dieselbe Quelle wie beim TN
+  // (Details-Notiz), da es kein eigenes Textfeld für "Kritisch" gibt.
+  if(maFilter==='kritisch'){
+    const txt = (p.details && p.details.trim()) ? p.details.trim() : '';
+    out += `<span class="tn-badge warn">🆘 ${txt?esc(txt):'Kritisch'}</span>`;
   }
   return out;
 }
@@ -2151,7 +2175,7 @@ function openStaffForm(id){
   const essenCur = p ? (p.essen||'') : '';
   const farbeCur = p ? p.farbe : nextStaffColor();
   const rVal = p && p.rettung_see===true ? 'ja' : p && p.rettung_see===false ? 'nein' : '';
-  tnMediDraft = p ? d.medis.filter(m=>m.staffId===p.id).map(m=>({zeit:m.zeit,zeitTyp:m.zeitTyp||'',zeitCustom:m.zeitCustom||'',medikament:m.medikament,notiz:m.notiz})) : [];
+  tnMediDraft = p ? d.medis.filter(m=>m.staffId===p.id).map(m=>({zeit:m.zeit,zeitTags:(m.zeitTags||[]).slice(),zeitCustom:m.zeitCustom||'',medikament:m.medikament,notiz:m.notiz})) : [];
   tnMediDraftEditIdx = null;
   const body = `
     <div class="form-field"><label>Name</label>
@@ -2211,9 +2235,6 @@ function openStaffForm(id){
     <div class="form-field"><label>Allergien</label>${maAllergienFieldHTML(allergienCur)}</div>
     <div class="form-field"><label>🍽️ Essenswahl</label>${maEssenChipsHTML(essenCur)}</div>
     <div class="form-field"><label>💊 Medikamente</label>
-      <label class="toggle-chip warn${flags.includes('medis')?' on':''}" style="margin-bottom:10px">
-        <input type="checkbox" id="mfMedisNachtragen" value="medis" ${flags.includes('medis')?'checked':''} style="display:none"
-          onchange="this.parentElement.classList.toggle('on', this.checked)">⚠️ Medikamenteneinnahme nachtragen!</label>
       <div id="tnMediDraftList">${tnMediDraftListHTML()}</div>
       <div id="tnMediSubForm"></div>
       <button type="button" class="tn-add-btn" onclick="openTnMediForm(null)">+ Medikament</button>
@@ -2272,10 +2293,10 @@ function saveStaffForm(id){
   // weitere toggle-chip-Checkboxen ohne eigenes value (Rettungsabzeichen/Handy/Abreise) — die hätten
   // sonst als Browser-Default value="on" die Flags-Liste verunreinigt. Deshalb zusätzlich gegen
   // MA_FLAGS filtern (gleiches Muster wie saveTn, dort aber schon durch [type=checkbox] gelöst).
-  // spec/32: 'medis' ist bewusst kein MA_FLAGS-Eintrag (eigene Checkbox "Nachtragen", nicht Teil der
-  // generischen Flag-Liste) — daher als einzige Ausnahme zusätzlich durchgelassen.
+  // spec/33: die frühere 'medis'-Ausnahme (eigene Nachtragen-Checkbox, spec/32) ist entfallen — die
+  // Checkbox gibt es nicht mehr, "Nachtragen" ist jetzt ein Tag am Medi-Eintrag (siehe MEDI_ZEIT_TAGS).
   const flags = Array.from(document.querySelectorAll('#sheetBody .toggle-chip input[type="checkbox"]:checked'))
-    .map(i=>i.value).filter(v=>MA_FLAGS.some(f=>f.id===v) || v==='medis');
+    .map(i=>i.value).filter(v=>MA_FLAGS.some(f=>f.id===v));
   const d = getData();
   let staffId = id;
   if(id){
@@ -2287,7 +2308,7 @@ function saveStaffForm(id){
   }
   // Medikamente wie saveTn: alte Einträge dieser Person entfernen, Draft komplett neu einfügen.
   d.medis = d.medis.filter(m=>m.staffId!==staffId);
-  tnMediDraft.forEach(m=>{ d.medis.push({ id:uid(), tnId:null, staffId, zeit:m.zeit, zeitTyp:m.zeitTyp||'', zeitCustom:m.zeitCustom||'', medikament:m.medikament, notiz:m.notiz }); });
+  tnMediDraft.forEach(m=>{ d.medis.push({ id:uid(), tnId:null, staffId, zeit:m.zeit, zeitTags:(m.zeitTags||[]).slice(), zeitCustom:m.zeitCustom||'', medikament:m.medikament, notiz:m.notiz }); });
   tnMediDraft = [];
   tnMediDraftEditIdx = null;
   saveData(d);
@@ -2390,7 +2411,7 @@ function openStaffInfo(id){
   if(essenLabel) rows.push(tnInfoRow('🍽️','Essenswahl', esc(essenLabel)));
   const medis = d.medis.filter(m=>m.staffId===p.id).sort((a,b)=>(a.zeit||'').localeCompare(b.zeit||''));
   if(medis.length){
-    const ml = medis.map(m=>`<div class="tninfo-medi">${mediZeitPrefix(m)}${esc(m.medikament||'')}${m.notiz?` <span class="tninfo-muted">(${esc(m.notiz)})</span>`:''}</div>`).join('');
+    const ml = medis.map(m=>`<div class="tninfo-medi">${mediEntryLabelHTML(m)}${m.notiz?` <span class="tninfo-muted">(${esc(m.notiz)})</span>`:''}</div>`).join('');
     rows.push(tnInfoRow('💊','Medikamente', ml));
   }
   if(p.fahrer) rows.push(tnInfoRow('🪪🚗','Fahrer', 'Führerschein & bereit, Auto zu fahren'));
@@ -2603,11 +2624,12 @@ function confirmDeleteAllStaffDo(){
 const TN_COUNTERS = [
   {id:'kritisch', icon:'🆘', label:'Kritisch', desc:'Lebensbedrohliche Besonderheit (z. B. Anaphylaxie, Epilepsie) — vom Team manuell markiert.',
     match:t=>(t.flags||[]).includes('kritisch')},
-  {id:'medis', icon:'💊', label:'Medis', desc:'Nimmt regelmäßig Medikamente — siehe Medikamenten-Plan. Zeigt „⚠️ Nachtragen", wenn nur die Checkbox gesetzt ist, aber noch keine echten Einträge vorliegen.',
-    /* Stufe 16 (spec/14 §3): ergibt sich automatisch aus vorhandenen Medi-Einträgen (statt manuellem
-       Flag) + Legacy-Flag aus Bestandsdaten, damit keine Info verloren geht. getData()-Aufruf im
-       match ist minimaler Overhead, akzeptiert (siehe Spec). */
-    match:t=> getData().medis.some(m=>m.tnId===t.id) || (t.flags||[]).includes('medis')},
+  {id:'medis', icon:'💊', label:'Medis', desc:'Nimmt regelmäßig Medikamente — siehe Medikamenten-Plan. Ein Eintrag mit nur dem Tag „Nachtragen" zeigt „⚠️ Nachtragen", solange der genaue Plan noch fehlt.',
+    /* Stufe 16 (spec/14 §3): ergibt sich automatisch aus vorhandenen Medi-Einträgen. spec/33: die
+       frühere Legacy-Flag-Alternative entfällt — "Nachtragen" ist jetzt selbst ein Medi-Eintrag
+       (Tag), kein separates Flag mehr, das hier zusätzlich geprüft werden müsste. getData()-Aufruf
+       im match ist minimaler Overhead, akzeptiert (siehe Spec). */
+    match:t=> getData().medis.some(m=>m.tnId===t.id)},
   {id:'allergien', icon:'🥜', label:'Allergie', desc:'Hat eine oder mehrere Allergien — Details im TN-Formular.',
     match:t=>!!(t.allergien && t.allergien.trim())},
   // spec/22 (Nachtrag): Essenswahl als eigene Besonderheiten-Counter (direkt nach der Allergie), damit
@@ -2757,23 +2779,41 @@ function toggleTnFilter(id){
   renderTnBesonderheitenBody();
   updateFloatingCollapse();
 }
-/* Stufe 16 (spec/14 §5): Inhalt des Besonderheiten-Akkordeons je nach tnFilter — bei 'medis' wird
-   statt einer gefilterten Liste der Medikamenten-Plan gezeigt (ersetzt den früheren eigenen Akkordeon). */
+// spec/33: Laufzeit-Toggle (wie maShowAllQualis) für den zentralen, chronologischen Medi-Plan über
+// ALLE TN hinweg — bisher an den 💊-Filter gekoppelt (Sonderfall in renderTnBesonderheitenBody), was
+// dazu führte, dass ein Tap auf eine Person im 💊-Filter das Medi-Formular statt des normalen
+// TN-Info-Blatts öffnete (Marcos Feedback). 💊 ist jetzt ein ganz normaler Filter wie jeder andere;
+// der Medi-Plan ist über einen eigenen, unabhängigen Button erreichbar. Laufzeit-only, kein Export.
+let tnMediPlanOpen = false;
+function renderTnMediPlanToggleBtn(){
+  const btn = document.getElementById('tnMediPlanToggleBtn');
+  if(!btn) return;
+  btn.textContent = tnMediPlanOpen ? '📋 Medikamenten-Plan ausblenden' : '📋 Gesamter Medikamenten-Plan';
+  btn.classList.toggle('active', tnMediPlanOpen);
+}
+function toggleTnMediPlan(){
+  tnMediPlanOpen = !tnMediPlanOpen;
+  renderTnMediPlanToggleBtn();
+  renderTnBesonderheitenBody();
+}
+/* Stufe 16 (spec/14 §5), umgebaut spec/33: Inhalt des Besonderheiten-Akkordeons — der zentrale
+   Medi-Plan (tnMediPlanOpen) und die gefilterte Liste (tnFilter) sind jetzt unabhängig voneinander
+   und können auch gleichzeitig sichtbar sein. */
 function renderTnBesonderheitenBody(){
   const el = document.getElementById('tnBesonderheitenBody');
   if(!el) return;
-  if(tnFilter === 'medis'){
-    el.innerHTML = `
+  let html = '';
+  if(tnMediPlanOpen){
+    html += `<div style="margin-bottom:14px">
       <div id="mediSummary" style="font-weight:700;margin-bottom:6px">💊 Medikamenten-Plan</div>
       <div id="mediList"></div>
-      <button type="button" class="tn-add-btn" onclick="openMediSheet()">+ Medikamenten-Eintrag</button>`;
-    renderMediList();
-  } else if(tnFilter){
-    el.innerHTML = `<div id="tnFilteredList"></div>`;
-    renderTnFilteredList();
-  } else {
-    el.innerHTML = '';
+      <button type="button" class="tn-add-btn" onclick="openMediSheet()">+ Medikamenten-Eintrag</button>
+    </div>`;
   }
+  if(tnFilter) html += `<div id="tnFilteredList"></div>`;
+  el.innerHTML = html;
+  if(tnMediPlanOpen) renderMediList();
+  if(tnFilter) renderTnFilteredList();
 }
 // spec/31: verbundene Komponente über geschwisterIds ermitteln (unterstützt auch Ketten von 3+
 // Geschwistern), als stabiler Sortier-Schlüssel für die Familien-Gruppierung in renderTnFilteredList.
@@ -2875,50 +2915,86 @@ function toggleAnsprechMulti(catId, staffId){
 }
 
 /* ---- Medikamenten-Plan ---- */
-/* spec/32: alternative Zeitangabe statt fester Uhrzeit — vier sich gegenseitig ausschließende
-   Checkbox-Chips (Muster wie das frühere TN_HANDY_EXCLUSIVE), inkl. Freitext bei "Individuell".
-   Ist ein zeitTyp gesetzt, hat er beim Speichern Vorrang vor einer (versehentlich) zusätzlich
-   ausgefüllten Uhrzeit (siehe saveMedi/saveTnMediDraft). */
-const MEDI_ZEIT_TYPEN = [
-  {id:'bedarf', label:'Nur bei Bedarf'},
-  {id:'vor_fruehstueck', label:'Vor dem Frühstück'},
-  {id:'zum_fruehstueck', label:'Zum Frühstück'},
-  {id:'custom', label:'Individuelle Eingabe'}
+/* spec/33 (Nachbesserung zu spec/32, Marcos Handytest-Feedback): fünf unabhängig voneinander
+   aktivierbare Tag-Checkboxen je Medi-Eintrag — NICHT mehr exklusiv (z. B. "zum Frühstück" UND
+   "zum Mittagessen" gleichzeitig möglich). "Nachtragen" ist jetzt einer dieser Tags (kein eigenes,
+   nicht löschbares Personen-Flag mehr, siehe normalizeData-Migration) — bewusst ohne Uhr-Icon, die
+   vier echten Zeitpunkt-Optionen bekommen eins (auch in der Übersicht). Reihenfolge exakt wie von
+   Marco vorgegeben. Die Uhrzeit bleibt ein unabhängiges Feld (kein automatisches Löschen mehr durch
+   die Tag-Auswahl) — dafür gibt es jetzt einen eigenen ✕-Button zum manuellen Leeren (mediClearZeit). */
+const MEDI_ZEIT_TAGS = [
+  {id:'nachtragen', icon:'⚠️', label:'Medikamenteneinnahme nachtragen', warn:true},
+  {id:'bedarf', icon:'🕐', label:'bei Bedarf'},
+  {id:'vor_fruehstueck', icon:'🕐', label:'vorm Frühstück'},
+  {id:'zum_fruehstueck', icon:'🕐', label:'zum Frühstück'},
+  {id:'custom', icon:'🕐', label:'Individuelle Eingabe'}
 ];
-const MEDI_ZEIT_TYP_LABELS = {bedarf:'Nur bei Bedarf', vor_fruehstueck:'Vor dem Frühstück', zum_fruehstueck:'Zum Frühstück'};
-function mediZeitTypChipsHTML(current, idPrefix){
-  return `<div class="toggle-chips" id="${idPrefix}Group">` + MEDI_ZEIT_TYPEN.map(o=>{
-    const on = current===o.id;
-    return `<label class="toggle-chip${on?' on':''}">
+const MEDI_ZEIT_TAG_META = {}; MEDI_ZEIT_TAGS.forEach(o=>MEDI_ZEIT_TAG_META[o.id]=o);
+function mediZeitTagsChipsHTML(currentTags, idPrefix){
+  currentTags = currentTags || [];
+  return `<div class="toggle-chips" id="${idPrefix}Group">` + MEDI_ZEIT_TAGS.map(o=>{
+    const on = currentTags.includes(o.id);
+    return `<label class="toggle-chip${o.warn?' warn':''}${on?' on':''}">
       <input type="checkbox" value="${o.id}" ${on?'checked':''} style="display:none"
-        onchange="mediZeitTypExclusive(this,'${idPrefix}')">${esc(o.label)}</label>`;
+        onchange="mediZeitTagToggle(this,'${idPrefix}')">${o.icon} ${esc(o.label)}</label>`;
   }).join('') + `</div>`;
 }
-function mediZeitTypExclusive(input, idPrefix){
+// Unabhängig (nicht exklusiv wie früher mediZeitTypExclusive): togglet nur seinen eigenen Chip.
+function mediZeitTagToggle(input, idPrefix){
   input.parentElement.classList.toggle('on', input.checked);
-  if(input.checked){
-    input.closest('.toggle-chips').querySelectorAll('input[type="checkbox"]').forEach(other=>{
-      if(other!==input && other.checked){ other.checked=false; other.parentElement.classList.remove('on'); }
-    });
+  if(input.value==='custom'){
+    const customInput = document.getElementById(idPrefix+'Custom');
+    if(customInput) customInput.style.display = input.checked ? '' : 'none';
   }
-  const customInput = document.getElementById(idPrefix+'Custom');
-  if(customInput) customInput.style.display = (input.value==='custom' && input.checked) ? '' : 'none';
 }
-function mediZeitTypCurrent(idPrefix){
-  const el = document.querySelector(`#${idPrefix}Group input[type="checkbox"]:checked`);
-  return el ? el.value : '';
+function mediZeitTagsCurrent(idPrefix){
+  return Array.from(document.querySelectorAll(`#${idPrefix}Group input[type="checkbox"]:checked`)).map(i=>i.value);
 }
-// Anzeige-Helper: Uhrzeit hat Vorrang, sonst zeitTyp-Label (bzw. Individual-Text), sonst ''.
+// Manuelles Leeren der Uhrzeit (Marcos Feedback: "falls versehentlich gewählt, muss auch ohne
+// Probleme wieder gelöscht werden können") — Uhrzeit wird nicht mehr automatisch durch Tags ersetzt.
+function mediClearZeit(inputId){
+  const el = document.getElementById(inputId);
+  if(el) el.value = '';
+}
+// Label eines einzelnen Tags inkl. Icon; 'custom' zeigt den eingegebenen Freitext (Fallback: Label).
+function mediZeitTagLabel(tagId, m){
+  const meta = MEDI_ZEIT_TAG_META[tagId];
+  if(!meta) return '';
+  if(tagId==='nachtragen') return `${meta.icon} Nachtragen`;
+  if(tagId==='custom'){
+    const t = (m.zeitCustom && m.zeitCustom.trim()) ? m.zeitCustom.trim() : meta.label;
+    return `${meta.icon} ${t}`;
+  }
+  return `${meta.icon} ${meta.label}`;
+}
+// Anzeige-Helper: Uhrzeit (falls gesetzt) + alle gesetzten Tags, feste Reihenfolge, durch " · " getrennt.
 function mediZeitPlainLabel(m){
-  if(m.zeit) return m.zeit;
-  if(m.zeitTyp==='custom' && m.zeitCustom && m.zeitCustom.trim()) return m.zeitCustom.trim();
-  if(m.zeitTyp && MEDI_ZEIT_TYP_LABELS[m.zeitTyp]) return MEDI_ZEIT_TYP_LABELS[m.zeitTyp];
-  return '';
+  const parts = [];
+  if(m.zeit) parts.push(m.zeit);
+  MEDI_ZEIT_TAGS.forEach(o=>{ if((m.zeitTags||[]).includes(o.id)) parts.push(mediZeitTagLabel(o.id, m)); });
+  return parts.join(' · ');
 }
-// Für die kompakte Info-Sheet-Zeile ("<b>08:00</b> · Ritalin") — leer wenn nichts angegeben.
+// Für die kompakte Info-Sheet-Zeile ("<b>08:00 · ⚠️ Nachtragen</b> · Ritalin") — leer wenn nichts angegeben.
 function mediZeitPrefix(m){
   const label = mediZeitPlainLabel(m);
   return label ? `<b>${esc(label)}</b> · ` : '';
+}
+// Kompaktes Gesamt-Label EINES Eintrags für Badge-/Übersichts-Kontexte (Dashboard-Filter, MA/TN-
+// Karten) — kombiniert Zeit-/Tag-Label + Medikamentenname. Name ist seit spec/33 optional (z. B. bei
+// einem reinen "Nachtragen"-Platzhalter-Eintrag ohne bekannten Namen). Liefert RAW/unescaped Text.
+function mediEntryLabel(m){
+  const zl = mediZeitPlainLabel(m);
+  const med = (m.medikament||'').trim();
+  if(med) return zl ? `${zl} · ${med}` : med;
+  return zl || '(ohne Angabe)';
+}
+// HTML-Variante für die Info-Sheet-Detailzeile (TN-/MA-Info-Sheet): Zeit-/Tag-Teil fett, Name normal,
+// fehlender Name als gedämpfter Platzhalter statt leerer Lücke nach dem "·".
+function mediEntryLabelHTML(m){
+  const zl = mediZeitPlainLabel(m);
+  const med = (m.medikament||'').trim();
+  const medHTML = med ? esc(med) : '<span class="tninfo-muted">(kein Medikamentenname)</span>';
+  return zl ? `<b>${esc(zl)}</b> · ${medHTML}` : medHTML;
 }
 /* Stufe 11 (spec/09): ersetzt die frühere manuelle "Ansprechperson Medikamenten-Plan"
    (ansprech.medis, entfernt) — die Zimmerzuständigen des TN ergeben sich automatisch aus
@@ -2951,10 +3027,11 @@ function renderMediList(){
     const onclick = isStaff ? (person?`openStaffInfo('${m.staffId}')`:'') : `openMediSheet('${m.id}')`;
     const zeitLabel = mediZeitPlainLabel(m);
     const zeitHTML = zeitLabel ? esc(zeitLabel) : `<span class="tninfo-muted">ohne feste Zeit</span>`;
+    const medName = (m.medikament||'').trim();
     return `<div class="medi-card${isStaff?' medi-staff':''}" onclick="${onclick}">
       <div class="time">${zeitHTML}</div>
       <div class="mid">
-        <div class="mname">${isStaff?'🧑‍🏫 ':''}${esc(name)} — ${esc(m.medikament||'')}</div>
+        <div class="mname">${isStaff?'🧑‍🏫 ':''}${esc(name)}${medName?' — '+esc(medName):''}</div>
         ${m.notiz?`<div class="msub">${esc(m.notiz)}</div>`:''}
         ${person&&person.zimmer?zimmerZustaendigeNamesHTML(person.zimmer):''}
       </div>
@@ -2969,17 +3046,24 @@ function mediTnOptionsHTML(selectedId){
 function openMediSheet(id){
   const d = getData();
   const m = id ? d.medis.find(x=>x.id===id) : null;
+  const zeitTags = m ? (m.zeitTags||[]) : [];
   const body = `
     <div class="form-field"><label>Teilnehmer/in</label>
       <select id="mfTn">${mediTnOptionsHTML(m?m.tnId:null)}</select></div>
     <div class="form-field"><label>Uhrzeit</label>
-      <input id="mfZeit" type="time" value="${m?esc(m.zeit||''):''}"></div>
-    <div class="form-field"><label>Falls keine feste Uhrzeit</label>
-      ${mediZeitTypChipsHTML(m?(m.zeitTyp||''):'', 'mfZeitTyp')}
-      <input id="mfZeitTypCustom" type="text" placeholder="z. B. nach dem Sport" value="${m?esc(m.zeitCustom||''):''}" style="margin-top:8px;${m&&m.zeitTyp==='custom'?'':'display:none'}">
+      <div style="display:flex;gap:8px;align-items:center">
+        <input id="mfZeit" type="time" value="${m?esc(m.zeit||''):''}" style="flex:1">
+        <button type="button" class="team-icon-btn sm" onclick="mediClearZeit('mfZeit')" aria-label="Uhrzeit löschen">✕</button>
+      </div>
+    </div>
+    <div class="form-field"><label>Status / Zeitpunkt (mehrere gleichzeitig möglich)</label>
+      ${mediZeitTagsChipsHTML(zeitTags, 'mfZeitTags')}
+      <input id="mfZeitTagsCustom" type="text" placeholder="z. B. nach dem Sport" value="${m?esc(m.zeitCustom||''):''}" style="margin-top:8px;${zeitTags.includes('custom')?'':'display:none'}">
     </div>
     <div class="form-field"><label>Medikament</label>
-      <input id="mfMed" type="text" placeholder="z. B. Ibuprofen 400" value="${m?esc(m.medikament||''):''}"></div>
+      <input id="mfMed" type="text" placeholder="z. B. Ibuprofen 400" value="${m?esc(m.medikament||''):''}">
+      <div class="settings-hint" style="text-align:left;margin-top:4px">Optional, wenn oben „Nachtragen" oder ein Zeitpunkt ausgewählt ist.</div>
+    </div>
     <div class="form-field"><label>Notiz</label>
       <textarea id="mfNotiz" placeholder="z. B. nach dem Essen, im Kühlschrank …">${m?esc(m.notiz||''):''}</textarea></div>
     <div class="form-actions">
@@ -2990,19 +3074,22 @@ function openMediSheet(id){
 }
 function saveMedi(id){
   const tnId = document.getElementById('mfTn').value;
-  // spec/32: zeitTyp hat Vorrang vor einer (versehentlich) zusätzlich ausgefüllten Uhrzeit.
-  const zeitTyp = mediZeitTypCurrent('mfZeitTyp');
-  const zeit = zeitTyp ? '' : document.getElementById('mfZeit').value;
-  const zeitCustom = zeitTyp==='custom' ? document.getElementById('mfZeitTypCustom').value.trim() : '';
+  const zeit = document.getElementById('mfZeit').value;
+  // spec/33: Tags sind unabhängig voneinander (nicht mehr exklusiv), Uhrzeit bleibt unabhängig davon
+  // erhalten (kein automatisches Löschen mehr).
+  const zeitTags = mediZeitTagsCurrent('mfZeitTags');
+  const zeitCustom = zeitTags.includes('custom') ? document.getElementById('mfZeitTagsCustom').value.trim() : '';
   const medikament = document.getElementById('mfMed').value.trim();
   const notiz = document.getElementById('mfNotiz').value.trim();
-  if(!tnId || !medikament){ alert('Bitte TN und Medikament angeben.'); return; }
+  if(!tnId){ alert('Bitte TN auswählen.'); return; }
+  // spec/33: Medikamentenname ist optional, wenn mind. ein Tag (z. B. "Nachtragen") gesetzt ist.
+  if(!medikament && zeitTags.length===0){ alert('Bitte ein Medikament angeben oder mindestens eine Option (z. B. „Nachtragen") auswählen.'); return; }
   const d = getData();
   if(id){
     const m = d.medis.find(x=>x.id===id);
-    if(m) Object.assign(m, {tnId, zeit, zeitTyp, zeitCustom, medikament, notiz});
+    if(m) Object.assign(m, {tnId, zeit, zeitTags, zeitCustom, medikament, notiz});
   } else {
-    d.medis.push({ id:uid(), tnId, zeit, zeitTyp, zeitCustom, medikament, notiz });
+    d.medis.push({ id:uid(), tnId, zeit, zeitTags, zeitCustom, medikament, notiz });
   }
   saveData(d);
   closeSheet();
@@ -3038,11 +3125,11 @@ function tnBadgesHTML(t){
     if(c.id==='allergien' && t.allergien && t.allergien.trim()) label = t.allergien.trim();
     // spec/24-Nachtrag (Abgleich mit MA-Fix): Medis zeigten bisher nur das generische Label „Medis"
     // statt der konkreten Medikamente/Uhrzeit — jetzt wie bei Allergie den Wert direkt sichtbar.
+    // spec/33: "Nachtragen" ist jetzt selbst ein Medi-Eintrag (siehe mediEntryLabel) statt eines
+    // separaten Flags — kein Sonderfall mehr nötig, die Einträge decken das automatisch ab.
     if(c.id==='medis'){
       const medis = getData().medis.filter(m=>m.tnId===t.id).sort((a,b)=>(a.zeit||'').localeCompare(b.zeit||''));
-      if(medis.length) label = medis.map(m=>{ const zl = mediZeitPlainLabel(m); return `${zl?zl+' · ':''}${m.medikament||''}`; }).join(', ');
-      // spec/32: Flag ohne echte Einträge = "wissen nur, dass Medis genommen werden, Plan fehlt noch".
-      else if((t.flags||[]).includes('medis')) label = '⚠️ Nachtragen';
+      if(medis.length) label = medis.map(mediEntryLabel).join(', ');
     }
     // spec/31: Geschwister-Badge zeigt die verknüpften Namen statt nur „Geschwister".
     if(c.id==='geschwister') label = tnGeschwisterNames(t).join(', ') || label;
@@ -3069,6 +3156,44 @@ function tnFlagBadgesOnly(t){
     out += `<span class="tn-badge ${cls}">${c.icon} ${esc(c.label)}</span>`;
   });
   return out;
+}
+/* spec/33: TN-Pendant zu maDetailBadgesHTML (Bugfix aus Marcos Feedback) — zeigt in der gefilterten
+   Dashboard-Liste (renderTnFilteredList/tnCardHTML inline) NUR die Detail-Info der AKTUELL aktiven
+   Rubrik, nicht mehr alle zutreffenden Badges der Person (bisheriges Verhalten von tnBadgesHTML).
+   Beispiel: Tap auf 🆘 zeigte vorher auch Handyregel/Allergie/etc. mit an — jetzt nur den
+   Kritisch-Hinweistext. roomCardHTML und die Personensuche in raeumeZustRowsHTML bleiben bei der
+   ungefilterten tnBadgesHTML(t), die ändert sich nicht. */
+function tnDetailBadgesHTML(t){
+  if(!tnFilter) return '';
+  const c = TN_COUNTERS.find(x=>x.id===tnFilter);
+  if(!c) return '';
+  if(tnFilter==='allergien' && t.allergien && t.allergien.trim()){
+    return `<span class="tn-badge warn">${c.icon} ${esc(t.allergien.trim())}</span>`;
+  }
+  if(tnFilter==='veget' || tnFilter==='vegan'){
+    return `<span class="tn-badge essen">${c.icon} ${esc(c.label)}</span>`;
+  }
+  if(tnFilter==='schwimm'){
+    const sw = {sicher:'sicher',anfaenger:'Anfänger',nicht:'Nichtschwimmer'}[t.schwimm] || null;
+    const ba = {alles:'überall',nur_nsb:'nur NSB',verbot:'Badeverbot'}[t.bade] || null;
+    const parts = [sw,ba].filter(Boolean).join(' · ');
+    return `<span class="tn-badge warn">${c.icon} ${esc(parts||'–')}</span>`;
+  }
+  if(tnFilter==='medis'){
+    const medis = getData().medis.filter(m=>m.tnId===t.id).sort((a,b)=>(a.zeit||'').localeCompare(b.zeit||''));
+    if(medis.length) return `<span class="tn-badge warn">${c.icon} ${medis.map(m=>esc(mediEntryLabel(m))).join(', ')}</span>`;
+  }
+  if(tnFilter==='geschwister'){
+    const names = tnGeschwisterNames(t);
+    if(names.length) return `<span class="tn-badge warn">${c.icon} ${esc(names.join(', '))}</span>`;
+  }
+  if(tnFilter==='kritisch'){
+    const txt = (t.details && t.details.trim()) ? t.details.trim() : '';
+    return `<span class="tn-badge warn">${c.icon} ${txt?esc(txt):esc(c.label)}</span>`;
+  }
+  // Alle übrigen Filter (reine Flags ohne Zusatztext, z. B. Zecken/Foto/Handy) haben keine Detail-Info
+  // über Icon+Label hinaus — genau das (und nur das) zeigen wir dann.
+  return `<span class="tn-badge warn">${c.icon} ${esc(c.label)}</span>`;
 }
 /* ---- spec/31: Geschwister-Verknüpfung (bidirektional, Verwaltung im TN-Info-Sheet, siehe openTnInfo) ---- */
 function tnGeschwisterNames(t){
@@ -3146,8 +3271,10 @@ function tnCardHTML(t, opts){
   // Öffnen des Detail-Sheets (das per Tap auf die restliche Fläche weiterhin funktioniert).
   // spec/18: Tap öffnet jetzt das read-only Info-Blatt (openTnInfo) statt des Formulars.
   // opts.inline blendet die Besonderheiten-Badges direkt unter dem Namen ein (Dashboard-Filterliste),
-  // damit z. B. der Allergie-Text ohne Öffnen sichtbar ist.
-  const badges = opts.inline ? tnBadgesHTML(t) : '';
+  // damit z. B. der Allergie-Text ohne Öffnen sichtbar ist. spec/33 (Bugfix): nutzt jetzt
+  // tnDetailBadgesHTML statt tnBadgesHTML, damit NUR die Detail-Info der aktuell aktiven
+  // Filter-Rubrik erscheint (vorher zeigte tnBadgesHTML immer ALLE zutreffenden Badges).
+  const badges = opts.inline ? tnDetailBadgesHTML(t) : '';
   return `<div class="tn-card" onclick="openTnInfo('${t.id}')">
       <div class="tn-card-toprow">
         <div class="name">${esc(t.name)}${t.zimmer?`<span class="tn-badge">🛏️ ${esc(t.zimmer)}</span>`:''}${t.alter?`<span class="tn-badge">${esc(String(t.alter))} J.</span>`:''}</div>
@@ -3178,7 +3305,7 @@ function openTnInfo(id){
   if(t.allergien && t.allergien.trim()) rows.push(tnInfoRow('🥜','Allergien', esc(t.allergien.trim())));
   const medis = d.medis.filter(m=>m.tnId===t.id).sort((a,b)=>(a.zeit||'').localeCompare(b.zeit||''));
   if(medis.length){
-    const ml = medis.map(m=>`<div class="tninfo-medi">${mediZeitPrefix(m)}${esc(m.medikament||'')}${m.notiz?` <span class="tninfo-muted">(${esc(m.notiz)})</span>`:''}</div>`).join('');
+    const ml = medis.map(m=>`<div class="tninfo-medi">${mediEntryLabelHTML(m)}${m.notiz?` <span class="tninfo-muted">(${esc(m.notiz)})</span>`:''}</div>`).join('');
     rows.push(tnInfoRow('💊','Medikamente', ml));
   }
   // spec/31: Geschwister-Verwaltung direkt hier (nicht im Formular, siehe spec/31 §1) — Chips zum
@@ -3297,7 +3424,7 @@ function tnMediDraftListHTML(){
     <div class="medi-card" style="cursor:default">
       <div class="time">${mediZeitPlainLabel(m)?esc(mediZeitPlainLabel(m)):'<span class="tninfo-muted">ohne feste Zeit</span>'}</div>
       <div class="mid">
-        <div class="mname">${esc(m.medikament||'')}</div>
+        <div class="mname">${m.medikament&&m.medikament.trim()?esc(m.medikament):'<span class="tninfo-muted">(kein Medikamentenname)</span>'}</div>
         ${m.notiz?`<div class="msub">${esc(m.notiz)}</div>`:''}
       </div>
       <div style="display:flex;gap:6px;flex:0 0 auto">
@@ -3313,17 +3440,24 @@ function renderTnMediDraftList(){
 function openTnMediForm(idx){
   tnMediDraftEditIdx = (idx===null || idx===undefined) ? null : idx;
   const m = (tnMediDraftEditIdx!=null) ? tnMediDraft[tnMediDraftEditIdx] : null;
+  const zeitTags = m ? (m.zeitTags||[]) : [];
   const el = document.getElementById('tnMediSubForm');
   if(!el) return;
   el.innerHTML = `
     <div class="form-field" style="margin-top:10px"><label>Uhrzeit</label>
-      <input id="tmZeit" type="time" value="${m?esc(m.zeit||''):''}"></div>
-    <div class="form-field"><label>Falls keine feste Uhrzeit</label>
-      ${mediZeitTypChipsHTML(m?(m.zeitTyp||''):'', 'tmZeitTyp')}
-      <input id="tmZeitTypCustom" type="text" placeholder="z. B. nach dem Sport" value="${m?esc(m.zeitCustom||''):''}" style="margin-top:8px;${m&&m.zeitTyp==='custom'?'':'display:none'}">
+      <div style="display:flex;gap:8px;align-items:center">
+        <input id="tmZeit" type="time" value="${m?esc(m.zeit||''):''}" style="flex:1">
+        <button type="button" class="team-icon-btn sm" onclick="mediClearZeit('tmZeit')" aria-label="Uhrzeit löschen">✕</button>
+      </div>
+    </div>
+    <div class="form-field"><label>Status / Zeitpunkt (mehrere gleichzeitig möglich)</label>
+      ${mediZeitTagsChipsHTML(zeitTags, 'tmZeitTags')}
+      <input id="tmZeitTagsCustom" type="text" placeholder="z. B. nach dem Sport" value="${m?esc(m.zeitCustom||''):''}" style="margin-top:8px;${zeitTags.includes('custom')?'':'display:none'}">
     </div>
     <div class="form-field"><label>Medikament</label>
-      <input id="tmMed" type="text" placeholder="z. B. Ibuprofen 400" value="${m?esc(m.medikament||''):''}"></div>
+      <input id="tmMed" type="text" placeholder="z. B. Ibuprofen 400" value="${m?esc(m.medikament||''):''}">
+      <div class="settings-hint" style="text-align:left;margin-top:4px">Optional, wenn oben „Nachtragen" oder ein Zeitpunkt ausgewählt ist.</div>
+    </div>
     <div class="form-field"><label>Notiz</label>
       <textarea id="tmNotiz" placeholder="z. B. nach dem Essen, im Kühlschrank …">${m?esc(m.notiz||''):''}</textarea></div>
     <div class="form-actions">
@@ -3337,14 +3471,15 @@ function closeTnMediForm(){
   if(el) el.innerHTML = '';
 }
 function saveTnMediDraft(){
-  // spec/32: zeitTyp hat Vorrang vor einer (versehentlich) zusätzlich ausgefüllten Uhrzeit.
-  const zeitTyp = mediZeitTypCurrent('tmZeitTyp');
-  const zeit = zeitTyp ? '' : document.getElementById('tmZeit').value;
-  const zeitCustom = zeitTyp==='custom' ? document.getElementById('tmZeitTypCustom').value.trim() : '';
+  const zeit = document.getElementById('tmZeit').value;
+  // spec/33: Tags unabhängig voneinander, Uhrzeit bleibt unabhängig davon erhalten.
+  const zeitTags = mediZeitTagsCurrent('tmZeitTags');
+  const zeitCustom = zeitTags.includes('custom') ? document.getElementById('tmZeitTagsCustom').value.trim() : '';
   const medikament = document.getElementById('tmMed').value.trim();
   const notiz = document.getElementById('tmNotiz').value.trim();
-  if(!medikament){ alert('Bitte ein Medikament angeben.'); return; }
-  const entry = { zeit, zeitTyp, zeitCustom, medikament, notiz };
+  // spec/33: Medikamentenname ist optional, wenn mind. ein Tag (z. B. "Nachtragen") gesetzt ist.
+  if(!medikament && zeitTags.length===0){ alert('Bitte ein Medikament angeben oder mindestens eine Option (z. B. „Nachtragen") auswählen.'); return; }
+  const entry = { zeit, zeitTags, zeitCustom, medikament, notiz };
   if(tnMediDraftEditIdx!=null && tnMediDraft[tnMediDraftEditIdx]){
     Object.assign(tnMediDraft[tnMediDraftEditIdx], entry);
   } else {
@@ -3396,7 +3531,7 @@ function openTnSheet(id){
   const badeCur = t ? (t.bade||'') : 'alles';
   const allergienCur = t ? (t.allergien||'') : '';
   const essenCur = t ? (t.essen||'') : '';
-  tnMediDraft = t ? d.medis.filter(m=>m.tnId===t.id).map(m=>({zeit:m.zeit,zeitTyp:m.zeitTyp||'',zeitCustom:m.zeitCustom||'',medikament:m.medikament,notiz:m.notiz})) : [];
+  tnMediDraft = t ? d.medis.filter(m=>m.tnId===t.id).map(m=>({zeit:m.zeit,zeitTags:(m.zeitTags||[]).slice(),zeitCustom:m.zeitCustom||'',medikament:m.medikament,notiz:m.notiz})) : [];
   tnMediDraftEditIdx = null;
   // Stufe 17 (spec/16 §3) + Feintuning 23.07.2026: Der „zuerst Zimmer anlegen"-Hinweis sitzt jetzt
   // direkt am Zimmer-Feld (siehe unten), damit er genau dort auftaucht, wo man ein Zimmer zuweisen
@@ -3430,9 +3565,6 @@ function openTnSheet(id){
     <div class="form-field"><label>Allergien</label>${tnAllergienFieldHTML(allergienCur)}</div>
     <div class="form-field"><label>🍽️ Essenswahl</label>${tnEssenChipsHTML(essenCur)}</div>
     <div class="form-field"><label>💊 Medikamente</label>
-      <label class="toggle-chip warn${flags.includes('medis')?' on':''}" style="margin-bottom:10px">
-        <input type="checkbox" id="tfMedisNachtragen" value="medis" ${flags.includes('medis')?'checked':''} style="display:none"
-          onchange="this.parentElement.classList.toggle('on', this.checked)">⚠️ Medikamenteneinnahme nachtragen!</label>
       <div id="tnMediDraftList">${tnMediDraftListHTML()}</div>
       <div id="tnMediSubForm"></div>
       <button type="button" class="tn-add-btn" onclick="openTnMediForm(null)">+ Medikament</button>
@@ -3478,7 +3610,7 @@ function saveTn(id){
   // Stufe 16 (spec/14 §4): Medikamente-Draft dauerhaft nach d.medis übertragen — alte Einträge
   // dieses TN entfernen, dann den kompletten Draft neu einfügen (einfacher als diffen).
   d.medis = d.medis.filter(m=>m.tnId!==tnId);
-  tnMediDraft.forEach(m=>{ d.medis.push({ id:uid(), tnId, zeit:m.zeit, zeitTyp:m.zeitTyp||'', zeitCustom:m.zeitCustom||'', medikament:m.medikament, notiz:m.notiz }); });
+  tnMediDraft.forEach(m=>{ d.medis.push({ id:uid(), tnId, zeit:m.zeit, zeitTags:(m.zeitTags||[]).slice(), zeitCustom:m.zeitCustom||'', medikament:m.medikament, notiz:m.notiz }); });
   tnMediDraft = [];
   tnMediDraftEditIdx = null;
   saveData(d);
@@ -3604,7 +3736,10 @@ function ciCardHTML(t){
   const c = ciField(t);
   const flags = t.flags||[];
   const krit = flags.includes('kritisch');
-  const medis = flags.includes('medis');
+  // spec/33: 'medis' ist kein Flag mehr (siehe Migration in normalizeData) — ob die 💊-Zeile in der
+  // Check-In-Liste erscheint, richtet sich jetzt danach, ob überhaupt Medi-Einträge existieren
+  // (inkl. reiner "Nachtragen"-Platzhalter-Einträge), analog zu TN_COUNTERS' 'medis'-match.
+  const medis = getData().medis.some(m=>m.tnId===t.id);
   const ticketFehlt = flags.includes('ticket_nein');
   const open = ciExpanded.has(t.id);
   const badges = []; if(krit) badges.push('🆘'); if(medis) badges.push('💊');
@@ -3693,6 +3828,7 @@ function renderTnView(){
   tnStatsFilter = null; /* Stufe 17 (spec/16 §5c): Top-Card-Liste bei jedem View-Aufruf zugeklappt starten */
   renderTnStats();
   renderTnCounters();
+  renderTnMediPlanToggleBtn(); // spec/33: Button-Text mit aktuellem tnMediPlanOpen synchron halten
   renderTnBesonderheitenBody();
   renderTnStatsList();
   renderGruppen();
