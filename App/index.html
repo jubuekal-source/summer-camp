@@ -519,6 +519,10 @@
     font-weight:700;cursor:pointer}
   .toggle-chip.on{border-color:var(--accent);background:rgba(255,107,74,.14);color:var(--text)}
   .toggle-chip:active{transform:scale(.96)}
+  /* spec/32: auffällige Variante für "Medikamenteneinnahme nachtragen!" — schon unmarkiert leicht
+     hervorgehoben (Warnfarbe), damit die Erinnerung nicht im Formular untergeht. */
+  .toggle-chip.warn{border-color:var(--red);color:var(--red)}
+  .toggle-chip.warn.on{background:rgba(255,90,90,.14);color:var(--red)}
 
   /* ===== Check-In-View (spec/27): schlanke Abhak-Liste, eigene Sicht auf die tn-Datensätze ===== */
   .ci-card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin-bottom:10px;border-left:4px solid var(--line)}
@@ -1271,6 +1275,9 @@ function normalizeData(raw){
       if(t.essen === undefined) t.essen = '';
       // Migration (spec/27): Check-In-Status je TN (immer normalisieren → ts-Objekt existiert garantiert).
       t.checkin = normalizeCheckin(t.checkin);
+      // Migration (spec/31): Geschwister-Verknüpfung (Marcos Wunsch) — Array von TN-IDs, bidirektional
+      // gepflegt (siehe addGeschwister). Fehlt/kein Array → [] (kein Datenverlust).
+      if(!Array.isArray(t.geschwisterIds)) t.geschwisterIds = [];
     });
   }
   // Migration (spec/23 §8): der istTeamer-Workaround (MA doppelt als TN erfasst, nur um ihnen
@@ -1312,7 +1319,13 @@ function normalizeData(raw){
   // Migration (spec/23 §1): medis.staffId — ein Medi-Eintrag gehört entweder zu einem TN
   // (tnId gesetzt) oder zu einem MA (staffId gesetzt). Fehlt das Feld (Alt-Daten) → null.
   if(Array.isArray(merged.medis)){
-    merged.medis.forEach(m=>{ if(m.staffId === undefined) m.staffId = null; });
+    merged.medis.forEach(m=>{
+      if(m.staffId === undefined) m.staffId = null;
+      // Migration (spec/32): alternative Zeitangabe statt fester Uhrzeit (Nur bei Bedarf/Vor dem
+      // Frühstück/Zum Frühstück/Individuell). Fehlt → '' (kein Datenverlust, verhält sich wie bisher).
+      if(m.zeitTyp === undefined) m.zeitTyp = '';
+      if(m.zeitCustom === undefined) m.zeitCustom = '';
+    });
   }
   return merged;
 }
@@ -1773,7 +1786,7 @@ const MA_FLAGS = [
 const MA_COUNTERS = [
   {id:'kritisch', icon:'🆘', label:'Kritisch', desc:'Lebensbedrohliche Besonderheit — vom Team manuell markiert.',
     match:p=>(p.flags||[]).includes('kritisch')},
-  {id:'medis', icon:'💊', label:'Medis', desc:'Nimmt regelmäßig Medikamente — siehe Medikamenten-Plan.',
+  {id:'medis', icon:'💊', label:'Medis', desc:'Nimmt regelmäßig Medikamente — siehe Medikamenten-Plan. Zeigt „⚠️ Nachtragen", wenn nur die Checkbox gesetzt ist, aber noch keine echten Einträge vorliegen.',
     match:p=> getData().medis.some(m=>m.staffId===p.id) || (p.flags||[]).includes('medis')},
   {id:'allergien', icon:'🥜', label:'Allergie', desc:'Hat eine oder mehrere Allergien — Details im MA-Formular.',
     match:p=>!!(p.allergien && p.allergien.trim())},
@@ -2051,8 +2064,11 @@ function maDetailBadgesHTML(p){
   if(maFilter==='medis'){
     const medis = getData().medis.filter(m=>m.staffId===p.id).sort((a,b)=>(a.zeit||'').localeCompare(b.zeit||''));
     if(medis.length){
-      const ml = medis.map(m=>`${m.zeit?esc(m.zeit)+' · ':''}${esc(m.medikament||'')}`).join(', ');
+      const ml = medis.map(m=>{ const zl = mediZeitPlainLabel(m); return `${zl?esc(zl)+' · ':''}${esc(m.medikament||'')}`; }).join(', ');
       out += `<span class="tn-badge warn">💊 ${ml}</span>`;
+    } else if((p.flags||[]).includes('medis')){
+      // spec/32: Flag ohne echte Einträge = "wissen nur, dass Medis genommen werden, Plan fehlt noch".
+      out += `<span class="tn-badge warn">💊 ⚠️ Nachtragen</span>`;
     }
   }
   return out;
@@ -2135,7 +2151,7 @@ function openStaffForm(id){
   const essenCur = p ? (p.essen||'') : '';
   const farbeCur = p ? p.farbe : nextStaffColor();
   const rVal = p && p.rettung_see===true ? 'ja' : p && p.rettung_see===false ? 'nein' : '';
-  tnMediDraft = p ? d.medis.filter(m=>m.staffId===p.id).map(m=>({zeit:m.zeit,medikament:m.medikament,notiz:m.notiz})) : [];
+  tnMediDraft = p ? d.medis.filter(m=>m.staffId===p.id).map(m=>({zeit:m.zeit,zeitTyp:m.zeitTyp||'',zeitCustom:m.zeitCustom||'',medikament:m.medikament,notiz:m.notiz})) : [];
   tnMediDraftEditIdx = null;
   const body = `
     <div class="form-field"><label>Name</label>
@@ -2195,6 +2211,9 @@ function openStaffForm(id){
     <div class="form-field"><label>Allergien</label>${maAllergienFieldHTML(allergienCur)}</div>
     <div class="form-field"><label>🍽️ Essenswahl</label>${maEssenChipsHTML(essenCur)}</div>
     <div class="form-field"><label>💊 Medikamente</label>
+      <label class="toggle-chip warn${flags.includes('medis')?' on':''}" style="margin-bottom:10px">
+        <input type="checkbox" id="mfMedisNachtragen" value="medis" ${flags.includes('medis')?'checked':''} style="display:none"
+          onchange="this.parentElement.classList.toggle('on', this.checked)">⚠️ Medikamenteneinnahme nachtragen!</label>
       <div id="tnMediDraftList">${tnMediDraftListHTML()}</div>
       <div id="tnMediSubForm"></div>
       <button type="button" class="tn-add-btn" onclick="openTnMediForm(null)">+ Medikament</button>
@@ -2253,8 +2272,10 @@ function saveStaffForm(id){
   // weitere toggle-chip-Checkboxen ohne eigenes value (Rettungsabzeichen/Handy/Abreise) — die hätten
   // sonst als Browser-Default value="on" die Flags-Liste verunreinigt. Deshalb zusätzlich gegen
   // MA_FLAGS filtern (gleiches Muster wie saveTn, dort aber schon durch [type=checkbox] gelöst).
+  // spec/32: 'medis' ist bewusst kein MA_FLAGS-Eintrag (eigene Checkbox "Nachtragen", nicht Teil der
+  // generischen Flag-Liste) — daher als einzige Ausnahme zusätzlich durchgelassen.
   const flags = Array.from(document.querySelectorAll('#sheetBody .toggle-chip input[type="checkbox"]:checked'))
-    .map(i=>i.value).filter(v=>MA_FLAGS.some(f=>f.id===v));
+    .map(i=>i.value).filter(v=>MA_FLAGS.some(f=>f.id===v) || v==='medis');
   const d = getData();
   let staffId = id;
   if(id){
@@ -2266,7 +2287,7 @@ function saveStaffForm(id){
   }
   // Medikamente wie saveTn: alte Einträge dieser Person entfernen, Draft komplett neu einfügen.
   d.medis = d.medis.filter(m=>m.staffId!==staffId);
-  tnMediDraft.forEach(m=>{ d.medis.push({ id:uid(), tnId:null, staffId, zeit:m.zeit, medikament:m.medikament, notiz:m.notiz }); });
+  tnMediDraft.forEach(m=>{ d.medis.push({ id:uid(), tnId:null, staffId, zeit:m.zeit, zeitTyp:m.zeitTyp||'', zeitCustom:m.zeitCustom||'', medikament:m.medikament, notiz:m.notiz }); });
   tnMediDraft = [];
   tnMediDraftEditIdx = null;
   saveData(d);
@@ -2369,7 +2390,7 @@ function openStaffInfo(id){
   if(essenLabel) rows.push(tnInfoRow('🍽️','Essenswahl', esc(essenLabel)));
   const medis = d.medis.filter(m=>m.staffId===p.id).sort((a,b)=>(a.zeit||'').localeCompare(b.zeit||''));
   if(medis.length){
-    const ml = medis.map(m=>`<div class="tninfo-medi">${m.zeit?`<b>${esc(m.zeit)}</b> · `:''}${esc(m.medikament||'')}${m.notiz?` <span class="tninfo-muted">(${esc(m.notiz)})</span>`:''}</div>`).join('');
+    const ml = medis.map(m=>`<div class="tninfo-medi">${mediZeitPrefix(m)}${esc(m.medikament||'')}${m.notiz?` <span class="tninfo-muted">(${esc(m.notiz)})</span>`:''}</div>`).join('');
     rows.push(tnInfoRow('💊','Medikamente', ml));
   }
   if(p.fahrer) rows.push(tnInfoRow('🪪🚗','Fahrer', 'Führerschein & bereit, Auto zu fahren'));
@@ -2582,7 +2603,7 @@ function confirmDeleteAllStaffDo(){
 const TN_COUNTERS = [
   {id:'kritisch', icon:'🆘', label:'Kritisch', desc:'Lebensbedrohliche Besonderheit (z. B. Anaphylaxie, Epilepsie) — vom Team manuell markiert.',
     match:t=>(t.flags||[]).includes('kritisch')},
-  {id:'medis', icon:'💊', label:'Medis', desc:'Nimmt regelmäßig Medikamente — siehe Medikamenten-Plan.',
+  {id:'medis', icon:'💊', label:'Medis', desc:'Nimmt regelmäßig Medikamente — siehe Medikamenten-Plan. Zeigt „⚠️ Nachtragen", wenn nur die Checkbox gesetzt ist, aber noch keine echten Einträge vorliegen.',
     /* Stufe 16 (spec/14 §3): ergibt sich automatisch aus vorhandenen Medi-Einträgen (statt manuellem
        Flag) + Legacy-Flag aus Bestandsdaten, damit keine Info verloren geht. getData()-Aufruf im
        match ist minimaler Overhead, akzeptiert (siehe Spec). */
@@ -2622,7 +2643,12 @@ const TN_COUNTERS = [
   {id:'handy_bettruhe', icon:'📱🕙', label:'Handy zur Bettruhe', desc:'Handy wird zur Bettruhezeit abgegeben.',
     match:t=>t.handy==='bettruhe'},
   {id:'handy_nachbettruhe', icon:'📱➕', label:'Handy 1h nach Bettruhe', desc:'Handy wird erst eine Stunde nach der Bettruhe abgegeben.',
-    match:t=>t.handy==='nach_bettruhe'}
+    match:t=>t.handy==='nach_bettruhe'},
+  // spec/31: Geschwister-Verknüpfung (Marcos Wunsch) — kein Flag, sondern aus geschwisterIds
+  // abgeleitet (bidirektional gepflegt, siehe addGeschwister). Tap zeigt die Familie gruppiert
+  // (siehe renderTnFilteredList-Sonderbehandlung für id==='geschwister').
+  {id:'geschwister', icon:'👥', label:'Geschwister', desc:'Hat Geschwister mit in der Freizeit — Tap gruppiert die Familie zusammen in der Liste.',
+    match:t=>(t.geschwisterIds||[]).length>0}
 ];
 // spec/30: Tap-Cycle-Button fürs TN-Formular (ersetzt die beiden alten Checkbox-Chips). Formular-
 // lokal (Hidden-Field statt sofortigem saveData), da ein neuer TN beim Anlegen noch keine id hat —
@@ -2749,13 +2775,39 @@ function renderTnBesonderheitenBody(){
     el.innerHTML = '';
   }
 }
+// spec/31: verbundene Komponente über geschwisterIds ermitteln (unterstützt auch Ketten von 3+
+// Geschwistern), als stabiler Sortier-Schlüssel für die Familien-Gruppierung in renderTnFilteredList.
+function tnFamilyKey(t, tnById){
+  const seen = new Set();
+  const queue = [t.id];
+  while(queue.length){
+    const id = queue.shift();
+    if(seen.has(id)) continue;
+    seen.add(id);
+    const person = tnById.get(id);
+    if(person) (person.geschwisterIds||[]).forEach(sid=>{ if(!seen.has(sid)) queue.push(sid); });
+  }
+  const names = [...seen].map(id=>tnById.get(id)).filter(Boolean).map(p=>p.name);
+  return names.sort((a,b)=>a.localeCompare(b,'de')).join('|');
+}
 function renderTnFilteredList(){
   const el = document.getElementById('tnFilteredList');
   if(!el) return;
   const d = getData();
   const c = TN_COUNTERS.find(x=>x.id===tnFilter);
   let list = c ? d.tn.filter(c.match) : [];
-  list = [...list].sort((a,b)=>a.name.localeCompare(b.name,'de'));
+  if(tnFilter==='geschwister'){
+    // Marcos Kernwunsch: Geschwister sollen in der Liste zusammenstehen, nicht nur alphabetisch
+    // verstreut — pro Familie (verbundene Komponente) ein gemeinsamer Sortier-Schlüssel.
+    const tnById = new Map(d.tn.map(x=>[x.id, x]));
+    list = [...list].sort((a,b)=>{
+      const ka = tnFamilyKey(a, tnById), kb = tnFamilyKey(b, tnById);
+      if(ka!==kb) return ka.localeCompare(kb,'de');
+      return a.name.localeCompare(b.name,'de');
+    });
+  } else {
+    list = [...list].sort((a,b)=>a.name.localeCompare(b.name,'de'));
+  }
   if(!list.length){ el.innerHTML = `<div class="tn-empty">Keine Treffer.</div>`; return; }
   // spec/18: Besonderheiten direkt in der Dashboard-Filterliste zeigen (z. B. Allergie-Text),
   // damit man nicht jede Person einzeln öffnen muss.
@@ -2823,6 +2875,51 @@ function toggleAnsprechMulti(catId, staffId){
 }
 
 /* ---- Medikamenten-Plan ---- */
+/* spec/32: alternative Zeitangabe statt fester Uhrzeit — vier sich gegenseitig ausschließende
+   Checkbox-Chips (Muster wie das frühere TN_HANDY_EXCLUSIVE), inkl. Freitext bei "Individuell".
+   Ist ein zeitTyp gesetzt, hat er beim Speichern Vorrang vor einer (versehentlich) zusätzlich
+   ausgefüllten Uhrzeit (siehe saveMedi/saveTnMediDraft). */
+const MEDI_ZEIT_TYPEN = [
+  {id:'bedarf', label:'Nur bei Bedarf'},
+  {id:'vor_fruehstueck', label:'Vor dem Frühstück'},
+  {id:'zum_fruehstueck', label:'Zum Frühstück'},
+  {id:'custom', label:'Individuelle Eingabe'}
+];
+const MEDI_ZEIT_TYP_LABELS = {bedarf:'Nur bei Bedarf', vor_fruehstueck:'Vor dem Frühstück', zum_fruehstueck:'Zum Frühstück'};
+function mediZeitTypChipsHTML(current, idPrefix){
+  return `<div class="toggle-chips" id="${idPrefix}Group">` + MEDI_ZEIT_TYPEN.map(o=>{
+    const on = current===o.id;
+    return `<label class="toggle-chip${on?' on':''}">
+      <input type="checkbox" value="${o.id}" ${on?'checked':''} style="display:none"
+        onchange="mediZeitTypExclusive(this,'${idPrefix}')">${esc(o.label)}</label>`;
+  }).join('') + `</div>`;
+}
+function mediZeitTypExclusive(input, idPrefix){
+  input.parentElement.classList.toggle('on', input.checked);
+  if(input.checked){
+    input.closest('.toggle-chips').querySelectorAll('input[type="checkbox"]').forEach(other=>{
+      if(other!==input && other.checked){ other.checked=false; other.parentElement.classList.remove('on'); }
+    });
+  }
+  const customInput = document.getElementById(idPrefix+'Custom');
+  if(customInput) customInput.style.display = (input.value==='custom' && input.checked) ? '' : 'none';
+}
+function mediZeitTypCurrent(idPrefix){
+  const el = document.querySelector(`#${idPrefix}Group input[type="checkbox"]:checked`);
+  return el ? el.value : '';
+}
+// Anzeige-Helper: Uhrzeit hat Vorrang, sonst zeitTyp-Label (bzw. Individual-Text), sonst ''.
+function mediZeitPlainLabel(m){
+  if(m.zeit) return m.zeit;
+  if(m.zeitTyp==='custom' && m.zeitCustom && m.zeitCustom.trim()) return m.zeitCustom.trim();
+  if(m.zeitTyp && MEDI_ZEIT_TYP_LABELS[m.zeitTyp]) return MEDI_ZEIT_TYP_LABELS[m.zeitTyp];
+  return '';
+}
+// Für die kompakte Info-Sheet-Zeile ("<b>08:00</b> · Ritalin") — leer wenn nichts angegeben.
+function mediZeitPrefix(m){
+  const label = mediZeitPlainLabel(m);
+  return label ? `<b>${esc(label)}</b> · ` : '';
+}
 /* Stufe 11 (spec/09): ersetzt die frühere manuelle "Ansprechperson Medikamenten-Plan"
    (ansprech.medis, entfernt) — die Zimmerzuständigen des TN ergeben sich automatisch aus
    TN.zimmer -> zust['zimmer_'+zimmer], kein manuelles Zuweisen mehr nötig. */
@@ -2852,7 +2949,8 @@ function renderMediList(){
     const person = isStaff ? d.staff.find(s=>s.id===m.staffId) : d.tn.find(t=>t.id===m.tnId);
     const name = person ? person.name : (isStaff ? '(MA gelöscht)' : '(TN gelöscht)');
     const onclick = isStaff ? (person?`openStaffInfo('${m.staffId}')`:'') : `openMediSheet('${m.id}')`;
-    const zeitHTML = m.zeit ? esc(m.zeit) : `<span class="tninfo-muted">ohne feste Zeit</span>`;
+    const zeitLabel = mediZeitPlainLabel(m);
+    const zeitHTML = zeitLabel ? esc(zeitLabel) : `<span class="tninfo-muted">ohne feste Zeit</span>`;
     return `<div class="medi-card${isStaff?' medi-staff':''}" onclick="${onclick}">
       <div class="time">${zeitHTML}</div>
       <div class="mid">
@@ -2876,6 +2974,10 @@ function openMediSheet(id){
       <select id="mfTn">${mediTnOptionsHTML(m?m.tnId:null)}</select></div>
     <div class="form-field"><label>Uhrzeit</label>
       <input id="mfZeit" type="time" value="${m?esc(m.zeit||''):''}"></div>
+    <div class="form-field"><label>Falls keine feste Uhrzeit</label>
+      ${mediZeitTypChipsHTML(m?(m.zeitTyp||''):'', 'mfZeitTyp')}
+      <input id="mfZeitTypCustom" type="text" placeholder="z. B. nach dem Sport" value="${m?esc(m.zeitCustom||''):''}" style="margin-top:8px;${m&&m.zeitTyp==='custom'?'':'display:none'}">
+    </div>
     <div class="form-field"><label>Medikament</label>
       <input id="mfMed" type="text" placeholder="z. B. Ibuprofen 400" value="${m?esc(m.medikament||''):''}"></div>
     <div class="form-field"><label>Notiz</label>
@@ -2888,16 +2990,19 @@ function openMediSheet(id){
 }
 function saveMedi(id){
   const tnId = document.getElementById('mfTn').value;
-  const zeit = document.getElementById('mfZeit').value;
+  // spec/32: zeitTyp hat Vorrang vor einer (versehentlich) zusätzlich ausgefüllten Uhrzeit.
+  const zeitTyp = mediZeitTypCurrent('mfZeitTyp');
+  const zeit = zeitTyp ? '' : document.getElementById('mfZeit').value;
+  const zeitCustom = zeitTyp==='custom' ? document.getElementById('mfZeitTypCustom').value.trim() : '';
   const medikament = document.getElementById('mfMed').value.trim();
   const notiz = document.getElementById('mfNotiz').value.trim();
   if(!tnId || !medikament){ alert('Bitte TN und Medikament angeben.'); return; }
   const d = getData();
   if(id){
     const m = d.medis.find(x=>x.id===id);
-    if(m) Object.assign(m, {tnId, zeit, medikament, notiz});
+    if(m) Object.assign(m, {tnId, zeit, zeitTyp, zeitCustom, medikament, notiz});
   } else {
-    d.medis.push({ id:uid(), tnId, zeit, medikament, notiz });
+    d.medis.push({ id:uid(), tnId, zeit, zeitTyp, zeitCustom, medikament, notiz });
   }
   saveData(d);
   closeSheet();
@@ -2935,8 +3040,12 @@ function tnBadgesHTML(t){
     // statt der konkreten Medikamente/Uhrzeit — jetzt wie bei Allergie den Wert direkt sichtbar.
     if(c.id==='medis'){
       const medis = getData().medis.filter(m=>m.tnId===t.id).sort((a,b)=>(a.zeit||'').localeCompare(b.zeit||''));
-      if(medis.length) label = medis.map(m=>`${m.zeit?m.zeit+' · ':''}${m.medikament||''}`).join(', ');
+      if(medis.length) label = medis.map(m=>{ const zl = mediZeitPlainLabel(m); return `${zl?zl+' · ':''}${m.medikament||''}`; }).join(', ');
+      // spec/32: Flag ohne echte Einträge = "wissen nur, dass Medis genommen werden, Plan fehlt noch".
+      else if((t.flags||[]).includes('medis')) label = '⚠️ Nachtragen';
     }
+    // spec/31: Geschwister-Badge zeigt die verknüpften Namen statt nur „Geschwister".
+    if(c.id==='geschwister') label = tnGeschwisterNames(t).join(', ') || label;
     out += `<span class="tn-badge warn">${c.icon} ${esc(label)}</span>`;
   });
   if((t.schwimm && t.schwimm!=='sicher') || (t.bade && t.bade!=='alles')){
@@ -2952,13 +3061,80 @@ function tnBadgesHTML(t){
 function tnFlagBadgesOnly(t){
   let out = '';
   TN_COUNTERS.forEach(c=>{
-    if(['schwimm','medis','allergien'].includes(c.id)) return;
+    // spec/31: 'geschwister' bekommt im Info-Sheet eine eigene Zeile mit Namen (wie allergien/medis).
+    if(['schwimm','medis','allergien','geschwister'].includes(c.id)) return;
     if(!c.match(t)) return;
     // spec/22 (Nachtrag): Essenswahl neutral (grün), übrige Flags in Warn-Optik.
     const cls = (c.id==='veget' || c.id==='vegan') ? 'essen' : 'warn';
     out += `<span class="tn-badge ${cls}">${c.icon} ${esc(c.label)}</span>`;
   });
   return out;
+}
+/* ---- spec/31: Geschwister-Verknüpfung (bidirektional, Verwaltung im TN-Info-Sheet, siehe openTnInfo) ---- */
+function tnGeschwisterNames(t){
+  const d = getData();
+  return (t.geschwisterIds||[]).map(gid=>{
+    const s = d.tn.find(x=>x.id===gid);
+    return s ? s.name : null;
+  }).filter(Boolean);
+}
+// Chip im selben visuellen Muster wie staffChip() (Stufe 2), aber ohne Farb-Punkt (TN haben keine
+// eigene Farbe). Tap = sofort entfernen (bidirektional), kein Zwischenschritt/Bestätigung nötig —
+// analog den Ansprechpersonen-Chips (renderTnAnsprech).
+function tnSiblingChip(tnId, otherId){
+  const d = getData();
+  const s = d.tn.find(x=>x.id===otherId);
+  if(!s) return '';
+  return `<button type="button" class="schip" onclick="removeGeschwister('${tnId}','${otherId}')">${esc(s.name)}<span class="schip-x">✕</span></button>`;
+}
+function tnGeschwisterChipsHTML(tnId){
+  const d = getData();
+  const t = d.tn.find(x=>x.id===tnId); if(!t) return '';
+  const ids = t.geschwisterIds || [];
+  if(!ids.length) return `<span class="tn-ansprech-empty">Noch keine Geschwister verknüpft.</span>`;
+  return ids.map(sid=>tnSiblingChip(tnId, sid)).join('');
+}
+function geschwisterPickerHTML(tnId){
+  const d = getData();
+  const t = d.tn.find(x=>x.id===tnId); if(!t) return '';
+  const linked = t.geschwisterIds || [];
+  const avail = d.tn.filter(x=>x.id!==tnId && !linked.includes(x.id)).sort((a,b)=>a.name.localeCompare(b.name,'de'));
+  if(!avail.length) return `<div class="staff-empty">Keine weiteren Teilnehmenden zum Verknüpfen vorhanden.</div>`;
+  return `<div class="picker-list">` + avail.map(x=>`
+      <button type="button" class="picker-row" onclick="addGeschwister('${tnId}','${x.id}')">
+        <span class="pname">${esc(x.name)}${x.zimmer?` · 🛏️ ${esc(x.zimmer)}`:''}${x.alter?` · ${esc(String(x.alter))} J.`:''}</span>
+      </button>`).join('') + `</div>`;
+}
+function openGeschwisterPicker(tnId){
+  openSheet('Geschwister verknüpfen', geschwisterPickerHTML(tnId));
+}
+// Bidirektional: A bekommt B in geschwisterIds UND B bekommt A — vermeidet genau das Problem, das
+// ein reines Namensfeld hätte (einseitig gepflegt, Tippfehler trennen die Verknüpfung).
+function addGeschwister(tnId, otherId){
+  const d = getData();
+  const t = d.tn.find(x=>x.id===tnId), o = d.tn.find(x=>x.id===otherId);
+  if(!t || !o) return;
+  if(!Array.isArray(t.geschwisterIds)) t.geschwisterIds = [];
+  if(!Array.isArray(o.geschwisterIds)) o.geschwisterIds = [];
+  if(!t.geschwisterIds.includes(otherId)) t.geschwisterIds.push(otherId);
+  if(!o.geschwisterIds.includes(tnId)) o.geschwisterIds.push(tnId);
+  saveData(d);
+  openTnInfo(tnId); // zurück zum aktualisierten Info-Blatt (kein Sheet-Stacking in dieser App)
+  // Gezielt statt renderTnView() (das würde einen aktiven Filter/Suche zurücksetzen).
+  renderTnCounters();
+  renderTnBesonderheitenBody();
+  renderDashGrid();
+}
+function removeGeschwister(tnId, otherId){
+  const d = getData();
+  const t = d.tn.find(x=>x.id===tnId), o = d.tn.find(x=>x.id===otherId);
+  if(t) t.geschwisterIds = (t.geschwisterIds||[]).filter(id=>id!==otherId);
+  if(o) o.geschwisterIds = (o.geschwisterIds||[]).filter(id=>id!==tnId);
+  saveData(d);
+  openTnInfo(tnId);
+  renderTnCounters();
+  renderTnBesonderheitenBody();
+  renderDashGrid();
 }
 /* Stufe 16 (spec/14 §6): TN-Karten im TN-Bereich (Alle TN + gefilterte Besonderheiten-Liste) zeigen
    nur Name/Zimmer/Alter — Flags/Details/Schwimm-Badges nicht mehr auf der Kartenoberfläche, alles
@@ -3002,9 +3178,13 @@ function openTnInfo(id){
   if(t.allergien && t.allergien.trim()) rows.push(tnInfoRow('🥜','Allergien', esc(t.allergien.trim())));
   const medis = d.medis.filter(m=>m.tnId===t.id).sort((a,b)=>(a.zeit||'').localeCompare(b.zeit||''));
   if(medis.length){
-    const ml = medis.map(m=>`<div class="tninfo-medi">${m.zeit?`<b>${esc(m.zeit)}</b> · `:''}${esc(m.medikament||'')}${m.notiz?` <span class="tninfo-muted">(${esc(m.notiz)})</span>`:''}</div>`).join('');
+    const ml = medis.map(m=>`<div class="tninfo-medi">${mediZeitPrefix(m)}${esc(m.medikament||'')}${m.notiz?` <span class="tninfo-muted">(${esc(m.notiz)})</span>`:''}</div>`).join('');
     rows.push(tnInfoRow('💊','Medikamente', ml));
   }
+  // spec/31: Geschwister-Verwaltung direkt hier (nicht im Formular, siehe spec/31 §1) — Chips zum
+  // Entfernen + Picker-Button, sofortiges Speichern (bidirektional, addGeschwister/removeGeschwister).
+  rows.push(tnInfoRow('👥','Geschwister', `<div class="flags">${tnGeschwisterChipsHTML(t.id)}</div>
+    <button type="button" class="schip-add" style="margin-top:6px" onclick="openGeschwisterPicker('${t.id}')">+ Geschwister hinzufügen</button>`));
   const flagB = tnFlagBadgesOnly(t);
   if(flagB) rows.push(tnInfoRow('⚠️','Besonderheiten', `<div class="flags">${flagB}</div>`));
   if(t.details && t.details.trim()) rows.push(tnInfoRow('📝','Notiz', esc(t.details.trim())));
@@ -3057,7 +3237,7 @@ function tnFlagChipsHTML(activeFlags){
      Umbau auf t.handy (Tap-Cycle-Button, eigenes Formularfeld statt Flags) ebenfalls kein Checkbox-
      Flag mehr — genauso ausgeschlossen (die alte gegenseitige Exklusivität TN_HANDY_EXCLUSIVE/
      tnHandyExclusive() entfällt dadurch komplett). */
-  return `<div class="toggle-chips">` + TN_COUNTERS.filter(c=>!['schwimm','medis','allergien','veget','vegan','handy_zuhause','handy_bettruhe','handy_nachbettruhe'].includes(c.id)).map(c=>{
+  return `<div class="toggle-chips">` + TN_COUNTERS.filter(c=>!['schwimm','medis','allergien','veget','vegan','handy_zuhause','handy_bettruhe','handy_nachbettruhe','geschwister'].includes(c.id)).map(c=>{
     const on = activeFlags.includes(c.id);
     return `<label class="toggle-chip${on?' on':''}">
       <input type="checkbox" value="${c.id}" ${on?'checked':''} style="display:none"
@@ -3115,7 +3295,7 @@ function tnMediDraftListHTML(){
   if(!tnMediDraft.length) return `<div class="medi-empty" style="padding:6px 0">Keine Medikamente erfasst.</div>`;
   return tnMediDraft.map((m,idx)=>`
     <div class="medi-card" style="cursor:default">
-      <div class="time">${m.zeit?esc(m.zeit):'<span class="tninfo-muted">ohne feste Zeit</span>'}</div>
+      <div class="time">${mediZeitPlainLabel(m)?esc(mediZeitPlainLabel(m)):'<span class="tninfo-muted">ohne feste Zeit</span>'}</div>
       <div class="mid">
         <div class="mname">${esc(m.medikament||'')}</div>
         ${m.notiz?`<div class="msub">${esc(m.notiz)}</div>`:''}
@@ -3138,6 +3318,10 @@ function openTnMediForm(idx){
   el.innerHTML = `
     <div class="form-field" style="margin-top:10px"><label>Uhrzeit</label>
       <input id="tmZeit" type="time" value="${m?esc(m.zeit||''):''}"></div>
+    <div class="form-field"><label>Falls keine feste Uhrzeit</label>
+      ${mediZeitTypChipsHTML(m?(m.zeitTyp||''):'', 'tmZeitTyp')}
+      <input id="tmZeitTypCustom" type="text" placeholder="z. B. nach dem Sport" value="${m?esc(m.zeitCustom||''):''}" style="margin-top:8px;${m&&m.zeitTyp==='custom'?'':'display:none'}">
+    </div>
     <div class="form-field"><label>Medikament</label>
       <input id="tmMed" type="text" placeholder="z. B. Ibuprofen 400" value="${m?esc(m.medikament||''):''}"></div>
     <div class="form-field"><label>Notiz</label>
@@ -3153,11 +3337,14 @@ function closeTnMediForm(){
   if(el) el.innerHTML = '';
 }
 function saveTnMediDraft(){
-  const zeit = document.getElementById('tmZeit').value;
+  // spec/32: zeitTyp hat Vorrang vor einer (versehentlich) zusätzlich ausgefüllten Uhrzeit.
+  const zeitTyp = mediZeitTypCurrent('tmZeitTyp');
+  const zeit = zeitTyp ? '' : document.getElementById('tmZeit').value;
+  const zeitCustom = zeitTyp==='custom' ? document.getElementById('tmZeitTypCustom').value.trim() : '';
   const medikament = document.getElementById('tmMed').value.trim();
   const notiz = document.getElementById('tmNotiz').value.trim();
   if(!medikament){ alert('Bitte ein Medikament angeben.'); return; }
-  const entry = { zeit, medikament, notiz };
+  const entry = { zeit, zeitTyp, zeitCustom, medikament, notiz };
   if(tnMediDraftEditIdx!=null && tnMediDraft[tnMediDraftEditIdx]){
     Object.assign(tnMediDraft[tnMediDraftEditIdx], entry);
   } else {
@@ -3209,7 +3396,7 @@ function openTnSheet(id){
   const badeCur = t ? (t.bade||'') : 'alles';
   const allergienCur = t ? (t.allergien||'') : '';
   const essenCur = t ? (t.essen||'') : '';
-  tnMediDraft = t ? d.medis.filter(m=>m.tnId===t.id).map(m=>({zeit:m.zeit,medikament:m.medikament,notiz:m.notiz})) : [];
+  tnMediDraft = t ? d.medis.filter(m=>m.tnId===t.id).map(m=>({zeit:m.zeit,zeitTyp:m.zeitTyp||'',zeitCustom:m.zeitCustom||'',medikament:m.medikament,notiz:m.notiz})) : [];
   tnMediDraftEditIdx = null;
   // Stufe 17 (spec/16 §3) + Feintuning 23.07.2026: Der „zuerst Zimmer anlegen"-Hinweis sitzt jetzt
   // direkt am Zimmer-Feld (siehe unten), damit er genau dort auftaucht, wo man ein Zimmer zuweisen
@@ -3243,6 +3430,9 @@ function openTnSheet(id){
     <div class="form-field"><label>Allergien</label>${tnAllergienFieldHTML(allergienCur)}</div>
     <div class="form-field"><label>🍽️ Essenswahl</label>${tnEssenChipsHTML(essenCur)}</div>
     <div class="form-field"><label>💊 Medikamente</label>
+      <label class="toggle-chip warn${flags.includes('medis')?' on':''}" style="margin-bottom:10px">
+        <input type="checkbox" id="tfMedisNachtragen" value="medis" ${flags.includes('medis')?'checked':''} style="display:none"
+          onchange="this.parentElement.classList.toggle('on', this.checked)">⚠️ Medikamenteneinnahme nachtragen!</label>
       <div id="tnMediDraftList">${tnMediDraftListHTML()}</div>
       <div id="tnMediSubForm"></div>
       <button type="button" class="tn-add-btn" onclick="openTnMediForm(null)">+ Medikament</button>
@@ -3288,7 +3478,7 @@ function saveTn(id){
   // Stufe 16 (spec/14 §4): Medikamente-Draft dauerhaft nach d.medis übertragen — alte Einträge
   // dieses TN entfernen, dann den kompletten Draft neu einfügen (einfacher als diffen).
   d.medis = d.medis.filter(m=>m.tnId!==tnId);
-  tnMediDraft.forEach(m=>{ d.medis.push({ id:uid(), tnId, zeit:m.zeit, medikament:m.medikament, notiz:m.notiz }); });
+  tnMediDraft.forEach(m=>{ d.medis.push({ id:uid(), tnId, zeit:m.zeit, zeitTyp:m.zeitTyp||'', zeitCustom:m.zeitCustom||'', medikament:m.medikament, notiz:m.notiz }); });
   tnMediDraft = [];
   tnMediDraftEditIdx = null;
   saveData(d);
@@ -3314,6 +3504,9 @@ function deleteTnConfirm(id){
   d.medis = d.medis.filter(m=>m.tnId!==id);
   // Löschkaskade Stufe 18 (spec/15): TN auch aus allen Gruppen-Mitgliederlisten entfernen.
   d.gruppen.forEach(g=>{ g.memberIds = (g.memberIds||[]).filter(mid=>mid!==id); });
+  // Löschkaskade spec/31: TN auch aus den geschwisterIds aller verbliebenen TN entfernen (sonst
+  // zeigt die verbleibende Geschwister-Kette auf eine gelöschte Person).
+  d.tn.forEach(t=>{ if(Array.isArray(t.geschwisterIds)) t.geschwisterIds = t.geschwisterIds.filter(gid=>gid!==id); });
   saveData(d);
   closeSheet();
   renderTnView();
