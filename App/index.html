@@ -1244,6 +1244,22 @@ function normalizeData(raw){
       }
     });
   }
+  // Migration (spec/30): TN-Handyregelung von zwei Flags (handy_2200/handy_2300, gegenseitig
+  // exklusiv über tnHandyExclusive) auf ein Feld `handy` mit Tap-Cycle-Button umgestellt (Marcos
+  // Wunsch: eine Karte statt zwei) — inkl. neuem dritten Zustand "zuhause" (gab es vorher nicht).
+  // Fehlt `handy` → aus vorhandenen Flags ableiten, dann Flags entfernen. Läuft NACH der
+  // handy_abgabe-Migration oben, erfasst also auch daraus frisch gesetzte handy_2200-Flags.
+  if(Array.isArray(merged.tn)){
+    merged.tn.forEach(t=>{
+      if(t.handy === undefined){
+        const fl = t.flags || [];
+        if(fl.includes('handy_2200')) t.handy = 'bettruhe';
+        else if(fl.includes('handy_2300')) t.handy = 'nach_bettruhe';
+        else t.handy = '';
+        t.flags = fl.filter(f=>f!=='handy_2200' && f!=='handy_2300');
+      }
+    });
+  }
   // Migration (Stufe 16, spec/14 §1): neue Felder geschlecht/allergien. Fehlt das Feld → ''
   // (Bestands-TN NICHT automatisch auf 'w' setzen, das wäre Falschdaten — Default 'w' gilt
   // nur beim Neu-Anlegen im Formular, siehe openTnSheet). Keine Medi-Datenwanderung nötig.
@@ -2597,15 +2613,40 @@ const TN_COUNTERS = [
     match:t=>(t.flags||[]).includes('klettern_nein')},
   {id:'ticket_nein', icon:'🎫', label:'Ticket fehlt', desc:'Kein VVS-Ticket vorhanden — wichtig fürs Ausflugs-Team.',
     match:t=>(t.flags||[]).includes('ticket_nein')},
-  /* Feedback 17.07.2026: aus einer Ja/Nein-Flag zwei Optionen gemacht (Zeitpunkt der Abgabe kann
-     variieren) — mit tnHandyExclusive() im Formular gegenseitig ausschließend gehalten.
-     Icons 18.07.2026 überarbeitet (Marco-Feedback: beide Icons sahen identisch aus): 📱🕙 = Standard
-     (zur Bettruhe), 📱➕ = Sonderregel (länger/1h mehr Zeit). */
-  {id:'handy_2200', icon:'📱🕙', label:'Handy zur Bettruhe', desc:'Handy wird zur Bettruhezeit abgegeben.',
-    match:t=>(t.flags||[]).includes('handy_2200')},
-  {id:'handy_2300', icon:'📱➕', label:'Handy 1h nach Bettruhe', desc:'Handy wird erst eine Stunde nach der Bettruhe abgegeben.',
-    match:t=>(t.flags||[]).includes('handy_2300')}
+  /* spec/30: von zwei gegenseitig exklusiven Flags (handy_2200/handy_2300) auf ein Feld `t.handy`
+     mit Tap-Cycle-Button im Formular umgestellt (Marcos Wunsch: eine Karte statt zwei) — inkl.
+     neuem Zustand "zuhause" (Handy wird gar nicht mitgeführt), den es vorher nicht gab.
+     Icons: 🏠📱 = zuhause gelassen, 📱🕙 = Standard (zur Bettruhe), 📱➕ = Sonderregel (1h mehr Zeit). */
+  {id:'handy_zuhause', icon:'🏠📱', label:'Handy zuhause', desc:'Handy wurde zuhause gelassen, wird nicht mitgeführt.',
+    match:t=>t.handy==='zuhause'},
+  {id:'handy_bettruhe', icon:'📱🕙', label:'Handy zur Bettruhe', desc:'Handy wird zur Bettruhezeit abgegeben.',
+    match:t=>t.handy==='bettruhe'},
+  {id:'handy_nachbettruhe', icon:'📱➕', label:'Handy 1h nach Bettruhe', desc:'Handy wird erst eine Stunde nach der Bettruhe abgegeben.',
+    match:t=>t.handy==='nach_bettruhe'}
 ];
+// spec/30: Tap-Cycle-Button fürs TN-Formular (ersetzt die beiden alten Checkbox-Chips). Formular-
+// lokal (Hidden-Field statt sofortigem saveData), da ein neuer TN beim Anlegen noch keine id hat —
+// anders als die MA-Cycle-Buttons (spec/28/29), die direkt auf gespeicherten Personen arbeiten.
+const TN_HANDY_STATES = ['', 'zuhause', 'bettruhe', 'nach_bettruhe'];
+const TN_HANDY_META = {
+  '': {icon:'📱❔', label:'unbekannt'},
+  zuhause: {icon:'🏠📱', label:'Handy zuhause gelassen'},
+  bettruhe: {icon:'📱🕙', label:'Handy-Abgabe zur Bettruhe'},
+  nach_bettruhe: {icon:'📱➕', label:'Handy-Abgabe 1h nach Bettruhe'}
+};
+function tnHandyBtnLabel(val){
+  const m = TN_HANDY_META[val || ''];
+  return `${m.icon} ${esc(m.label)}`;
+}
+function tnCycleHandy(){
+  const input = document.getElementById('tfHandy');
+  const btn = document.getElementById('tfHandyBtn');
+  if(!input || !btn) return;
+  const idx = TN_HANDY_STATES.indexOf(input.value || '');
+  const next = TN_HANDY_STATES[(idx+1) % TN_HANDY_STATES.length];
+  input.value = next;
+  btn.innerHTML = tnHandyBtnLabel(next);
+}
 /* Nachträglich vereinfacht (Marco-Feedback nach Stufe 4): Mitfahrt/TN-Infos gesamt gestrichen
    (keine sinnvolle Verantwortlichkeit), Zecken/Wunden auf Mehrfachauswahl umgestellt (mehr als
    1 Teamer realistisch).
@@ -3009,28 +3050,18 @@ function renderTnStatsListBody(){
   // Haupt-TN-Liste bleibt bewusst reduziert (nur Name/Zimmer/Alter) — Details per Tap (Info-Blatt).
   el.innerHTML = list.map(t=>tnCardHTML(t)).join('');
 }
-/* Zwei Handy-Abgabe-Zeitpunkte schließen sich gegenseitig aus (ein TN kann nur einen Zeitpunkt
-   haben) — beim Ankreuzen des einen wird der andere automatisch abgewählt. */
-const TN_HANDY_EXCLUSIVE = ['handy_2200','handy_2300'];
-function tnHandyExclusive(input){
-  input.parentElement.classList.toggle('on', input.checked);
-  if(input.checked){
-    TN_HANDY_EXCLUSIVE.filter(id=>id!==input.value).forEach(otherId=>{
-      const otherInput = input.closest('.toggle-chips').querySelector(`input[value="${otherId}"]`);
-      if(otherInput && otherInput.checked){ otherInput.checked=false; otherInput.parentElement.classList.remove('on'); }
-    });
-  }
-}
 function tnFlagChipsHTML(activeFlags){
   /* Stufe 16 (spec/14 §4): 'schwimm' war nie ein echter Flag-Chip (eigene Selects), 'medis' läuft
      jetzt über die inline Medikamente-Sektion, 'allergien' über das eigene Allergien-Feld — beide
-     daher aus der Flag-Chip-Liste ausgeschlossen. */
-  return `<div class="toggle-chips">` + TN_COUNTERS.filter(c=>c.id!=='schwimm' && c.id!=='medis' && c.id!=='allergien' && c.id!=='veget' && c.id!=='vegan').map(c=>{
+     daher aus der Flag-Chip-Liste ausgeschlossen. spec/30: die drei handy_*-Einträge sind seit dem
+     Umbau auf t.handy (Tap-Cycle-Button, eigenes Formularfeld statt Flags) ebenfalls kein Checkbox-
+     Flag mehr — genauso ausgeschlossen (die alte gegenseitige Exklusivität TN_HANDY_EXCLUSIVE/
+     tnHandyExclusive() entfällt dadurch komplett). */
+  return `<div class="toggle-chips">` + TN_COUNTERS.filter(c=>!['schwimm','medis','allergien','veget','vegan','handy_zuhause','handy_bettruhe','handy_nachbettruhe'].includes(c.id)).map(c=>{
     const on = activeFlags.includes(c.id);
-    const onchange = TN_HANDY_EXCLUSIVE.includes(c.id) ? `tnHandyExclusive(this)` : `this.parentElement.classList.toggle('on', this.checked)`;
     return `<label class="toggle-chip${on?' on':''}">
       <input type="checkbox" value="${c.id}" ${on?'checked':''} style="display:none"
-        onchange="${onchange}">${c.icon} ${esc(c.label)}</label>`;
+        onchange="this.parentElement.classList.toggle('on', this.checked)">${c.icon} ${esc(c.label)}</label>`;
   }).join('') + `</div>`;
 }
 /* ---- Geschlecht-Auswahl (Stufe 16, spec/14 §4): 3 Radio-Chips, gleiches visuelles Muster wie
@@ -3216,6 +3247,10 @@ function openTnSheet(id){
       <div id="tnMediSubForm"></div>
       <button type="button" class="tn-add-btn" onclick="openTnMediForm(null)">+ Medikament</button>
     </div>
+    <div class="form-field"><label>📱 Handyregelung</label>
+      <button type="button" class="ma-swim-btn" id="tfHandyBtn" onclick="tnCycleHandy()">${tnHandyBtnLabel(t?t.handy:'')}</button>
+      <input type="hidden" id="tfHandy" value="${t?esc(t.handy||''):''}">
+    </div>
     <div class="form-field"><label>Flags / Besonderheiten</label>${tnFlagChipsHTML(flags)}</div>
     <div class="form-field"><label>Details</label>
       <textarea id="tfDetails" placeholder="z. B. Details siehe TN-Ordner …">${t?esc(t.details||''):''}</textarea></div>
@@ -3236,6 +3271,7 @@ function saveTn(id){
   const allergienMode = (document.querySelector('input[name="tfAllergienMode"]:checked')||{}).value;
   const allergien = (allergienMode==='vorhanden') ? document.getElementById('tfAllergienText').value.trim() : '';
   const essen = (document.querySelector('input[name="tfEssen"]:checked')||{}).value || '';
+  const handy = document.getElementById('tfHandy').value || '';
   const details = document.getElementById('tfDetails').value.trim();
   // Stufe 16: Selektor auf type=checkbox eingeschränkt — #sheetBody enthält jetzt zusätzlich die
   // Geschlecht-/Allergien-Radios im selben .toggle-chip-Look, die hier NICHT als Flags zählen dürfen.
@@ -3244,10 +3280,10 @@ function saveTn(id){
   let tnId = id;
   if(id){
     const t = d.tn.find(x=>x.id===id);
-    if(t) Object.assign(t, {name, alter: alterVal?Number(alterVal):"", zimmer, geschlecht, schwimm, bade, allergien, essen, details, flags});
+    if(t) Object.assign(t, {name, alter: alterVal?Number(alterVal):"", zimmer, geschlecht, schwimm, bade, allergien, essen, handy, details, flags});
   } else {
     tnId = uid();
-    d.tn.push({ id:tnId, name, alter: alterVal?Number(alterVal):"", zimmer, geschlecht, schwimm, bade, allergien, essen, details, flags });
+    d.tn.push({ id:tnId, name, alter: alterVal?Number(alterVal):"", zimmer, geschlecht, schwimm, bade, allergien, essen, handy, details, flags });
   }
   // Stufe 16 (spec/14 §4): Medikamente-Draft dauerhaft nach d.medis übertragen — alte Einträge
   // dieses TN entfernen, dann den kompletten Draft neu einfügen (einfacher als diffen).
