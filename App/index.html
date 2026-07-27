@@ -279,6 +279,11 @@
   .ma-swim-btn.state-bronze{color:#cd7f32;border-color:#cd7f32}
   .ma-swim-btn.state-silber{color:#9ca3af;border-color:#9ca3af}
   .ma-swim-btn.state-gold{color:#eab308;border-color:#eab308}
+  /* spec/29: Toggle "Alle Stati zeigen" neben der Team-Überschrift. */
+  .ma-quali-toggle{padding:6px 10px;border-radius:10px;border:1px dashed var(--line);
+    background:none;color:var(--muted);font:inherit;font-weight:600;font-size:.78rem;cursor:pointer;white-space:nowrap}
+  .ma-quali-toggle:active{transform:scale(.97)}
+  .ma-quali-toggle.active{color:var(--accent);border-color:var(--accent);border-style:solid}
 
   .schip{display:inline-flex;align-items:center;gap:6px;padding:7px 10px 7px 8px;border-radius:20px;
     border:1px solid var(--c,var(--line));background:var(--card2);font:inherit;font-size:.88rem;
@@ -825,9 +830,13 @@
     </div>
 
     <div class="staff-block" style="margin-top:16px">
-      <h3 id="staffCountHead">👥 Unser Team</h3>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
+        <h3 id="staffCountHead" style="margin:0">👥 Unser Team</h3>
+        <!-- spec/29: Laufzeit-Toggle, ob unbekannte/verneinte Quali-Badges (🏅/🩹/🚑) mit angezeigt werden. -->
+        <button type="button" class="ma-quali-toggle" id="maQualiToggleBtn" onclick="toggleMaShowAllQualis()">👁️ Alle Stati zeigen</button>
+      </div>
       <!-- spec/23 §4: volles Formular statt Name+Enter, konsistent zu "+ TN hinzufügen". -->
-      <button type="button" class="tn-add-btn" onclick="openStaffForm(null)">+ Mitarbeiter/in hinzufügen</button>
+      <button type="button" class="tn-add-btn" style="margin-top:10px" onclick="openStaffForm(null)">+ Mitarbeiter/in hinzufügen</button>
       <div class="staff-list" id="staffList" style="margin-top:14px"></div>
     </div>
 
@@ -1786,6 +1795,21 @@ const MA_COUNTERS = [
     match:p=>p.medausbildung===true}
 ];
 let maFilter = null;
+// spec/29: reine Laufzeit-Anzeigeeinstellung (wie zimmerEtageFilter/maFilter) — steuert, ob die
+// Qualifikations-Badges (🏅/🩹/🚑) auf der Karte auch im "unbekannt"/"Nein"-Zustand sichtbar sind.
+// KEIN Teil des Datenmodells/Exports, bleibt beim Reload nicht erhalten (Default: kompakt/aus).
+let maShowAllQualis = false;
+function renderMaQualiToggleBtn(){
+  const btn = document.getElementById('maQualiToggleBtn');
+  if(!btn) return;
+  btn.textContent = maShowAllQualis ? '👁️‍🗨️ Nur Belegte zeigen' : '👁️ Alle Stati zeigen';
+  btn.classList.toggle('active', maShowAllQualis);
+}
+function toggleMaShowAllQualis(){
+  maShowAllQualis = !maShowAllQualis;
+  renderMaQualiToggleBtn();
+  renderStaffList();
+}
 function openMaLegend(){
   openSheet('Legende', `<div class="legend-list">` + MA_COUNTERS.map(c=>
     `<div class="legend-item"><span class="ic">${c.icon}</span><div><b>${esc(c.label)}</b><br><span style="color:var(--muted)">${esc(c.desc)}</span></div></div>`
@@ -1900,11 +1924,12 @@ function rettungBadgeHTML(p){
     : 'Badeaufsicht: unbekannt (tippen für Ja)';
   return `<button type="button" class="ma-swim-btn state-${state}" onclick="event.stopPropagation();cycleRettung('${p.id}')" aria-label="${label}">🏊${icon}</button>`;
 }
-// Stufe 15 (spec/13), erweitert spec/28: formales Abzeichen, unabhängig von der Team-Einschätzung
-// rettungBadgeHTML() oben. Jetzt Bronze/Silber/Gold statt nur Ja/Nein — Cycle-Button auf der Karte,
-// gleiches Bedienmuster wie Badeaufsicht (Marcos Wunsch).
-const ABZEICHEN_STATES = ['', 'bronze', 'silber', 'gold'];
-const ABZEICHEN_LABELS = {'':'keins', bronze:'Bronze', silber:'Silber', gold:'Gold'};
+// Stufe 15 (spec/13), erweitert spec/28+29: formales Abzeichen, unabhängig von der Team-Einschätzung
+// rettungBadgeHTML() oben. Jetzt Bronze/Silber/Gold + expliziter "Nein"-Status (spec/29, vorher gab
+// es keine Unterscheidung zwischen "noch nicht erfasst" und "hat keins") — Cycle-Button auf der
+// Karte, gleiches Bedienmuster wie Badeaufsicht (Marcos Wunsch).
+const ABZEICHEN_STATES = ['', 'bronze', 'silber', 'gold', 'nein'];
+const ABZEICHEN_LABELS = {'':'unbekannt', bronze:'Bronze', silber:'Silber', gold:'Gold', nein:'Nein'};
 function cycleAbzeichen(id){
   const d = getData();
   const p = d.staff.find(s=>s.id===id); if(!p) return;
@@ -1915,15 +1940,22 @@ function cycleAbzeichen(id){
   renderStaffList();
   renderDashGrid();
 }
+// spec/29: auf der Karte nur zeigen, wenn positiv gesetzt (Bronze/Silber/Gold) ODER der globale
+// "Alle Stati zeigen"-Toggle aktiv ist (siehe maShowAllQualis) — sonst wird die Übersicht mit vielen
+// MA zu unübersichtlich. Im Detail-Sheet (openStaffInfo) bleibt jeder gesetzte Wert sichtbar.
 function rettungsabzeichenBadgeHTML(p){
   const state = p.rettungsabzeichen || '';
-  const icon = state==='bronze' ? '🥉' : state==='silber' ? '🥈' : state==='gold' ? '🥇' : '🏅❔';
+  const positive = state==='bronze' || state==='silber' || state==='gold';
+  if(!positive && !maShowAllQualis) return '';
+  const icon = state==='bronze' ? '🥉' : state==='silber' ? '🥈' : state==='gold' ? '🥇' : state==='nein' ? '🚫' : '🏅❔';
   const next = ABZEICHEN_LABELS[ABZEICHEN_STATES[(ABZEICHEN_STATES.indexOf(state)+1) % ABZEICHEN_STATES.length]];
   const label = `Rettungsschwimmerabzeichen: ${ABZEICHEN_LABELS[state]} (tippen für ${next})`;
   return `<button type="button" class="ma-swim-btn state-${state||'unbekannt'}" onclick="event.stopPropagation();cycleAbzeichen('${p.id}')" aria-label="${label}">${icon}</button>`;
 }
 // spec/28: Erste-Hilfe-Schein — Tri-State-Cycle-Button wie Badeaufsicht (❔ unbekannt/✅ Ja/🚫 Nein).
+// spec/29: auf der Karte nur bei "Ja" zeigen (oder Toggle aktiv), siehe rettungsabzeichenBadgeHTML oben.
 function ersteHilfeBadgeHTML(p){
+  if(p.erste_hilfe!==true && !maShowAllQualis) return '';
   const state = p.erste_hilfe===true ? 'ja' : p.erste_hilfe===false ? 'nein' : 'unbekannt';
   const icon = state==='ja' ? '✅' : state==='nein' ? '🚫' : '❔';
   const label = state==='ja' ? 'Erste-Hilfe-Schein: Ja (tippen für Nein)'
@@ -1942,7 +1974,9 @@ function cycleErsteHilfe(id){
 }
 // spec/28: weitergehende medizinische Ausbildung (z. B. Rettungssanitäter/-in) — direkt hinter dem
 // Erste-Hilfe-Schein, gleiches Tri-State-Muster, Icon 🚑 (Marcos Wunsch).
+// spec/29: auf der Karte nur bei "Ja" zeigen (oder Toggle aktiv), siehe oben.
 function medAusbildungBadgeHTML(p){
+  if(p.medausbildung!==true && !maShowAllQualis) return '';
   const state = p.medausbildung===true ? 'ja' : p.medausbildung===false ? 'nein' : 'unbekannt';
   const icon = state==='ja' ? '✅' : state==='nein' ? '🚫' : '❔';
   const label = state==='ja' ? 'Weitergehende medizinische Ausbildung: Ja (tippen für Nein)'
@@ -2417,6 +2451,7 @@ function renderMaView(){
   maFilter = null;
   renderMaCounters();
   renderStaffList();
+  renderMaQualiToggleBtn(); // spec/29: Button-Text mit aktuellem maShowAllQualis synchron halten
 }
 function staffMenuRename(id){
   const d = getData();
