@@ -795,7 +795,10 @@
           <button type="button" class="team-icon-btn sm" style="margin-left:auto" onclick="event.preventDefault(); event.stopPropagation(); confirmDeleteAllGruppen()" aria-label="Alle Gruppen löschen">🗑️</button>
         </summary>
         <div class="body">
-          <button type="button" class="tn-add-btn" onclick="openGruppeCreateSheet()">+ Neue Gruppe erstellen</button>
+          <div style="display:flex;gap:8px">
+            <button type="button" class="tn-add-btn" style="flex:1;margin-top:0" onclick="openGruppeCreateSheet()">+ Neue Gruppe erstellen</button>
+            <button type="button" class="tn-add-btn" style="flex:1;margin-top:0" onclick="shareAlleGruppen()">📤 Alle teilen</button>
+          </div>
           <div id="gruppenList" style="margin-top:10px"></div>
         </div>
       </details>
@@ -3939,7 +3942,8 @@ function gruppeCardHTML(g){
     <summary>
       <span class="room-summary-label">${esc(g.titel)}</span>
       <span class="room-summary-belegt">${members.length} TN${ageInfo}</span>
-      <button type="button" class="team-icon-btn sm" style="margin-left:auto" onclick="event.preventDefault(); event.stopPropagation(); deleteGruppeConfirm('${g.id}')" aria-label="Gruppe löschen">🗑️</button>
+      <button type="button" class="team-icon-btn sm" style="margin-left:auto" onclick="event.preventDefault(); event.stopPropagation(); shareGruppe('${g.id}')" aria-label="Gruppe teilen">📤</button>
+      <button type="button" class="team-icon-btn sm" onclick="event.preventDefault(); event.stopPropagation(); deleteGruppeConfirm('${g.id}')" aria-label="Gruppe löschen">🗑️</button>
     </summary>
     <div class="body">
       <div class="zust-row">${teamerChips}<button type="button" class="schip-add" onclick="openGruppeTeamerPicker('${g.id}')">+ Teamer</button></div>
@@ -3952,6 +3956,76 @@ function gruppeCardHTML(g){
       </div>
     </div>
   </details>`;
+}
+/* ---- Teilen (spec/34_gruppen_teilen.md): reines Text-Teilen über die System-Share-API, bewusst KEIN
+   Datei-Export/Re-Import — memberIds/teamerIds sind lokale IDs, die auf einem anderen Gerät mit
+   abweichendem TN-/Team-Bestand ins Leere laufen würden. Text enthält bewusst nur Vorname · Zimmer ·
+   Alter je Mitglied (keine Nachnamen/Gesundheitsdaten), Teamer-Namen nur wenn zugewiesen. ---- */
+function buildGruppeShareText(g){
+  const d = getData();
+  const members = (g.memberIds||[]).map(id=>d.tn.find(t=>t.id===id)).filter(Boolean).sort((a,b)=>a.name.localeCompare(b.name,'de'));
+  const ages = members.map(m=>m.alter).filter(a=>a);
+  const ageInfo = ages.length ? (Math.min(...ages)===Math.max(...ages) ? `, ${Math.min(...ages)} J.` : `, ${Math.min(...ages)}–${Math.max(...ages)} J.`) : '';
+  const teamerNames = (g.teamerIds||[]).map(id=>d.staff.find(s=>s.id===id)).filter(Boolean).map(s=>s.name);
+  let out = `👥 ${g.titel} (${members.length} TN${ageInfo})\n`;
+  if(teamerNames.length) out += `Teamer: ${teamerNames.join(', ')}\n`;
+  out += '\n';
+  if(!members.length){
+    out += 'Noch keine Mitglieder.\n';
+  }else{
+    out += members.map(t=>{
+      let line = `• ${t.name}`;
+      if(t.zimmer) line += ` · 🛏️ ${t.zimmer}`;
+      if(t.alter) line += ` · ${t.alter} J.`;
+      return line;
+    }).join('\n') + '\n';
+  }
+  return out;
+}
+function buildAlleGruppenShareText(){
+  const d = getData();
+  if(!d.gruppen.length) return '';
+  return d.gruppen.map(buildGruppeShareText).join('\n');
+}
+let _gruppeShareState = { text:'', titel:'' };
+function openGruppeShareSheet(text, titel){
+  _gruppeShareState = { text, titel };
+  const shareBtn = (typeof navigator!=='undefined' && navigator.share)
+    ? `<button type="button" class="form-save" onclick="shareGruppeText()">📤 Teilen</button>` : '';
+  openSheet(titel, `<div class="form-field">
+      <textarea readonly rows="10" style="min-height:180px">${esc(text)}</textarea>
+    </div>
+    <div class="form-actions">
+      <button type="button" class="staff-cancel" id="gruppeShareCopyBtn" onclick="copyGruppeShareText()">📋 Kopieren</button>
+      ${shareBtn}
+    </div>`);
+}
+async function copyGruppeShareText(){
+  const btn = document.getElementById('gruppeShareCopyBtn');
+  try{
+    await navigator.clipboard.writeText(_gruppeShareState.text);
+    if(btn){ const old = btn.textContent; btn.textContent = 'Kopiert ✓'; setTimeout(()=>{ btn.textContent = old; }, 1500); }
+  }catch(e){
+    alert('Kopieren nicht möglich: ' + e.message);
+  }
+}
+async function shareGruppeText(){
+  try{
+    await navigator.share({ text: _gruppeShareState.text, title: _gruppeShareState.titel });
+  }catch(e){
+    if(e && e.name === 'AbortError') return; // Nutzer hat den System-Dialog abgebrochen, kein Fehler
+    alert('Teilen fehlgeschlagen: ' + e.message);
+  }
+}
+function shareGruppe(gruppeId){
+  const d = getData();
+  const g = d.gruppen.find(x=>x.id===gruppeId); if(!g) return;
+  openGruppeShareSheet(buildGruppeShareText(g), g.titel);
+}
+function shareAlleGruppen(){
+  const d = getData();
+  if(!d.gruppen.length){ alert('Noch keine Gruppen zum Teilen.'); return; }
+  openGruppeShareSheet(buildAlleGruppenShareText(), 'Alle Gruppen');
 }
 /* ---- Teamer-Zuweisung (Mehrfachauswahl, Wiederverwendung von staffPicker() wie bei Zuständigkeiten) ---- */
 function openGruppeTeamerPicker(gruppeId){
