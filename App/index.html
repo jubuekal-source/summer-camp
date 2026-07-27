@@ -275,6 +275,10 @@
   .ma-swim-btn:active{transform:scale(.94)}
   .ma-swim-btn.state-ja{color:var(--ok);border-color:var(--ok)}
   .ma-swim-btn.state-nein{color:var(--red);border-color:var(--red)}
+  /* spec/28: Rettungsschwimmerabzeichen-Stufen (Cycle-Button, wie Badeaufsicht). */
+  .ma-swim-btn.state-bronze{color:#cd7f32;border-color:#cd7f32}
+  .ma-swim-btn.state-silber{color:#9ca3af;border-color:#9ca3af}
+  .ma-swim-btn.state-gold{color:#eab308;border-color:#eab308}
 
   .schip{display:inline-flex;align-items:center;gap:6px;padding:7px 10px 7px 8px;border-radius:20px;
     border:1px solid var(--c,var(--line));background:var(--card2);font:inherit;font-size:.88rem;
@@ -478,6 +482,8 @@
   .room-note-btn{width:100%;padding:9px;border-radius:10px;border:1px dashed var(--line);
     background:none;color:var(--muted);font:inherit;font-weight:600;font-size:.82rem;cursor:pointer}
   .room-note-btn:active{transform:scale(.99)}
+  /* spec/28: Hinweis, dass die Zimmer-Notiz (anders als Notizen/Wochenplan) exportiert/geteilt wird. */
+  .room-note-shared{color:var(--muted);font-size:.75rem;font-weight:600}
   /* spec/22: Teamer-Sortier-Pfeile in der MA-Karte (rechts). */
   .staff-move-actions{display:flex;gap:4px;margin-left:auto}
   /* spec/22: schwebender Zurück-Button unten links, in jeder Ansicht außer Dashboard. */
@@ -882,6 +888,7 @@
     <div class="notes" style="margin-top:20px">
       <label>📝 Notiz für diesen Tag <span class="saved" id="wpNoteSaved">gespeichert ✓</span></label>
       <textarea id="wpDayNote" placeholder="Private Notiz für diesen Tag …"></textarea>
+      <div class="settings-hint" style="text-align:left;margin-top:6px">🔒 Privat, nur auf diesem Gerät — dieselbe Notiz wie unter 📝 Notizen zu diesem Tag (nie im Export enthalten).</div>
     </div>
   </div><!-- /view-wochenplan -->
 
@@ -1020,9 +1027,11 @@
         <label>🔀 Check-In zusammenführen</label>
         <div class="settings-hint" style="text-align:left;margin:6px 0 0">
           Führt <b>nur</b> die Check-In-Daten (Anwesenheit, Dokumente, Fahrkarte) aus der Datei eines
-          anderen Teamers mit deiner Liste zusammen – alle übrigen Daten bleiben unangetastet. Für
-          paralleles Einchecken: am Ende sammelt ein Gerät alle Dateien ein und exportiert die
-          komplette Liste zurück. Voraussetzung: alle sind aus derselben Grunddatei gestartet.
+          anderen Teamers mit deiner Liste zusammen – <b>deine eigenen Einstellungen (Header-Farben,
+          Titel, Dashboard usw.) bleiben unberührt</b>. Für paralleles Einchecken: am Ende sammelt ein
+          Gerät alle Dateien ein und exportiert die komplette Liste zurück. Voraussetzung: alle sind aus
+          derselben Grunddatei gestartet. <b>Für den Check-In-Austausch immer diesen Weg nehmen, nicht
+          den normalen „📥 Import"</b> (der ersetzt alles).
         </div>
         <button type="button" class="form-save" style="width:100%;margin-top:10px" onclick="document.getElementById('ciMergeFileInput').click()">📄 Check-In-Datei wählen</button>
         <input type="file" id="ciMergeFileInput" accept=".fzx,.json" style="display:none" onchange="handleCheckinMergeFile(event)">
@@ -1250,9 +1259,16 @@ function normalizeData(raw){
     merged.staff.forEach(p=>{
       if(p.abreise_frueher === undefined) p.abreise_frueher = false;
       if(p.abreise_tag === undefined) p.abreise_tag = "";
-      // Migration (Stufe 15, spec/13): formales Rettungsschwimmerabzeichen (Silber), unabhängig
-      // von der bestehenden Team-Einschätzung `rettung_see`. Fehlt es → false (kein Datenverlust).
-      if(p.rettungsabzeichen === undefined) p.rettungsabzeichen = false;
+      // Migration (Stufe 15, spec/13; erweitert spec/28): formales Rettungsschwimmerabzeichen,
+      // unabhängig von der bestehenden Team-Einschätzung `rettung_see`. War bool (nur "Silber"),
+      // jetzt String mit Stufen. Alter Wert `true` bedeutete immer Silber → übernommen, kein
+      // Datenverlust. Fehlt/false → '' (keins).
+      if(p.rettungsabzeichen === true) p.rettungsabzeichen = 'silber';
+      else if(p.rettungsabzeichen === false || p.rettungsabzeichen === undefined) p.rettungsabzeichen = '';
+      // Migration (spec/28): Erste-Hilfe-Schein + weitergehende medizinische Ausbildung (z. B.
+      // Rettungssanitäter/-in) — beides Tri-State wie `rettung_see`. Fehlt → null (unbekannt).
+      if(p.erste_hilfe === undefined) p.erste_hilfe = null;
+      if(p.medausbildung === undefined) p.medausbildung = null;
       // Migration (spec/23 §1): MA bekommen dieselben Gesundheits-/Zimmer-Felder wie TN, damit
       // der istTeamer-Workaround unnötig wird. Fehlt ein Feld → Default (kein Datenverlust).
       if(p.zimmer === undefined) p.zimmer = '';
@@ -1762,8 +1778,12 @@ const MA_COUNTERS = [
     match:p=>p.handyregel===true},
   {id:'rettung', icon:'🏊✅', label:'Badeaufsicht', desc:'Traut sich Badeaufsicht IM Wasser zu (Team-Einschätzung, eigene Abfrage — nicht zu verwechseln mit dem Rettungsschwimmerabzeichen unten).',
     match:p=>p.rettung_see===true},
-  {id:'abzeichen', icon:'🏅', label:'Rettungsschwimmerabzeichen', desc:'Besitzt das Rettungsschwimmerabzeichen (Silber) — formaler Nachweis, unabhängig von der Team-Einschätzung.',
-    match:p=>!!p.rettungsabzeichen}
+  {id:'abzeichen', icon:'🏅', label:'Rettungsschwimmerabzeichen', desc:'Besitzt ein Rettungsschwimmerabzeichen (Bronze/Silber/Gold) — formaler Nachweis, unabhängig von der Team-Einschätzung.',
+    match:p=>!!p.rettungsabzeichen},
+  {id:'erste_hilfe', icon:'🩹', label:'Erste-Hilfe-Schein', desc:'Besitzt einen gültigen Erste-Hilfe-Schein.',
+    match:p=>p.erste_hilfe===true},
+  {id:'medausbildung', icon:'🚑', label:'Weitergehende med. Ausbildung', desc:'Hat eine weitergehende medizinische Ausbildung (z. B. Rettungssanitäter/-in, Rettungshelfer/-in).',
+    match:p=>p.medausbildung===true}
 ];
 let maFilter = null;
 function openMaLegend(){
@@ -1880,10 +1900,64 @@ function rettungBadgeHTML(p){
     : 'Badeaufsicht: unbekannt (tippen für Ja)';
   return `<button type="button" class="ma-swim-btn state-${state}" onclick="event.stopPropagation();cycleRettung('${p.id}')" aria-label="${label}">🏊${icon}</button>`;
 }
-// Stufe 15 (spec/13): formales Abzeichen, unabhängig von der Team-Einschätzung rettungBadgeHTML() oben.
-// Statisches Badge (kein Toggle auf der Karte, Ändern nur im Detail-Sheet).
+// Stufe 15 (spec/13), erweitert spec/28: formales Abzeichen, unabhängig von der Team-Einschätzung
+// rettungBadgeHTML() oben. Jetzt Bronze/Silber/Gold statt nur Ja/Nein — Cycle-Button auf der Karte,
+// gleiches Bedienmuster wie Badeaufsicht (Marcos Wunsch).
+const ABZEICHEN_STATES = ['', 'bronze', 'silber', 'gold'];
+const ABZEICHEN_LABELS = {'':'keins', bronze:'Bronze', silber:'Silber', gold:'Gold'};
+function cycleAbzeichen(id){
+  const d = getData();
+  const p = d.staff.find(s=>s.id===id); if(!p) return;
+  const cur = ABZEICHEN_STATES.indexOf(p.rettungsabzeichen || '');
+  p.rettungsabzeichen = ABZEICHEN_STATES[(cur+1) % ABZEICHEN_STATES.length];
+  saveData(d);
+  renderMaCounters();
+  renderStaffList();
+  renderDashGrid();
+}
 function rettungsabzeichenBadgeHTML(p){
-  return p.rettungsabzeichen ? `<span class="tn-badge">🏅 Silber</span>` : '';
+  const state = p.rettungsabzeichen || '';
+  const icon = state==='bronze' ? '🥉' : state==='silber' ? '🥈' : state==='gold' ? '🥇' : '🏅❔';
+  const next = ABZEICHEN_LABELS[ABZEICHEN_STATES[(ABZEICHEN_STATES.indexOf(state)+1) % ABZEICHEN_STATES.length]];
+  const label = `Rettungsschwimmerabzeichen: ${ABZEICHEN_LABELS[state]} (tippen für ${next})`;
+  return `<button type="button" class="ma-swim-btn state-${state||'unbekannt'}" onclick="event.stopPropagation();cycleAbzeichen('${p.id}')" aria-label="${label}">${icon}</button>`;
+}
+// spec/28: Erste-Hilfe-Schein — Tri-State-Cycle-Button wie Badeaufsicht (❔ unbekannt/✅ Ja/🚫 Nein).
+function ersteHilfeBadgeHTML(p){
+  const state = p.erste_hilfe===true ? 'ja' : p.erste_hilfe===false ? 'nein' : 'unbekannt';
+  const icon = state==='ja' ? '✅' : state==='nein' ? '🚫' : '❔';
+  const label = state==='ja' ? 'Erste-Hilfe-Schein: Ja (tippen für Nein)'
+    : state==='nein' ? 'Erste-Hilfe-Schein: Nein (tippen für unbekannt)'
+    : 'Erste-Hilfe-Schein: unbekannt (tippen für Ja)';
+  return `<button type="button" class="ma-swim-btn state-${state}" onclick="event.stopPropagation();cycleErsteHilfe('${p.id}')" aria-label="${label}">🩹${icon}</button>`;
+}
+function cycleErsteHilfe(id){
+  const d = getData();
+  const p = d.staff.find(s=>s.id===id); if(!p) return;
+  p.erste_hilfe = (p.erste_hilfe===null || p.erste_hilfe===undefined) ? true : (p.erste_hilfe===true ? false : null);
+  saveData(d);
+  renderMaCounters();
+  renderStaffList();
+  renderDashGrid();
+}
+// spec/28: weitergehende medizinische Ausbildung (z. B. Rettungssanitäter/-in) — direkt hinter dem
+// Erste-Hilfe-Schein, gleiches Tri-State-Muster, Icon 🚑 (Marcos Wunsch).
+function medAusbildungBadgeHTML(p){
+  const state = p.medausbildung===true ? 'ja' : p.medausbildung===false ? 'nein' : 'unbekannt';
+  const icon = state==='ja' ? '✅' : state==='nein' ? '🚫' : '❔';
+  const label = state==='ja' ? 'Weitergehende medizinische Ausbildung: Ja (tippen für Nein)'
+    : state==='nein' ? 'Weitergehende medizinische Ausbildung: Nein (tippen für unbekannt)'
+    : 'Weitergehende medizinische Ausbildung: unbekannt (tippen für Ja)';
+  return `<button type="button" class="ma-swim-btn state-${state}" onclick="event.stopPropagation();cycleMedAusbildung('${p.id}')" aria-label="${label}">🚑${icon}</button>`;
+}
+function cycleMedAusbildung(id){
+  const d = getData();
+  const p = d.staff.find(s=>s.id===id); if(!p) return;
+  p.medausbildung = (p.medausbildung===null || p.medausbildung===undefined) ? true : (p.medausbildung===true ? false : null);
+  saveData(d);
+  renderMaCounters();
+  renderStaffList();
+  renderDashGrid();
 }
 function maFlagBadgesHTML(p){
   return (p.flags||[]).map(f=>{
@@ -2045,9 +2119,28 @@ function openStaffForm(id){
         <option value="ja"${rVal==='ja'?' selected':''}>Ja</option>
         <option value="nein"${rVal==='nein'?' selected':''}>Nein</option>
       </select>
-      <label class="toggle-chip${p&&p.rettungsabzeichen?' on':''}" style="margin-top:8px">
-        <input type="checkbox" id="mfRettungsabzeichen" ${p&&p.rettungsabzeichen?'checked':''} style="display:none"
-          onchange="this.parentElement.classList.toggle('on', this.checked)">🏅 Rettungsschwimmerabzeichen (Silber)</label>
+    </div>
+    <div class="form-field"><label>🏅 Rettungsschwimmerabzeichen</label>
+      <select id="mfAbzeichen">
+        <option value=""${!p||!p.rettungsabzeichen?' selected':''}>– keins –</option>
+        <option value="bronze"${p&&p.rettungsabzeichen==='bronze'?' selected':''}>Bronze</option>
+        <option value="silber"${p&&p.rettungsabzeichen==='silber'?' selected':''}>Silber</option>
+        <option value="gold"${p&&p.rettungsabzeichen==='gold'?' selected':''}>Gold</option>
+      </select>
+    </div>
+    <div class="form-field"><label>🩹 Erste-Hilfe-Schein</label>
+      <select id="mfErsteHilfe">
+        <option value=""${!p||p.erste_hilfe==null?' selected':''}>– unbekannt –</option>
+        <option value="ja"${p&&p.erste_hilfe===true?' selected':''}>Ja</option>
+        <option value="nein"${p&&p.erste_hilfe===false?' selected':''}>Nein</option>
+      </select>
+    </div>
+    <div class="form-field"><label>🚑 Weitergehende medizinische Ausbildung</label>
+      <select id="mfMedAusbildung">
+        <option value=""${!p||p.medausbildung==null?' selected':''}>– unbekannt –</option>
+        <option value="ja"${p&&p.medausbildung===true?' selected':''}>Ja</option>
+        <option value="nein"${p&&p.medausbildung===false?' selected':''}>Nein</option>
+      </select>
     </div>
     <div class="form-field"><label>Allergien</label>${maAllergienFieldHTML(allergienCur)}</div>
     <div class="form-field"><label>🍽️ Essenswahl</label>${maEssenChipsHTML(essenCur)}</div>
@@ -2092,7 +2185,11 @@ function saveStaffForm(id){
   const bade = document.getElementById('mfBade').value || null;
   const rVal = document.getElementById('mfRettung').value;
   const rettung_see = rVal==='ja' ? true : rVal==='nein' ? false : null;
-  const rettungsabzeichen = document.getElementById('mfRettungsabzeichen').checked;
+  const rettungsabzeichen = document.getElementById('mfAbzeichen').value || '';
+  const ehVal = document.getElementById('mfErsteHilfe').value;
+  const erste_hilfe = ehVal==='ja' ? true : ehVal==='nein' ? false : null;
+  const maVal = document.getElementById('mfMedAusbildung').value;
+  const medausbildung = maVal==='ja' ? true : maVal==='nein' ? false : null;
   const allergienMode = (document.querySelector('input[name="mfAllergienMode"]:checked')||{}).value;
   const allergien = (allergienMode==='vorhanden') ? document.getElementById('mfAllergienText').value.trim() : '';
   const essen = (document.querySelector('input[name="mfEssen"]:checked')||{}).value || '';
@@ -2112,10 +2209,10 @@ function saveStaffForm(id){
   let staffId = id;
   if(id){
     const p = d.staff.find(x=>x.id===id);
-    if(p) Object.assign(p, {name, alter: alterVal?Number(alterVal):"", zimmer, geschlecht, schwimm, bade, rettung_see, rettungsabzeichen, allergien, essen, fahrer, handyregel, abreise_frueher, abreise_tag, farbe, details, flags});
+    if(p) Object.assign(p, {name, alter: alterVal?Number(alterVal):"", zimmer, geschlecht, schwimm, bade, rettung_see, rettungsabzeichen, erste_hilfe, medausbildung, allergien, essen, fahrer, handyregel, abreise_frueher, abreise_tag, farbe, details, flags});
   } else {
     staffId = uid();
-    d.staff.push({ id:staffId, name, alter: alterVal?Number(alterVal):"", zimmer, geschlecht, schwimm, bade, rettung_see, rettungsabzeichen, allergien, essen, fahrer, handyregel, abreise_frueher, abreise_tag, farbe, details, flags });
+    d.staff.push({ id:staffId, name, alter: alterVal?Number(alterVal):"", zimmer, geschlecht, schwimm, bade, rettung_see, rettungsabzeichen, erste_hilfe, medausbildung, allergien, essen, fahrer, handyregel, abreise_frueher, abreise_tag, farbe, details, flags });
   }
   // Medikamente wie saveTn: alte Einträge dieser Person entfernen, Draft komplett neu einfügen.
   d.medis = d.medis.filter(m=>m.staffId!==staffId);
@@ -2153,7 +2250,7 @@ function renderStaffList(){
         <button type="button" class="team-icon-btn sm" onclick="event.stopPropagation();staffMove('${p.id}',-1)" aria-label="Nach oben">↑</button>
         <button type="button" class="team-icon-btn sm" onclick="event.stopPropagation();staffMove('${p.id}',1)" aria-label="Nach unten">↓</button></span>`;
     return `<div class="tn-card" onclick="openStaffInfo('${p.id}')">
-      <div class="name">${staffChip(p.id)}${rettungBadgeHTML(p)}${rettungsabzeichenBadgeHTML(p)}${moveHTML}</div>
+      <div class="name">${staffChip(p.id)}${rettungBadgeHTML(p)}${rettungsabzeichenBadgeHTML(p)}${ersteHilfeBadgeHTML(p)}${medAusbildungBadgeHTML(p)}${moveHTML}</div>
       <div class="flags">${maFlagBadgesHTML(p)}${maExtraBadgesHTML(p)}${maDetailBadgesHTML(p)}</div>
       ${p.details?`<div class="details">${esc(p.details)}</div>`:''}
     </div>`;
@@ -2173,7 +2270,7 @@ function addStaff(){
   const name = input.value.trim();
   if(!name) return;
   const d = getData();
-  d.staff.push({ id:uid(), name, farbe:nextStaffColor(), rettung_see:null, handyregel:"", details:"", flags:[], abreise_frueher:false, abreise_tag:"", rettungsabzeichen:false });
+  d.staff.push({ id:uid(), name, farbe:nextStaffColor(), rettung_see:null, handyregel:"", details:"", flags:[], abreise_frueher:false, abreise_tag:"", rettungsabzeichen:'', erste_hilfe:null, medausbildung:null });
   saveData(d);
   input.value = "";
   renderStaffList();
@@ -2214,7 +2311,9 @@ function openStaffInfo(id){
   if(p.rettung_see===true || p.rettung_see===false){
     rows.push(tnInfoRow('🏊','Badeaufsicht (traut sich zu)', p.rettung_see?'Ja':'Nein'));
   }
-  if(p.rettungsabzeichen) rows.push(tnInfoRow('🏅','Rettungsschwimmerabzeichen', 'Silber'));
+  if(p.rettungsabzeichen) rows.push(tnInfoRow('🏅','Rettungsschwimmerabzeichen', esc(ABZEICHEN_LABELS[p.rettungsabzeichen] || p.rettungsabzeichen)));
+  if(p.erste_hilfe===true || p.erste_hilfe===false) rows.push(tnInfoRow('🩹','Erste-Hilfe-Schein', p.erste_hilfe?'Ja':'Nein'));
+  if(p.medausbildung===true || p.medausbildung===false) rows.push(tnInfoRow('🚑','Weitergehende medizinische Ausbildung', p.medausbildung?'Ja':'Nein'));
   if(p.allergien && p.allergien.trim()) rows.push(tnInfoRow('🥜','Allergien', esc(p.allergien.trim())));
   const essenLabel = {vegetarisch:'vegetarisch', vegan:'vegan'}[p.essen];
   if(essenLabel) rows.push(tnInfoRow('🍽️','Essenswahl', esc(essenLabel)));
@@ -4964,7 +5063,7 @@ function roomNoteBlockHTML(raum, idx){
   const d = getData();
   const note = (d.meta.roomNotes && d.meta.roomNotes[raum]) || '';
   return `<div class="room-note-block">
-    ${note ? `<div class="room-note-text">📝 ${esc(note)}</div>` : ''}
+    ${note ? `<div class="room-note-text">📝 ${esc(note)} <span class="room-note-shared" title="Wird beim Export/Teilen mit dem Team sichtbar">🔗 geteilt</span></div>` : ''}
     <button type="button" class="room-note-btn" onclick="roomNoteEdit(${idx})">📝 ${note?'Notiz bearbeiten':'Notiz hinzufügen'}</button>
   </div>`;
 }
@@ -5223,6 +5322,7 @@ function roomNoteEdit(idx){
   const cur = (d.meta.roomNotes && d.meta.roomNotes[raum]) || '';
   openSheet('Notiz — Zimmer ' + raum, `<div class="form-field">
       <textarea id="roomNoteText" placeholder="z. B. Etagenbett oben defekt, direkt neben dem Teamerzimmer …">${esc(cur)}</textarea></div>
+    <div class="settings-hint" style="text-align:left;margin-top:4px">🔗 Diese Zimmer-Notiz ist Teil des normalen Datenexports und wird beim Teilen mit dem Team sichtbar — anders als die privaten Notizen unter 📝 Notizen/Wochenplan (nur auf diesem Gerät).</div>
     <div class="form-actions">
       ${cur?`<button type="button" class="staff-danger" onclick="roomNoteSave(${idx}, true)">Notiz löschen</button>`:''}
       <button type="button" class="form-save" onclick="roomNoteSave(${idx}, false)">Speichern</button>
