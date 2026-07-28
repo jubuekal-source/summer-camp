@@ -317,6 +317,10 @@
      an .is-editing statt an [open] geknüpft, da die reine Lese-Ansicht (offen, aber nicht im
      Edit-Modus) die statischen Chips weiterhin zeigen soll. */
   .room-card.is-editing .room-summary-chips{display:none}
+  /* spec/35 (Feedback 28.07.2026): bei Gruppen zeigt der Body IMMER die editierbare Teamer-Zeile
+     (nicht nur im Edit-Modus wie bei Zimmern) — daher die statischen Summary-Chips schon bei jedem
+     geöffneten Gruppen-Akkordeon ausblenden, sonst stehen die Teamer doppelt untereinander. */
+  details.gruppe-card[open] .room-summary-chips{display:none}
   .room-betten-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:12px}
   .room-betten-row label{font-size:.82rem;color:var(--muted);font-weight:600}
   .room-betten-row input{width:64px;padding:8px;border-radius:10px;border:1px solid var(--line);
@@ -846,7 +850,7 @@
       <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
         <h3 id="staffCountHead" style="margin:0">👥 Unser Team</h3>
         <!-- spec/29: Laufzeit-Toggle, ob unbekannte/verneinte Quali-Badges (🏅/🩹/🚑) mit angezeigt werden. -->
-        <button type="button" class="ma-quali-toggle" id="maQualiToggleBtn" onclick="toggleMaShowAllQualis()">👁️ Alle Stati zeigen</button>
+        <button type="button" class="ma-quali-toggle active" id="maQualiToggleBtn" onclick="toggleMaShowAllQualis()">👁️ alle ℹ️</button>
       </div>
       <!-- spec/23 §4: volles Formular statt Name+Enter, konsistent zu "+ TN hinzufügen". -->
       <button type="button" class="tn-add-btn" style="margin-top:10px" onclick="openStaffForm(null)">+ Mitarbeiter/in hinzufügen</button>
@@ -2534,7 +2538,10 @@ function saveStaffDetail(id){
 /* ---- View-Init (bei Aufruf über Routing, analog renderTnView) ---- */
 function renderMaView(){
   maFilter = null;
-  maQualiMode = 0; maShowAllQualis = false; // spec/35: immer mit der reinen Namensliste starten
+  // spec/35 (Feedback 28.07.2026): mit den belegten Infos starten (Mode 1), nicht mit der reinen
+  // Namensliste — sonst übersieht das Team, dass man die Details überhaupt einblenden kann. Der
+  // 3-Stufen-Cycle (belegte → alle → nur Namen → belegte …) bleibt vollständig erreichbar.
+  maQualiMode = 1; maShowAllQualis = false;
   renderMaCounters();
   renderStaffList();
   renderMaQualiToggleBtn(); // Button-Text mit aktuellem maQualiMode synchron halten
@@ -5593,8 +5600,10 @@ function roomNoteBlockHTML(raum, idx){
 /* spec/35 Punkt 2: Anzeige-Toggle für die Zimmer-Übersicht — standardmäßig zeigen die Personen-Karten
    in den geöffneten Zimmern nur Name + Alter (kompakte Übersicht). Erst per Button werden die Stati/
    Badges (TN-Besonderheiten bzw. MA-Flags) eingeblendet. Reine Laufzeit-Einstellung wie
-   zimmerEtageFilter, kein Datenmodell, nicht exportiert; beim Betreten der Zimmer-Ansicht auf „aus". */
-let zimmerShowStati = false;
+   zimmerEtageFilter, kein Datenmodell, nicht exportiert. spec/35 (Feedback 28.07.2026): Standard
+   umgedreht auf „an" — das Team soll die Stati direkt sehen (der Button war leicht zu übersehen),
+   Ausblenden ist die optionale Aktion. Beim Betreten der Zimmer-Ansicht daher auf „an". */
+let zimmerShowStati = true;
 function renderZimmerStatiToggleBtn(){
   const btn = document.getElementById('zimmerStatiToggleBtn');
   if(!btn) return;
@@ -6075,7 +6084,7 @@ function openRole(id){
        dann die eigentliche Zimmer-Übersicht als öffenbare Karten. */
     zimmerCoreEditMode = false; // beim (Wieder-)Öffnen der Rolle immer wieder Lese-Ansicht
     zimmerPersonQuery = ''; // spec/22: Personensuche beim Betreten zurücksetzen (Etagen starten zu)
-    zimmerShowStati = false; // spec/35: Zimmer-Übersicht startet kompakt (nur Name + Alter je Person)
+    zimmerShowStati = true; // spec/35 (Feedback): Zimmer-Übersicht startet MIT Stati (Team übersieht den Button sonst)
     h+=`<details class="det" style="margin-top:4px">
       <summary>🧭 Worauf muss ich achten?
         <button type="button" id="zimmerCoreEditToggle" class="team-icon-btn sm" style="margin-left:auto"
@@ -6088,7 +6097,7 @@ function openRole(id){
     </details>`;
     h+=`<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-top:18px">
       <div class="sec-h" style="margin:0">Zimmer-Übersicht</div>
-      <button type="button" class="ma-quali-toggle" id="zimmerStatiToggleBtn" onclick="toggleZimmerStati()">👁️ Stati zeigen</button>
+      <button type="button" class="ma-quali-toggle active" id="zimmerStatiToggleBtn" onclick="toggleZimmerStati()">🚫 Stati ausblenden</button>
     </div>`;
     h+=`<div class="searchbar" style="margin:10px 0"><input id="zimmerPersonSearch" type="search" placeholder="🔍 Person in allen Zimmern suchen …" autocomplete="off" oninput="onZimmerPersonSearch(this.value)"></div>`;
     h+=`<div id="raeumeZustList">${raeumeZustRowsHTML()}</div>`;
