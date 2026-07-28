@@ -1043,7 +1043,7 @@
           Ersetzt den kompletten aktuellen Datenbestand durch die importierte Datei.
         </div>
         <button type="button" class="form-save" style="width:100%;margin-top:10px" onclick="document.getElementById('importFileInput').click()">📄 Datei wählen</button>
-        <input type="file" id="importFileInput" accept=".fzx,.json" style="display:none" onchange="handleImportFile(event)">
+        <input type="file" id="importFileInput" accept="*/*,.json,.fzx" style="display:none" onchange="handleImportFile(event)">
         <button type="button" class="staff-cancel" style="width:100%;margin-top:8px" onclick="openImportPasteSheet()">Inhalt einfügen</button>
       </div>
     </div>
@@ -1060,7 +1060,7 @@
           den normalen „📥 Import"</b> (der ersetzt alles).
         </div>
         <button type="button" class="form-save" style="width:100%;margin-top:10px" onclick="document.getElementById('ciMergeFileInput').click()">📄 Check-In-Datei wählen</button>
-        <input type="file" id="ciMergeFileInput" accept=".fzx,.json" style="display:none" onchange="handleCheckinMergeFile(event)">
+        <input type="file" id="ciMergeFileInput" accept="*/*,.json,.fzx" style="display:none" onchange="handleCheckinMergeFile(event)">
         <button type="button" class="staff-cancel" style="width:100%;margin-top:8px" onclick="openCheckinMergePasteSheet()">Inhalt einfügen</button>
       </div>
     </div>
@@ -6632,7 +6632,8 @@ function bindEinstellungen(){
 }
 
 /* ============ Export & Import (Stufe 5, spec/01_architektur.md §Export) ============ */
-/* Datei-Format (.fzx = verschlüsseltes JSON, .json = unverschlüsselter Export):
+/* Datei-Format (immer .json; das Feld `encrypted` im Inhalt entscheidet, nicht die Endung.
+   Frühere Exporte hatten die Endung .fzx – werden weiterhin importiert, siehe accept="*" unten):
    { fzappExport:true, version:1, encrypted:true, kdf:'PBKDF2', iterations, salt, iv, ciphertext }
    { fzappExport:true, version:1, encrypted:false, data:{...kompletter fzapp_data-Inhalt...} } */
 const PBKDF2_ITER = 150000;
@@ -6718,7 +6719,7 @@ async function doEncryptedExport(){
       btn.textContent = 'Verschlüssele…';
     }
     const env = await encryptJSON(exportData, pw1);
-    downloadFile('freizeit-app-export.fzx', JSON.stringify(env), 'application/octet-stream');
+    downloadFile('freizeit-app-export.json', JSON.stringify(env), 'application/json');
     closeSheet();
   }catch(e){
     alert('Export fehlgeschlagen: ' + e.message);
