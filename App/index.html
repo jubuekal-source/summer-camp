@@ -799,6 +799,10 @@
             <button type="button" class="tn-add-btn" style="flex:1;margin-top:0" onclick="openGruppeCreateSheet()">+ Neue Gruppe erstellen</button>
             <button type="button" class="tn-add-btn" style="flex:1;margin-top:0" onclick="shareAlleGruppen()">📤 Alle teilen</button>
           </div>
+          <!-- spec/35 Punkt 3: Laufzeit-Toggle, ob je Mitglied zusätzlich das Zimmer eingeblendet wird. -->
+          <div style="display:flex;justify-content:flex-end;margin-top:10px">
+            <button type="button" class="ma-quali-toggle" id="gruppenZimmerToggleBtn" onclick="toggleGruppenShowZimmer()">🛏️ Zimmer zeigen</button>
+          </div>
           <div id="gruppenList" style="margin-top:10px"></div>
         </div>
       </details>
@@ -1851,15 +1855,28 @@ let maFilter = null;
 // spec/29: reine Laufzeit-Anzeigeeinstellung (wie zimmerEtageFilter/maFilter) — steuert, ob die
 // Qualifikations-Badges (🏅/🩹/🚑) auf der Karte auch im "unbekannt"/"Nein"-Zustand sichtbar sind.
 // KEIN Teil des Datenmodells/Exports, bleibt beim Reload nicht erhalten (Default: kompakt/aus).
-let maShowAllQualis = false;
+/* spec/35 Punkt 5: aus dem bisherigen 2-Zustands-Toggle (belegt/alle) wird ein 3-Stufen-Zyklus.
+   maQualiMode: 0 = nur Namen (Startansicht, gar keine Badges), 1 = nur belegte Infos, 2 = alle Infos
+   (inkl. ❔/🚫). maShowAllQualis bleibt als abgeleitetes Flag erhalten, damit die Badge-Helfer
+   (rettungsabzeichenBadgeHTML/ersteHilfeBadgeHTML/medAusbildungBadgeHTML) unverändert weiter darauf
+   prüfen können; Mode 0 wird zusätzlich direkt in renderStaffList() abgefangen (dort werden alle
+   Badges/Flags weggelassen). Reine Laufzeit-Einstellung, kein Datenmodell, nicht exportiert. */
+let maQualiMode = 0;
+let maShowAllQualis = false; // abgeleitet: nur in Mode 2 (alle) true
+/* Button-Beschriftung zeigt jeweils, was der nächste Tap bewirkt (Marcos Vorgabe, spec/35):
+   Mode 0 (nur Namen)  → "👁️belegte ℹ️"  (nächster Tap zeigt belegte Infos)
+   Mode 1 (belegte)    → "👁️ alle ℹ️"    (nächster Tap zeigt alle Infos)
+   Mode 2 (alle)       → "🚫ℹ️"           (nächster Tap zurück zur Namensliste) */
+const MA_QUALI_MODE_LABELS = ['👁️belegte ℹ️', '👁️ alle ℹ️', '🚫ℹ️'];
 function renderMaQualiToggleBtn(){
   const btn = document.getElementById('maQualiToggleBtn');
   if(!btn) return;
-  btn.textContent = maShowAllQualis ? '👁️‍🗨️ Nur Belegte zeigen' : '👁️ Alle Stati zeigen';
-  btn.classList.toggle('active', maShowAllQualis);
+  btn.textContent = MA_QUALI_MODE_LABELS[maQualiMode];
+  btn.classList.toggle('active', maQualiMode !== 0);
 }
 function toggleMaShowAllQualis(){
-  maShowAllQualis = !maShowAllQualis;
+  maQualiMode = (maQualiMode + 1) % 3;
+  maShowAllQualis = (maQualiMode === 2);
   renderMaQualiToggleBtn();
   renderStaffList();
 }
@@ -2344,6 +2361,13 @@ function renderStaffList(){
     const moveHTML = maFilter ? '' : `<span class="staff-move-actions">
         <button type="button" class="team-icon-btn sm" onclick="event.stopPropagation();staffMove('${p.id}',-1)" aria-label="Nach oben">↑</button>
         <button type="button" class="team-icon-btn sm" onclick="event.stopPropagation();staffMove('${p.id}',1)" aria-label="Nach unten">↓</button></span>`;
+    // spec/35 Punkt 5: Mode 0 = reine Namensliste (Startansicht) — alle Badges/Flags/Details weglassen,
+    // nur der Namens-Chip (+ Sortierpfeile ohne Filter). Ab Mode 1 wieder die volle Karte.
+    if(maQualiMode === 0){
+      return `<div class="tn-card" onclick="openStaffInfo('${p.id}')">
+        <div class="name">${staffChip(p.id)}${moveHTML}</div>
+      </div>`;
+    }
     return `<div class="tn-card" onclick="openStaffInfo('${p.id}')">
       <div class="name">${staffChip(p.id)}${rettungBadgeHTML(p)}${rettungsabzeichenBadgeHTML(p)}${ersteHilfeBadgeHTML(p)}${medAusbildungBadgeHTML(p)}${moveHTML}</div>
       <div class="flags">${maFlagBadgesHTML(p)}${maExtraBadgesHTML(p)}${maDetailBadgesHTML(p)}</div>
@@ -2510,9 +2534,10 @@ function saveStaffDetail(id){
 /* ---- View-Init (bei Aufruf über Routing, analog renderTnView) ---- */
 function renderMaView(){
   maFilter = null;
+  maQualiMode = 0; maShowAllQualis = false; // spec/35: immer mit der reinen Namensliste starten
   renderMaCounters();
   renderStaffList();
-  renderMaQualiToggleBtn(); // spec/29: Button-Text mit aktuellem maShowAllQualis synchron halten
+  renderMaQualiToggleBtn(); // Button-Text mit aktuellem maQualiMode synchron halten
 }
 function staffMenuRename(id){
   const d = getData();
@@ -3834,7 +3859,9 @@ function renderTnView(){
   renderTnMediPlanToggleBtn(); // spec/33: Button-Text mit aktuellem tnMediPlanOpen synchron halten
   renderTnBesonderheitenBody();
   renderTnStatsList();
+  gruppenShowZimmer = false; // spec/35: Gruppen-Mitglieder starten kompakt (nur Name + Alter)
   renderGruppen();
+  renderGruppenZimmerToggleBtn();
   setupTnAccordions();
   // Deep-Link aus Erste Hilfe (tnPendingFilter → tnFilter): Besonderheiten-Akkordeon automatisch
   // öffnen, damit die gefilterte Liste/der Medi-Plan direkt sichtbar ist (spec/14 §5).
@@ -3911,6 +3938,21 @@ function tnCloseOpenAccordion(){
    rein/raus — die Löschkaskaden oben entfernen nur gelöschte TN/Teamer wieder heraus). Ein TN darf in
    mehreren Gruppen sein. Kartenaufbau bewusst wie die Zimmer-Karten (raeumeZustRowsHTML, Stufe 14) —
    gleiche CSS-Klassen (.det.room-card), damit keine neuen Styles nötig sind. */
+/* spec/35 Punkt 3: Anzeige-Toggle, ob je Gruppen-Mitglied zusätzlich das Zimmer (🛏️) eingeblendet
+   wird. Standard aus → Mitglieder zeigen nur Name + Alter (kompakte Übersicht). Reine Laufzeit-
+   Einstellung, kein Datenmodell, nicht exportiert. */
+let gruppenShowZimmer = false;
+function renderGruppenZimmerToggleBtn(){
+  const btn = document.getElementById('gruppenZimmerToggleBtn');
+  if(!btn) return;
+  btn.textContent = gruppenShowZimmer ? '🛏️ Zimmer ausblenden' : '🛏️ Zimmer zeigen';
+  btn.classList.toggle('active', gruppenShowZimmer);
+}
+function toggleGruppenShowZimmer(){
+  gruppenShowZimmer = !gruppenShowZimmer;
+  renderGruppenZimmerToggleBtn();
+  renderGruppen();
+}
 function renderGruppen(){
   const el = document.getElementById('gruppenList');
   if(!el) return;
@@ -3928,12 +3970,17 @@ function gruppeCardHTML(g){
   const ageInfo = ages.length ? (Math.min(...ages)===Math.max(...ages) ? ` · ${Math.min(...ages)} J.` : ` · ${Math.min(...ages)}–${Math.max(...ages)} J.`) : '';
   const teamerChips = (g.teamerIds||[]).map(id=>staffChip(id, {onClick:`removeGruppeTeamer('${g.id}','${id}')`, showX:true})).join('')
     || `<span class="tn-ansprech-empty">noch kein Teamer zugewiesen</span>`;
-  // Mitglieder-Karten im gleichen Look wie tnCardHTML (Name · 🛏️Zimmer · Alter), Tap öffnet TN-Detail;
+  // spec/35 Punkt 4: zugewiesene Teamer als statische (nicht klickbare) Chips schon im geschlossenen
+  // Akkordeon zeigen — analog zu den Zimmer-Karten (room-summary-chips). Nur rendern, wenn vorhanden.
+  const teamerChipsStatic = (g.teamerIds||[]).map(id=>staffChip(id)).join('');
+  // Mitglieder-Karten im gleichen Look wie tnCardHTML. spec/35 Punkt 2+3: Tap öffnet jetzt das
+  // read-only Info-Blatt (openTnInfo) statt des Bearbeitungs-Formulars (openTnSheet) — schützt vor
+  // versehentlichem Ändern; das Zimmer-Badge erscheint nur, wenn der Toggle „🛏️ Zimmer zeigen" aktiv ist.
   // ✕ entfernt nur aus der Gruppe (memberIds), der TN selbst bleibt erhalten (spec/15 §4).
   const memberListHTML = members.length
-    ? members.map(t=>`<div class="tn-card" onclick="openTnSheet('${t.id}')">
+    ? members.map(t=>`<div class="tn-card" onclick="openTnInfo('${t.id}')">
         <div class="tn-card-toprow">
-          <div class="name">${esc(t.name)}${t.zimmer?`<span class="tn-badge">🛏️ ${esc(t.zimmer)}</span>`:''}${t.alter?`<span class="tn-badge">${esc(String(t.alter))} J.</span>`:''}</div>
+          <div class="name">${esc(t.name)}${(gruppenShowZimmer && t.zimmer)?`<span class="tn-badge">🛏️ ${esc(t.zimmer)}</span>`:''}${t.alter?`<span class="tn-badge">${esc(String(t.alter))} J.</span>`:''}</div>
           <button type="button" class="team-icon-btn sm" onclick="event.stopPropagation(); removeTnFromGruppe('${g.id}','${t.id}')" aria-label="Aus Gruppe entfernen">✕</button>
         </div>
       </div>`).join('')
@@ -3944,6 +3991,7 @@ function gruppeCardHTML(g){
       <span class="room-summary-belegt">${members.length} TN${ageInfo}</span>
       <button type="button" class="team-icon-btn sm" style="margin-left:auto" onclick="event.preventDefault(); event.stopPropagation(); shareGruppe('${g.id}')" aria-label="Gruppe teilen">📤</button>
       <button type="button" class="team-icon-btn sm" onclick="event.preventDefault(); event.stopPropagation(); deleteGruppeConfirm('${g.id}')" aria-label="Gruppe löschen">🗑️</button>
+      ${teamerChipsStatic?`<span class="room-summary-chips">${teamerChipsStatic}</span>`:''}
     </summary>
     <div class="body">
       <div class="zust-row">${teamerChips}<button type="button" class="schip-add" onclick="openGruppeTeamerPicker('${g.id}')">+ Teamer</button></div>
@@ -5482,7 +5530,7 @@ function roomCardHTML(raum, idx){
   const tnListHTML = tnHier.length
     ? tnHier.map(t=>`<div class="tn-card" onclick="openTnInfo('${t.id}')">
         <div class="name">${esc(t.name)}${t.alter?`<span class="tn-badge">${esc(String(t.alter))} J.</span>`:''}</div>
-        <div class="flags">${tnBadgesHTML(t)}</div>
+        ${zimmerShowStati?`<div class="flags">${tnBadgesHTML(t)}</div>`:''}
       </div>`).join('')
     : '';
   // spec/23 §6.2: MA in diesem Zimmer zusätzlich zeigen, klar als MA gekennzeichnet (🧑‍🏫), Tap -> Info-Blatt.
@@ -5490,7 +5538,7 @@ function roomCardHTML(raum, idx){
   const staffListHTML = staffHier.length
     ? staffHier.map(s=>`<div class="tn-card" onclick="openStaffInfo('${s.id}')">
         <div class="name">🧑‍🏫 ${esc(s.name)}${s.alter?`<span class="tn-badge">${esc(String(s.alter))} J.</span>`:''}</div>
-        <div class="flags">${maFlagBadgesHTML(s)}${maExtraBadgesHTML(s)}</div>
+        ${zimmerShowStati?`<div class="flags">${maFlagBadgesHTML(s)}${maExtraBadgesHTML(s)}</div>`:''}
       </div>`).join('')
     : '';
   const personenListHTML = (tnListHTML + staffListHTML) || `<div class="tn-empty">Noch niemand diesem Zimmer zugeordnet.</div>`;
@@ -5542,6 +5590,22 @@ function roomNoteBlockHTML(raum, idx){
   </div>`;
 }
 
+/* spec/35 Punkt 2: Anzeige-Toggle für die Zimmer-Übersicht — standardmäßig zeigen die Personen-Karten
+   in den geöffneten Zimmern nur Name + Alter (kompakte Übersicht). Erst per Button werden die Stati/
+   Badges (TN-Besonderheiten bzw. MA-Flags) eingeblendet. Reine Laufzeit-Einstellung wie
+   zimmerEtageFilter, kein Datenmodell, nicht exportiert; beim Betreten der Zimmer-Ansicht auf „aus". */
+let zimmerShowStati = false;
+function renderZimmerStatiToggleBtn(){
+  const btn = document.getElementById('zimmerStatiToggleBtn');
+  if(!btn) return;
+  btn.textContent = zimmerShowStati ? '🚫 Stati ausblenden' : '👁️ Stati zeigen';
+  btn.classList.toggle('active', zimmerShowStati);
+}
+function toggleZimmerStati(){
+  zimmerShowStati = !zimmerShowStati;
+  renderZimmerStatiToggleBtn();
+  renderRaeumeZustList();
+}
 /* Stufe 19 (spec/17): Anzeige-Filter (nur Laufzeit, kein Datenmodell). null = alle Etagen zeigen. */
 let zimmerEtageFilter = null;
 function setEtageFilter(idx){
@@ -5659,7 +5723,7 @@ function raeumeZustRowsHTML(){
       return `<div class="tn-card" onclick="${onclick}">
         <div class="name">${isStaff?'🧑‍🏫 ':''}${esc(t.name)}${t.alter?`<span class="tn-badge">${esc(String(t.alter))} J.</span>`:''}</div>
         <div class="room-search-loc">${ort}</div>
-        <div class="flags">${flagsHTML}</div>
+        ${zimmerShowStati?`<div class="flags">${flagsHTML}</div>`:''}
       </div>`;
     }).join('');
   }
@@ -6011,6 +6075,7 @@ function openRole(id){
        dann die eigentliche Zimmer-Übersicht als öffenbare Karten. */
     zimmerCoreEditMode = false; // beim (Wieder-)Öffnen der Rolle immer wieder Lese-Ansicht
     zimmerPersonQuery = ''; // spec/22: Personensuche beim Betreten zurücksetzen (Etagen starten zu)
+    zimmerShowStati = false; // spec/35: Zimmer-Übersicht startet kompakt (nur Name + Alter je Person)
     h+=`<details class="det" style="margin-top:4px">
       <summary>🧭 Worauf muss ich achten?
         <button type="button" id="zimmerCoreEditToggle" class="team-icon-btn sm" style="margin-left:auto"
@@ -6021,8 +6086,11 @@ function openRole(id){
         ${r.details && r.details.length ? `<details class="det" style="margin-top:10px"><summary>Mehr Details & Sonderfälle</summary><div class="body">${blockHTML(r.details,false,r.id)}</div></details>` : ''}
       </div>
     </details>`;
-    h+=`<div class="sec-h" style="margin-top:18px">Zimmer-Übersicht</div>`;
-    h+=`<div class="searchbar" style="margin-bottom:10px"><input id="zimmerPersonSearch" type="search" placeholder="🔍 Person in allen Zimmern suchen …" autocomplete="off" oninput="onZimmerPersonSearch(this.value)"></div>`;
+    h+=`<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-top:18px">
+      <div class="sec-h" style="margin:0">Zimmer-Übersicht</div>
+      <button type="button" class="ma-quali-toggle" id="zimmerStatiToggleBtn" onclick="toggleZimmerStati()">👁️ Stati zeigen</button>
+    </div>`;
+    h+=`<div class="searchbar" style="margin:10px 0"><input id="zimmerPersonSearch" type="search" placeholder="🔍 Person in allen Zimmern suchen …" autocomplete="off" oninput="onZimmerPersonSearch(this.value)"></div>`;
     h+=`<div id="raeumeZustList">${raeumeZustRowsHTML()}</div>`;
     h+=`<button type="button" class="team-add-point" onclick="raeumeAddRoom()">+ Zimmer</button>`;
   }
