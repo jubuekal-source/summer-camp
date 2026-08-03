@@ -843,7 +843,27 @@
     <div class="ci-fehlt" id="ciFehlt"></div>
     <div id="ciList"></div>
     <button type="button" class="tn-add-btn" style="margin-top:16px" onclick="openExportSheet()">📤 Check-In-Stand exportieren (verschlüsselt)</button>
-    <div class="aside" style="margin-top:16px">🔒 Daten bleiben lokal. Zum Sammeln: jeder exportiert hier, ein Gerät führt alle über „Einstellungen → 🔀 Check-In zusammenführen" zusammen und exportiert die komplette Liste zurück.</div>
+    <div class="aside" style="margin-top:8px">🔒 Daten bleiben lokal. Zum Sammeln: jeder exportiert hier, ein Gerät führt alle über „🔀 TN-Daten zusammenführen" (siehe unten) zusammen und exportiert die komplette Liste zurück.</div>
+    <!-- spec/37 §4c: Merge-Einstieg wandert hierher (weg von den Einstellungen, weg vom
+         verwechselbaren „📥 Import") — Exportieren und Zusammenführen sind die zwei Hälften
+         desselben Vorgangs und gehören nebeneinander. -->
+    <div class="settings-block" style="margin-top:16px">
+      <div>
+        <label>🔀 TN-Daten zusammenführen</label>
+        <div class="settings-hint" style="text-align:left;margin:6px 0 0">
+          Überträgt Check-In-Status <b>und</b> Teilnehmerdaten (Notizen, Medikamente, Besonderheiten,
+          Fahrkarte) aus der Datei eines anderen Teamers mit deiner Liste zusammen – <b>deine eigenen
+          Einstellungen (Header-Farben, Titel, Dashboard usw.) bleiben unberührt</b>. Für paralleles
+          Einchecken: am Ende sammelt ein Gerät alle Dateien ein und exportiert die komplette Liste
+          zurück. Voraussetzung: alle sind aus derselben Grunddatei gestartet. <b>Für den TN-Datenaustausch
+          immer diesen Weg nehmen, nicht den normalen „📥 Import"</b> (der ersetzt alles). Während der
+          Check-In-Phase bitte nichts löschen (Löschungen wandern nicht mit).
+        </div>
+        <button type="button" class="form-save" style="width:100%;margin-top:10px" onclick="document.getElementById('ciMergeFileInput').click()">📄 Check-In-Datei wählen</button>
+        <input type="file" id="ciMergeFileInput" accept="*/*,.json,.fzx" style="display:none" onchange="handleCheckinMergeFile(event)">
+        <button type="button" class="staff-cancel" style="width:100%;margin-top:8px" onclick="openCheckinMergePasteSheet()">Inhalt einfügen</button>
+      </div>
+    </div>
   </div><!-- /view-einchecken -->
 
   <!-- VIEW: MA-INFOS (Personen-Verwaltung Stufe 2, Badges/Handyregel Stufe 4) -->
@@ -1061,21 +1081,18 @@
         <button type="button" class="staff-cancel" style="width:100%;margin-top:8px" onclick="openImportPasteSheet()">Inhalt einfügen</button>
       </div>
     </div>
-    <!-- spec/27: getrennter Merge-Import NUR für Check-In-Daten (paralleles Einchecken auf mehreren Geräten). -->
+    <!-- spec/37 §5b: nur sichtbar, wenn ein Undo-Slot existiert (siehe renderUndoBlock) -->
+    <div id="undoBlock"></div>
+    <!-- spec/37 §4c: voller Merge-Block wandert in die Check-In-Liste (#einchecken) — hier nur noch
+         ein Verweis, das Sammelgerät muss kein Check-In-Gerät sein. -->
     <div class="settings-block">
       <div>
-        <label>🔀 Check-In zusammenführen</label>
-        <div class="settings-hint" style="text-align:left;margin:6px 0 0">
-          Führt <b>nur</b> die Check-In-Daten (Anwesenheit, Dokumente, Fahrkarte) aus der Datei eines
-          anderen Teamers mit deiner Liste zusammen – <b>deine eigenen Einstellungen (Header-Farben,
-          Titel, Dashboard usw.) bleiben unberührt</b>. Für paralleles Einchecken: am Ende sammelt ein
-          Gerät alle Dateien ein und exportiert die komplette Liste zurück. Voraussetzung: alle sind aus
-          derselben Grunddatei gestartet. <b>Für den Check-In-Austausch immer diesen Weg nehmen, nicht
-          den normalen „📥 Import"</b> (der ersetzt alles).
+        <label>🔀 TN-Daten zusammenführen</label>
+        <div class="settings-hint" style="text-align:left;margin:6px 0 10px">
+          Überträgt Check-In-Status und Teilnehmerdaten (Notizen, Medikamente, Besonderheiten,
+          Fahrkarte) aus der Datei eines anderen Teamers – deine eigenen Einstellungen bleiben unberührt.
         </div>
-        <button type="button" class="form-save" style="width:100%;margin-top:10px" onclick="document.getElementById('ciMergeFileInput').click()">📄 Check-In-Datei wählen</button>
-        <input type="file" id="ciMergeFileInput" accept="*/*,.json,.fzx" style="display:none" onchange="handleCheckinMergeFile(event)">
-        <button type="button" class="staff-cancel" style="width:100%;margin-top:8px" onclick="openCheckinMergePasteSheet()">Inhalt einfügen</button>
+        <button type="button" class="form-save" style="width:100%" onclick="location.hash='einchecken'">🔀 TN-Daten zusammenführen → in der Check-In-Liste</button>
       </div>
     </div>
     <div class="settings-block">
@@ -1097,6 +1114,8 @@
         <button type="button" class="staff-danger" style="width:100%;margin-top:6px" onclick="confirmResetAll()">🗑️ Gesamten App-Inhalt zurücksetzen</button>
       </div>
     </div>
+    <!-- spec/37 §4d: dezente Versionsanzeige fürs Ausrollen ("steht bei dir unten 37?") -->
+    <div class="settings-hint" style="text-align:center;margin-top:10px">App-Version <span id="appVersionLabel"></span></div>
   </div><!-- /view-einstellungen -->
 
   <!-- VIEW: TEAM (Stufe 8: editierbar, siehe spec/08_team.md) -->
@@ -1124,6 +1143,9 @@
 const LS_PREFIX = 'fzapp_';
 const LS_OLD_PREFIX = 'sf2026_';
 const DATA_KEY = LS_PREFIX + 'data';
+// spec/37 §4d: kleine Absicherung fürs Ausrollen — Marco kann im Team ohne Rätselraten prüfen, wer
+// die aktuelle Version geladen hat ("steht bei dir unten 37?"). Bei jeder künftigen Spec-Stufe mitziehen.
+const APP_VERSION = '37';
 
 function uid(){ return 'id_' + Date.now().toString(36) + Math.random().toString(36).slice(2,8); }
 
@@ -1181,7 +1203,8 @@ function defaultData(){
 
 // spec/27: Check-In-Status je TN. Unterobjekt mit Tri-State-Feldern + per-Feld-Zeitstempeln (ts)
 // als Grundlage für den geräteübergreifenden Merge (Last-Write-Wins: neuerer ts gewinnt).
-// ticket (Fahrkarte) lebt weiter im tn.flags-Array (ticket_nein), hat aber hier seinen ts-Eintrag.
+// spec/37: die Fahrkarte ist kein Flag mehr, sondern t.ticket (3-Zustands-Feld, eigener ts-Eintrag
+// in t.ts.ticket). checkin.ts.ticket bleibt nur für die Migration alter spec/27-Exporte relevant.
 function normalizeCheckin(c){
   const base = { anwesend:false, versicherung:"", kinderausweis:"", impfausweis:"", medikamente:"", unterlagen:"", ts:{} };
   if(!c || typeof c!=='object' || Array.isArray(c)) return base;
@@ -1191,6 +1214,20 @@ function normalizeCheckin(c){
   if(!out.ts || typeof out.ts!=='object' || Array.isArray(out.ts)) out.ts = {};
   return out;
 }
+// spec/37 §1a: Basisfelder, die beim TN-Merge feldweise per Last-Write-Wins übertragen werden
+// (t.ts = { <feldname>: <timestamp> }, fehlt = 0). 'flags'/'geschwisterIds' werden als ganzes Array
+// verglichen (ein gemeinsamer Zeitstempel), 'medis' steht für alle d.medis-Einträge dieses TN als Block.
+const TN_MERGE_FIELDS = ['name','alter','zimmer','geschlecht','schwimm','bade','allergien','essen','handy','details','ticket','flags','geschwisterIds','medis'];
+// Menschenlesbare Labels für die Merge-Vorschau (§4c) — nur Basisfelder, medis/Check-In-Felder haben eigene Labels.
+const TN_MERGE_FIELD_LABELS = {
+  name:'Name', alter:'Alter', zimmer:'Zimmer', geschlecht:'Geschlecht', schwimm:'Schwimmfähigkeit',
+  bade:'Badeerlaubnis', allergien:'Allergien', essen:'Essenswahl', handy:'Handyregelung',
+  details:'Notiz', ticket:'Fahrkarte', flags:'Besonderheiten', geschwisterIds:'Geschwister'
+};
+// spec/37 §3c: Vergleichsschlüssel für einen Medi-Eintrag, IDs bewusst ignoriert (saveTn() vergibt
+// beim Speichern immer neue IDs für ALLE Medi-Einträge eines TN — ein ID-Vergleich würde beim
+// Merge Duplikate erzeugen statt echte Änderungen zu erkennen).
+function mediKey(m){ return [m.zeit, (m.zeitTags||[]).join('|'), m.zeitCustom, m.medikament, m.notiz].join('§'); }
 
 // Fehlende Felder auffüllen + Migrationen anwenden (Datenmodell kann sich zwischen Stufen erweitern).
 // Wird sowohl von getData() (localStorage) als auch vom Import (Stufe 5) verwendet, damit beide
@@ -1305,6 +1342,21 @@ function normalizeData(raw){
       // Migration (spec/31): Geschwister-Verknüpfung (Marcos Wunsch) — Array von TN-IDs, bidirektional
       // gepflegt (siehe addGeschwister). Fehlt/kein Array → [] (kein Datenverlust).
       if(!Array.isArray(t.geschwisterIds)) t.geschwisterIds = [];
+      // Migration (spec/37 §1c): Fahrkarte von binärem Flag (ticket_nein) auf 3-Zustands-Feld
+      // t.ticket ('' | 'da' | 'fehlt') umgestellt — Muster wie t.handy (spec/30).
+      if(t.ticket === undefined){
+        const fl = t.flags || [];
+        if(fl.includes('ticket_nein')) t.ticket = 'fehlt';
+        // "da" nur, wenn im Check-In schon einmal getippt wurde (ts.ticket war gesetzt) — sonst
+        // bleibt "noch nicht geprüft". Verhindert, dass ungeprüfte TN als bestätigt gelten.
+        else if(t.checkin && t.checkin.ts && t.checkin.ts.ticket) t.ticket = 'da';
+        else t.ticket = '';
+        t.flags = fl.filter(f => f !== 'ticket_nein');
+      }
+      // Migration (spec/37 §1a): Zeitstempel-Objekt für die TN_MERGE_FIELDS-Basisfelder.
+      if(!t.ts || typeof t.ts !== 'object' || Array.isArray(t.ts)) t.ts = {};
+      // Rückwärtskompatibilität: Zeitstempel der Fahrkarte aus spec/27-Exporten übernehmen.
+      if(!t.ts.ticket && t.checkin && t.checkin.ts && t.checkin.ts.ticket) t.ts.ticket = t.checkin.ts.ticket;
     });
   }
   // Migration (spec/23 §8): der istTeamer-Workaround (MA doppelt als TN erfasst, nur um ihnen
@@ -2703,8 +2755,12 @@ const TN_COUNTERS = [
   // spec/22 (Nachtrag 2): Eltern haben keine Erlaubnis für Klettergarten/Klettern erteilt.
   {id:'klettern_nein', icon:'🚫🧗', label:'Klettern', desc:'Keine Eltern-Erlaubnis für Klettergarten/Klettern.',
     match:t=>(t.flags||[]).includes('klettern_nein')},
-  {id:'ticket_nein', icon:'🎫', label:'Ticket fehlt', desc:'Kein VVS-Ticket vorhanden — wichtig fürs Ausflugs-Team.',
-    match:t=>(t.flags||[]).includes('ticket_nein')},
+  // spec/37 §4b: von binärem Flag auf t.ticket (3-Zustands-Feld) umgestellt — zwei Counter statt
+  // einem, damit "bestätigt da" von "noch nicht geprüft" unterscheidbar ist.
+  {id:'ticket_da', icon:'🎫✅', label:'Fahrkarte da', desc:'VVS-Ticket beim Check-In bestätigt.',
+    match:t=>t.ticket==='da'},
+  {id:'ticket_fehlt', icon:'🎫', label:'Fahrkarte fehlt', desc:'Kein VVS-Ticket vorhanden — wichtig fürs Ausflugs-Team.',
+    match:t=>t.ticket==='fehlt'},
   /* spec/30: von zwei gegenseitig exklusiven Flags (handy_2200/handy_2300) auf ein Feld `t.handy`
      mit Tap-Cycle-Button im Formular umgestellt (Marcos Wunsch: eine Karte statt zwei) — inkl.
      neuem Zustand "zuhause" (Handy wird gar nicht mitgeführt), den es vorher nicht gab.
@@ -2743,6 +2799,27 @@ function tnCycleHandy(){
   const next = TN_HANDY_STATES[(idx+1) % TN_HANDY_STATES.length];
   input.value = next;
   btn.innerHTML = tnHandyBtnLabel(next);
+}
+// spec/37 §4b: Fahrkarte als Tap-Cycle-Button im TN-Formular — 1:1 nach dem Muster von
+// tnCycleHandy()/tfHandy/TN_HANDY_STATES (Hidden-Field, weil ein neuer TN noch keine id hat).
+const TN_TICKET_STATES = ['', 'da', 'fehlt'];
+const TN_TICKET_META = {
+  '': {icon:'🎫❔', label:'noch nicht geprüft'},
+  da: {icon:'🎫✅', label:'Fahrkarte vorhanden'},
+  fehlt: {icon:'🎫', label:'Fahrkarte fehlt'}
+};
+function tnTicketBtnLabel(val){
+  const m = TN_TICKET_META[val || ''];
+  return `${m.icon} ${esc(m.label)}`;
+}
+function tnCycleTicket(){
+  const input = document.getElementById('tfTicket');
+  const btn = document.getElementById('tfTicketBtn');
+  if(!input || !btn) return;
+  const idx = TN_TICKET_STATES.indexOf(input.value || '');
+  const next = TN_TICKET_STATES[(idx+1) % TN_TICKET_STATES.length];
+  input.value = next;
+  btn.innerHTML = tnTicketBtnLabel(next);
 }
 /* Nachträglich vereinfacht (Marco-Feedback nach Stufe 4): Mitfahrt/TN-Infos gesamt gestrichen
    (keine sinnvolle Verantwortlichkeit), Zecken/Wunden auf Mehrfachauswahl umgestellt (mehr als
@@ -3290,8 +3367,12 @@ function addGeschwister(tnId, otherId){
   if(!t || !o) return;
   if(!Array.isArray(t.geschwisterIds)) t.geschwisterIds = [];
   if(!Array.isArray(o.geschwisterIds)) o.geschwisterIds = [];
-  if(!t.geschwisterIds.includes(otherId)) t.geschwisterIds.push(otherId);
-  if(!o.geschwisterIds.includes(tnId)) o.geschwisterIds.push(tnId);
+  // spec/37: geschwisterIds ist ein TN_MERGE_FIELD — ts.geschwisterIds hier stempeln, sonst würde
+  // eine hier vorgenommene Verknüpfung beim TN-Merge nie als Änderung erkannt (§3d repariert nur
+  // die Symmetrie, ersetzt aber keinen fehlenden Zeitstempel).
+  const now = Date.now();
+  if(!t.geschwisterIds.includes(otherId)){ t.geschwisterIds.push(otherId); t.ts = t.ts||{}; t.ts.geschwisterIds = now; }
+  if(!o.geschwisterIds.includes(tnId)){ o.geschwisterIds.push(tnId); o.ts = o.ts||{}; o.ts.geschwisterIds = now; }
   saveData(d);
   openTnInfo(tnId); // zurück zum aktualisierten Info-Blatt (kein Sheet-Stacking in dieser App)
   // Gezielt statt renderTnView() (das würde einen aktiven Filter/Suche zurücksetzen).
@@ -3302,8 +3383,9 @@ function addGeschwister(tnId, otherId){
 function removeGeschwister(tnId, otherId){
   const d = getData();
   const t = d.tn.find(x=>x.id===tnId), o = d.tn.find(x=>x.id===otherId);
-  if(t) t.geschwisterIds = (t.geschwisterIds||[]).filter(id=>id!==otherId);
-  if(o) o.geschwisterIds = (o.geschwisterIds||[]).filter(id=>id!==tnId);
+  const now = Date.now();
+  if(t){ t.geschwisterIds = (t.geschwisterIds||[]).filter(id=>id!==otherId); t.ts = t.ts||{}; t.ts.geschwisterIds = now; }
+  if(o){ o.geschwisterIds = (o.geschwisterIds||[]).filter(id=>id!==tnId); o.ts = o.ts||{}; o.ts.geschwisterIds = now; }
   saveData(d);
   openTnInfo(tnId);
   renderTnCounters();
@@ -3413,7 +3495,7 @@ function tnFlagChipsHTML(activeFlags){
      Umbau auf t.handy (Tap-Cycle-Button, eigenes Formularfeld statt Flags) ebenfalls kein Checkbox-
      Flag mehr — genauso ausgeschlossen (die alte gegenseitige Exklusivität TN_HANDY_EXCLUSIVE/
      tnHandyExclusive() entfällt dadurch komplett). */
-  return `<div class="toggle-chips">` + TN_COUNTERS.filter(c=>!['schwimm','medis','allergien','veget','vegan','handy_zuhause','handy_bettruhe','handy_nachbettruhe','geschwister'].includes(c.id)).map(c=>{
+  return `<div class="toggle-chips">` + TN_COUNTERS.filter(c=>!['schwimm','medis','allergien','veget','vegan','handy_zuhause','handy_bettruhe','handy_nachbettruhe','geschwister','ticket_da','ticket_fehlt'].includes(c.id)).map(c=>{
     const on = activeFlags.includes(c.id);
     return `<label class="toggle-chip${on?' on':''}">
       <input type="checkbox" value="${c.id}" ${on?'checked':''} style="display:none"
@@ -3622,6 +3704,10 @@ function openTnSheet(id){
       <button type="button" class="ma-swim-btn" id="tfHandyBtn" onclick="tnCycleHandy()">${tnHandyBtnLabel(t?t.handy:'')}</button>
       <input type="hidden" id="tfHandy" value="${t?esc(t.handy||''):''}">
     </div>
+    <div class="form-field"><label>🎫 Fahrkarte</label>
+      <button type="button" class="ma-swim-btn" id="tfTicketBtn" onclick="tnCycleTicket()">${tnTicketBtnLabel(t?t.ticket:'')}</button>
+      <input type="hidden" id="tfTicket" value="${t?esc(t.ticket||''):''}">
+    </div>
     <div class="form-field"><label>Flags / Besonderheiten</label>${tnFlagChipsHTML(flags)}</div>
     <div class="form-field"><label>Details</label>
       <textarea id="tfDetails" placeholder="z. B. Details siehe TN-Ordner …">${t?esc(t.details||''):''}</textarea></div>
@@ -3643,18 +3729,55 @@ function saveTn(id){
   const allergien = (allergienMode==='vorhanden') ? document.getElementById('tfAllergienText').value.trim() : '';
   const essen = (document.querySelector('input[name="tfEssen"]:checked')||{}).value || '';
   const handy = document.getElementById('tfHandy').value || '';
+  const ticket = document.getElementById('tfTicket').value || '';
   const details = document.getElementById('tfDetails').value.trim();
   // Stufe 16: Selektor auf type=checkbox eingeschränkt — #sheetBody enthält jetzt zusätzlich die
   // Geschlecht-/Allergien-Radios im selben .toggle-chip-Look, die hier NICHT als Flags zählen dürfen.
   const flags = Array.from(document.querySelectorAll('#sheetBody .toggle-chip input[type="checkbox"]:checked')).map(i=>i.value);
   const d = getData();
+  const alterNeu = alterVal?Number(alterVal):"";
   let tnId = id;
   if(id){
     const t = d.tn.find(x=>x.id===id);
-    if(t) Object.assign(t, {name, alter: alterVal?Number(alterVal):"", zimmer, geschlecht, schwimm, bade, allergien, essen, handy, details, flags});
+    if(t){
+      // spec/37 §2 (kritischer Punkt): NUR geänderte Felder stempeln. Würde man beim bloßen Öffnen +
+      // Speichern stumpf ALLE Felder stempeln, gewänne dieses Gerät beim TN-Merge fälschlich gegen
+      // eine echte Änderung eines anderen Geräts — stiller Datenverlust, der wahrscheinlichste Bug
+      // dieser Stufe.
+      t.ts = (t.ts && typeof t.ts==='object' && !Array.isArray(t.ts)) ? t.ts : {};
+      const now = Date.now();
+      const stamp = (feld, alt, neu) => {
+        const same = Array.isArray(alt) || Array.isArray(neu)
+          ? JSON.stringify([...(alt||[])].sort()) === JSON.stringify([...(neu||[])].sort())
+          : (alt||'') === (neu||'');
+        if(!same) t.ts[feld] = now;
+      };
+      stamp('name', t.name, name);
+      stamp('alter', t.alter, alterNeu);
+      stamp('zimmer', t.zimmer, zimmer);
+      stamp('geschlecht', t.geschlecht, geschlecht);
+      stamp('schwimm', t.schwimm, schwimm);
+      stamp('bade', t.bade, bade);
+      stamp('allergien', t.allergien, allergien);
+      stamp('essen', t.essen, essen);
+      stamp('handy', t.handy, handy);
+      stamp('ticket', t.ticket, ticket);
+      stamp('details', t.details, details);
+      stamp('flags', t.flags, flags);
+      // spec/37 §3c: Medikamente als Block vergleichen (IDs werden unten ohnehin neu vergeben,
+      // siehe mediKey — ein ID-Vergleich würde hier immer "geändert" melden).
+      const oldMediKeys = d.medis.filter(m=>m.tnId===tnId).map(mediKey).sort();
+      const newMediKeys = tnMediDraft.map(mediKey).sort();
+      if(JSON.stringify(oldMediKeys) !== JSON.stringify(newMediKeys)) t.ts.medis = now;
+      Object.assign(t, {name, alter: alterNeu, zimmer, geschlecht, schwimm, bade, allergien, essen, handy, ticket, details, flags});
+    }
   } else {
     tnId = uid();
-    d.tn.push({ id:tnId, name, alter: alterVal?Number(alterVal):"", zimmer, geschlecht, schwimm, bade, allergien, essen, handy, details, flags });
+    const now = Date.now();
+    // spec/37 §2: beim Neu-Anlegen ALLE Felder stempeln (nichts kann kollidieren, TN existiert ja
+    // auf keinem anderen Gerät).
+    const ts = {}; TN_MERGE_FIELDS.forEach(f=>{ ts[f] = now; });
+    d.tn.push({ id:tnId, name, alter: alterNeu, zimmer, geschlecht, schwimm, bade, allergien, essen, handy, ticket, details, flags, geschwisterIds: [], ts });
   }
   // Stufe 16 (spec/14 §4): Medikamente-Draft dauerhaft nach d.medis übertragen — alte Einträge
   // dieses TN entfernen, dann den kompletten Draft neu einfügen (einfacher als diffen).
@@ -3730,11 +3853,12 @@ function confirmDeleteAllTnDo(){
   renderDashGrid();
 }
 
-/* ============ Check-In-View (spec/27) ============
+/* ============ Check-In-View (spec/27, Fahrkarte spec/37) ============
    Eigene, schlanke Sicht auf DIESELBEN d.tn-Datensätze — nur die für den Check-In relevanten Felder.
-   Schreibt direkt in tn.checkin; die Fahrkarte schreibt bewusst ins bestehende ticket_nein-Flag,
-   damit sie im TN-Dashboard (🎫) sichtbar bleibt. Jede Änderung setzt einen Zeitstempel (ts.<feld>)
-   → Grundlage für den geräteübergreifenden Merge-Import (siehe applyCheckinMerge). */
+   Schreibt direkt in tn.checkin; die Fahrkarte schreibt seit spec/37 in t.ticket (3-Zustands-Feld,
+   Muster wie t.handy), damit „bestätigt da" von „noch nicht geprüft" unterscheidbar ist. Jede
+   Änderung setzt einen Zeitstempel (checkin.ts.<feld> bzw. t.ts.ticket) → Grundlage für den
+   geräteübergreifenden TN-Merge (siehe applyTnMerge). */
 const CI_DOCS = [
   {key:'versicherung',  label:'Versicherungskarte'},
   {key:'kinderausweis', label:'Kinderausweis'},
@@ -3789,7 +3913,6 @@ function ciCardHTML(t){
   // Check-In-Liste erscheint, richtet sich jetzt danach, ob überhaupt Medi-Einträge existieren
   // (inkl. reiner "Nachtragen"-Platzhalter-Einträge), analog zu TN_COUNTERS' 'medis'-match.
   const medis = getData().medis.some(m=>m.tnId===t.id);
-  const ticketFehlt = flags.includes('ticket_nein');
   const open = ciExpanded.has(t.id);
   const badges = []; if(krit) badges.push('🆘'); if(medis) badges.push('💊');
   const statusTxt = c.anwesend ? '✓ da' : 'offen';
@@ -3798,13 +3921,13 @@ function ciCardHTML(t){
   const docRows = CI_DOCS.map(doc=>ciSegHTML(t.id, doc.key, doc.label, c[doc.key], ['abgegeben','behalten','fehlt'])).join('');
   const mediRow = medis ? ciSegHTML(t.id, 'medikamente', '💊 Medikamente', c.medikamente, ['abgegeben','behalten']) : '';
   const unterlagenRow = ciSegHTML(t.id, 'unterlagen', 'Unterlagen', c.unterlagen, ['ok','fehlt']);
-  // Fahrkarte = ticket_nein-Flag (invertiert: "da" = Flag aus). "da" nur als bestätigt markiert,
-  // wenn schon einmal getippt (ts.ticket gesetzt) — sonst bleibt der Status offen/ungetippt.
+  // spec/37: Fahrkarte = t.ticket ('' | 'da' | 'fehlt') statt Flag — '' zeigt keinen der beiden
+  // Buttons aktiv ("noch nicht geprüft").
   const ticketRow =
     `<div class="ci-row"><span class="ci-row-l">🎫 Fahrkarte</span>`+
     `<div class="ci-seg">`+
-      `<button type="button" class="${(!ticketFehlt && c.ts.ticket)?'on good':''}" onclick="ciSetTicket('${t.id}',true)">da</button>`+
-      `<button type="button" class="${ticketFehlt?'on bad':''}" onclick="ciSetTicket('${t.id}',false)">fehlt</button>`+
+      `<button type="button" class="${t.ticket==='da'?'on good':''}" onclick="ciSetTicket('${t.id}',true)">da</button>`+
+      `<button type="button" class="${t.ticket==='fehlt'?'on bad':''}" onclick="ciSetTicket('${t.id}',false)">fehlt</button>`+
     `</div></div>`;
   return `<div class="ci-card ${c.anwesend?'done':''} ${krit?'crit':''} ${open?'open':''}" id="cicard_${t.id}">
     <div class="ci-head" onclick="ciToggle('${t.id}')">
@@ -3860,11 +3983,9 @@ function ciSetPresent(id, on){
 function ciSetTicket(id, present){
   const d = getData();
   const t = d.tn.find(x=>x.id===id); if(!t) return;
-  t.flags = t.flags||[];
-  const has = t.flags.includes('ticket_nein');
-  if(present && has)  t.flags = t.flags.filter(f=>f!=='ticket_nein'); // "da" → Flag entfernen
-  if(!present && !has) t.flags.push('ticket_nein');                    // "fehlt" → Flag setzen
-  ciField(t).ts.ticket = Date.now();
+  const val = present ? 'da' : 'fehlt';
+  t.ticket = (t.ticket === val) ? '' : val; // erneut tippen = zurück auf "nicht geprüft"
+  t.ts = t.ts || {}; t.ts.ticket = Date.now();
   saveData(d);
   ciRefreshCard(id);
   renderDashGrid();
@@ -6482,6 +6603,9 @@ function loadEinstellungen(){
   renderHdrSwatches();
   renderHdrImagePreview();
   renderDashColorSettings();
+  renderUndoBlock(); // spec/37 §5b: nur sichtbar, wenn ein Undo-Slot existiert
+  const verEl = document.getElementById('appVersionLabel');
+  if(verEl) verEl.textContent = APP_VERSION;
 }
 
 /* ---- Zimmer verwalten (Stufe 11, spec/09): Räume frei anlegen/umbenennen/löschen.
@@ -6832,7 +6956,9 @@ function showImportPreview(dataObj){
     <p><b>Vorschau:</b><br>
     ${d.staff.length} Mitarbeitende · ${d.tn.length} Teilnehmende · ${d.medis.length} Medikamenten-Einträge<br>
     ${tageMitPlan} Tage mit Wochenplan-Inhalt · ${d.team.length} Team-Punkte${images ? ` · ${bildAnzahl} Wochenplan-Bild(er)` : ''}</p>
-    <p>⚠️ Der komplette aktuelle Datenbestand wird <b>ersetzt</b>. Das kann nicht rückgängig gemacht werden.</p>
+    <p>⚠️ Ersetzt <b>alles</b>, auch deinen Wochenplan, deine Zimmer-Notizen und Einstellungen. Willst
+    du nur Teilnehmerdaten vom Check-In übernehmen? Dann nimm <b>🔀 TN-Daten zusammenführen</b>
+    (Check-In-Liste).</p>
     <div class="confirm-actions">
       <button type="button" class="staff-cancel" onclick="closeSheet()">Abbrechen</button>
       <button type="button" class="staff-danger" id="impGoBtn" onclick="doImportConfirm()">Import bestätigen</button>
@@ -6842,6 +6968,7 @@ async function doImportConfirm(){
   if(!_pendingImportData) return;
   const btn = document.getElementById('impGoBtn');
   if(btn) btn.disabled = true;
+  saveUndoSlot('import'); // spec/37 §5: Ein-Slot-Backup des bisherigen Stands vor dem Ersetzen.
   saveData(_pendingImportData);
   if(_pendingImportImages){
     if(btn) btn.textContent = 'Importiere Bilder…';
@@ -6857,14 +6984,16 @@ async function doImportConfirm(){
   location.reload();
 }
 
-/* ============ Check-In-Merge-Import (spec/27) ============
-   Getrennt vom Voll-Import (der ersetzt alles). Übernimmt NUR tn.checkin-Felder + das ticket_nein-Flag,
-   feldweise per Last-Write-Wins (neuerer Zeitstempel gewinnt). Grunddaten (Namen, Besonderheiten,
-   Medi-Plan, Wochenplan …) werden nicht angefasst. Zuordnung über die TN-id → alle Geräte müssen aus
-   DERSELBEN Grunddatei gestartet sein, sonst matchen die IDs nicht. Die Quell-Exportdatei auf der
-   Platte wird nie verändert (Import lädt immer nur in den lokalen Bestand). */
+/* ============ TN-Merge-Import (spec/27, erweitert um Basisfelder + Fahrkarte + Medis: spec/37) ============
+   Getrennt vom Voll-Import (der ersetzt alles). Überträgt Check-In-Felder UND die TN_MERGE_FIELDS-
+   Basisfelder (Notizen, Medikamente, Besonderheiten, Fahrkarte …), feldweise per Last-Write-Wins
+   (neuerer Zeitstempel gewinnt). Wochenplan, Zimmer, Gruppen, Einstellungen und MA-Daten werden nicht
+   angefasst. Zuordnung über die TN-id → alle Geräte müssen aus DERSELBEN Grunddatei gestartet sein,
+   sonst matchen die IDs nicht (unbekannte IDs werden als neue TN übernommen, siehe §3e). Die
+   Quell-Exportdatei auf der Platte wird nie verändert (Import lädt immer nur in den lokalen Bestand). */
 let _pendingCiMergeEnv = null;
 let _pendingCiIncoming = null;
+let _pendingCiIncomingMedis = null;
 
 function handleCheckinMergeFile(ev){
   const file = ev.target.files && ev.target.files[0];
@@ -6876,7 +7005,7 @@ function handleCheckinMergeFile(ev){
   reader.readAsText(file);
 }
 function openCheckinMergePasteSheet(){
-  openSheet('Check-In zusammenführen', `
+  openSheet('TN-Daten zusammenführen', `
     <div class="form-field"><label>Export-Inhalt einfügen</label>
       <textarea id="ciMergePaste" style="min-height:140px" placeholder="Inhalt der Check-In-Export-Datei hier einfügen…"></textarea></div>
     <div class="form-actions">
@@ -6890,7 +7019,7 @@ function processCheckinMergeText(text){
   if(!env || env.fzappExport !== true){ alert('Das ist keine gültige Freizeit-App-Exportdatei.'); return; }
   if(env.encrypted){
     _pendingCiMergeEnv = env;
-    openSheet('Check-In zusammenführen', `
+    openSheet('TN-Daten zusammenführen', `
       <div class="form-field"><label>Passwort</label>
         <input id="ciMergePw" type="password" placeholder="Export-Passwort" autocomplete="current-password"></div>
       <div class="form-actions">
@@ -6913,48 +7042,98 @@ async function ciMergeDecryptAndPreview(){
     alert('Falsches Passwort oder beschädigte Datei.');
   }
 }
+// spec/37: menschenlesbare Labels für die Check-In-Felder in der Merge-Vorschau (§4c) — getrennt von
+// TN_MERGE_FIELD_LABELS, da checkin.medikamente (Übergabe-Status) nicht mit dem Medi-Plan-Block
+// "Medikamente" verwechselt werden soll.
+const CI_FIELD_LABELS = {
+  anwesend:'Anwesenheit', versicherung:'Versicherungskarte', kinderausweis:'Kinderausweis',
+  impfausweis:'Impfausweis', medikamente:'Medikamente (Übergabe)', unterlagen:'Unterlagen'
+};
 // Kern: mutiert d in-place, gibt Statistik zurück. Für die Vorschau auf einer Kopie laufen lassen.
-function applyCheckinMerge(d, incomingTn){
+// spec/37: aus applyCheckinMerge erweitert — neben den Check-In-Feldern jetzt auch die
+// TN_MERGE_FIELDS-Basisfelder (§3b), Medikamente als Block (§3c) und neue TN (§3e). Signatur
+// braucht zusätzlich die eingehende medis-Liste (für den Medi-Block-Merge).
+function applyTnMerge(d, incomingTn, incomingMedis){
   const byId = {}; d.tn.forEach(t=>byId[t.id]=t);
   const CI_FIELDS = ['anwesend','versicherung','kinderausweis','impfausweis','medikamente','unterlagen'];
-  let changed=0, matched=0, unmatched=0;
+  let changed=0, matched=0, neu=0;
+  const details = [];
   (incomingTn||[]).forEach(inc=>{
     const loc = byId[inc.id];
-    if(!loc){ unmatched++; return; }
+    if(!loc){
+      // §3e: unbekannte ID → kompletten TN-Datensatz übernehmen, inklusive seiner Medi-Einträge
+      // (mit uid() neu vergebenen IDs). Separat als "neu" gezählt (echter Neuzugang beim Check-In).
+      const neuerTn = JSON.parse(JSON.stringify(inc));
+      d.tn.push(neuerTn);
+      byId[neuerTn.id] = neuerTn;
+      (incomingMedis||[]).filter(m=>m.tnId===inc.id).forEach(m=>{
+        d.medis.push(Object.assign({}, m, { id: uid(), tnId: neuerTn.id }));
+      });
+      neu++;
+      return;
+    }
     matched++;
+    const feldNamen = [];
+    // 3a. Check-In-Felder — unverändert (Sonderfall ts.ticket entfällt, Fahrkarte läuft über t.ts.ticket).
     loc.checkin = normalizeCheckin(loc.checkin);
     const ic = normalizeCheckin(inc.checkin);
     const lc = loc.checkin;
     CI_FIELDS.forEach(f=>{
       const its = ic.ts[f]||0, lts = lc.ts[f]||0;
-      if(its > lts){ if(lc[f] !== ic[f]) changed++; lc[f] = ic[f]; lc.ts[f] = its; }
-    });
-    // Fahrkarte (ticket_nein-Flag) über ts.ticket zusammenführen.
-    const its = ic.ts.ticket||0, lts = lc.ts.ticket||0;
-    if(its > lts){
-      const incFehlt = (inc.flags||[]).includes('ticket_nein');
-      const locFehlt = (loc.flags||[]).includes('ticket_nein');
-      if(incFehlt !== locFehlt){
-        loc.flags = loc.flags||[];
-        if(incFehlt && !locFehlt) loc.flags.push('ticket_nein');
-        if(!incFehlt && locFehlt) loc.flags = loc.flags.filter(f=>f!=='ticket_nein');
-        changed++;
+      if(its > lts){
+        if(lc[f] !== ic[f]){ changed++; feldNamen.push(CI_FIELD_LABELS[f]||f); }
+        lc[f] = ic[f]; lc.ts[f] = its;
       }
-      lc.ts.ticket = its;
+    });
+    // 3b. Basisfelder — feldweise Last-Write-Wins über t.ts.
+    loc.ts = (loc.ts && typeof loc.ts==='object' && !Array.isArray(loc.ts)) ? loc.ts : {};
+    const incTs = (inc.ts && typeof inc.ts==='object' && !Array.isArray(inc.ts)) ? inc.ts : {};
+    TN_MERGE_FIELDS.filter(f=>f!=='medis').forEach(f=>{
+      const its = incTs[f] || 0, lts = loc.ts[f] || 0;
+      if(its > lts){
+        if(JSON.stringify(loc[f]) !== JSON.stringify(inc[f])){ changed++; feldNamen.push(TN_MERGE_FIELD_LABELS[f]||f); }
+        loc[f] = Array.isArray(inc[f]) ? inc[f].slice() : inc[f];
+        loc.ts[f] = its;
+      }
+    });
+    // 3c. Medikamente — als Block, nicht pro Eintrag (saveTn() vergibt beim Speichern immer neue
+    // IDs für alle Medi-Einträge eines TN — ein ID-Merge würde Duplikate erzeugen).
+    if((incTs.medis||0) > (loc.ts.medis||0)){
+      const incMedis = (incomingMedis||[]).filter(m => m.tnId === inc.id);
+      const locMedis = d.medis.filter(m => m.tnId === loc.id);
+      if(JSON.stringify(incMedis.map(mediKey)) !== JSON.stringify(locMedis.map(mediKey))){ changed++; feldNamen.push('Medikamente'); }
+      d.medis = d.medis.filter(m => m.tnId !== loc.id);
+      incMedis.forEach(m => d.medis.push(Object.assign({}, m, { id: uid(), tnId: loc.id })));
+      loc.ts.medis = incTs.medis;
     }
+    if(feldNamen.length) details.push({ name: loc.name, felder: feldNamen });
   });
-  return {changed, matched, unmatched, total:(incomingTn||[]).length};
+  // 3d. Geschwister-Symmetrie reparieren (LWW auf dem Array kann die Symmetrie brechen).
+  d.tn.forEach(a => (a.geschwisterIds||[]).forEach(bid => {
+    const b = d.tn.find(x => x.id === bid);
+    if(b && !(b.geschwisterIds||[]).includes(a.id)) (b.geschwisterIds = b.geschwisterIds||[]).push(a.id);
+  }));
+  // verwaiste Verweise (TN existiert nicht mehr) entfernen
+  d.tn.forEach(a => a.geschwisterIds = (a.geschwisterIds||[]).filter(id => d.tn.some(x => x.id === id)));
+  return {changed, matched, neu, total:(incomingTn||[]).length, details};
 }
 function previewCheckinMerge(dataObj){
   if(dataObj._images) delete dataObj._images;
   const inc = normalizeData(dataObj); // stellt sicher, dass tn.checkin/ts existieren
   _pendingCiIncoming = inc.tn;
+  _pendingCiIncomingMedis = inc.medis;
   const trial = JSON.parse(JSON.stringify(getData())); // Probelauf auf Kopie, ohne zu speichern
-  const st = applyCheckinMerge(trial, inc.tn);
-  openSheet('Check-In zusammenführen', `<div class="confirm-box">
+  const st = applyTnMerge(trial, inc.tn, inc.medis);
+  // §4c: Liste der betroffenen Personen mit geänderten Feldern, max. 20 Zeilen.
+  const zeilen = st.details.slice(0,20).map(p=>`${esc(p.name)} — ${p.felder.join(', ')}`).join('<br>');
+  const mehr = st.details.length>20 ? `<br>… und ${st.details.length-20} weitere` : '';
+  openSheet('TN-Daten zusammenführen', `<div class="confirm-box">
     <p><b>Vorschau:</b><br>
-    ${st.matched} von ${st.total} TN zugeordnet · <b>${st.changed}</b> Feld-Aktualisierung(en)${st.unmatched?`<br>⚠️ ${st.unmatched} TN nicht gefunden (andere Grunddatei?)`:''}</p>
-    <p>Es werden <b>nur Check-In-Felder</b> ergänzt (neuerer Stand gewinnt). Alle übrigen Daten bleiben unverändert.</p>
+    ${st.matched} von ${st.total} TN zugeordnet${st.neu?` · ${st.neu} neu`:''} · <b>${st.changed}</b> Feld-Aktualisierung(en)</p>
+    ${zeilen?`<div class="settings-hint" style="text-align:left;margin:8px 0">${zeilen}${mehr}</div>`:''}
+    <p>Überträgt Check-In-Status <b>und</b> Teilnehmerdaten (Notizen, Medikamente, Besonderheiten,
+    Fahrkarte). Wochenplan, Zimmer, Gruppen, Einstellungen und MA-Daten bleiben unangetastet.
+    Während der Check-In-Phase bitte nichts löschen (Löschungen wandern nicht mit).</p>
     <div class="confirm-actions">
       <button type="button" class="staff-cancel" onclick="closeSheet()">Abbrechen</button>
       <button type="button" class="form-save" onclick="doCheckinMerge()">Zusammenführen</button>
@@ -6963,14 +7142,17 @@ function previewCheckinMerge(dataObj){
 function doCheckinMerge(){
   if(!_pendingCiIncoming) return;
   const d = getData();
-  const st = applyCheckinMerge(d, _pendingCiIncoming);
+  saveUndoSlot('merge'); // spec/37 §5: Ein-Slot-Backup, damit ein Merge mit falscher Datei rückholbar ist.
+  const st = applyTnMerge(d, _pendingCiIncoming, _pendingCiIncomingMedis);
   saveData(d);
   _pendingCiIncoming = null;
+  _pendingCiIncomingMedis = null;
   _pendingCiMergeEnv = null;
   closeSheet();
   renderDashGrid();
   if(document.getElementById('view-einchecken').classList.contains('active')) renderCheckinView();
-  alert(`Check-In zusammengeführt ✓\n${st.changed} Aktualisierung(en) übernommen.`);
+  renderUndoBlock();
+  alert(`TN-Daten zusammengeführt ✓\n${st.changed} Aktualisierung(en)${st.neu?`, ${st.neu} neue TN`:''} übernommen.`);
 }
 
 /* ---- Alle Daten löschen (App zurücksetzen) ---- */
@@ -6993,7 +7175,59 @@ function confirmResetAllStep2(){
 }
 async function confirmResetAllDo(){
   saveData(defaultData());
+  // spec/37 §5c: Undo-Slot mit zurücksetzen — sonst ließe sich ein bewusst gelöschter Bestand
+  // über "Import rückgängig machen" wiederherstellen.
+  localStorage.removeItem(UNDO_KEY);
   try{ await imgClearAll(); }catch(e){ /* IndexedDB-Fehler beim Reset ignorieren, Datenreset hat trotzdem geklappt */ }
+  closeSheet();
+  location.reload();
+}
+
+/* ============ Undo-Slot für Voll-Import/TN-Merge (spec/37 §5) ============
+   Warnhinweise (§4c-bis) wirken nur, solange jemand liest — der Voll-Import ist die einzige Aktion
+   in der App, die fremde Arbeit unwiederbringlich löscht. Genau EIN Slot (kein Verlauf), kein
+   Passwort nötig (nichts verlässt das Gerät). Bilder liegen in IndexedDB und werden NICHT
+   mitgesichert (§5d) — der Hinweistext benennt das ehrlich. */
+const UNDO_KEY = LS_PREFIX + 'undo';
+function saveUndoSlot(grund){ // grund: 'import' | 'merge'
+  try{
+    localStorage.setItem(UNDO_KEY, JSON.stringify({ ts: Date.now(), grund, data: getData() }));
+  }catch(e){ /* Quota o. ä. — Import/Merge trotzdem zulassen, Undo ist Komfort, keine Bedingung */ }
+}
+function renderUndoBlock(){
+  const el = document.getElementById('undoBlock');
+  if(!el) return;
+  const raw = localStorage.getItem(UNDO_KEY);
+  if(!raw){ el.innerHTML = ''; return; }
+  let slot; try{ slot = JSON.parse(raw); }catch(e){ el.innerHTML = ''; return; }
+  const datum = new Date(slot.ts).toLocaleString('de-DE', {day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+  const anlass = slot.grund==='merge' ? 'vor dem Zusammenführen' : 'vor dem Import';
+  el.innerHTML = `<div class="settings-block">
+    <div>
+      <label>↩️ Letztes Zusammenführen/Import rückgängig machen</label>
+      <div class="settings-hint" style="text-align:left;margin:6px 0 10px">
+        Stand von ${datum} wiederherstellen (${anlass}). Bilder (Wochenplan-Fotos, Etagen-Lagepläne)
+        werden nicht mitgesichert.
+      </div>
+      <button type="button" class="staff-danger" style="width:100%" onclick="confirmUndoRestore()">Wiederherstellen</button>
+    </div>
+  </div>`;
+}
+function confirmUndoRestore(){
+  if(!localStorage.getItem(UNDO_KEY)) return;
+  openSheet('Wiederherstellen', `<div class="confirm-box">
+    <p>Ersetzt den aktuellen Stand durch die Sicherung von davor. Diese Aktion kann nicht rückgängig gemacht werden.</p>
+    <div class="confirm-actions">
+      <button type="button" class="staff-cancel" onclick="closeSheet()">Abbrechen</button>
+      <button type="button" class="staff-danger" onclick="doUndoRestore()">Wiederherstellen</button>
+    </div></div>`);
+}
+function doUndoRestore(){
+  const raw = localStorage.getItem(UNDO_KEY);
+  if(!raw) return;
+  let slot; try{ slot = JSON.parse(raw); }catch(e){ return; }
+  saveData(slot.data);
+  localStorage.removeItem(UNDO_KEY);
   closeSheet();
   location.reload();
 }
