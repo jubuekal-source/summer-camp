@@ -824,6 +824,16 @@
           <div id="gruppenList" style="margin-top:10px"></div>
         </div>
       </details>
+      <!-- 📇 Notfall-Kontakte TN & MA (spec/38): Fotos/Screenshots von Notfall-Kontaktlisten,
+           genau wie Wochenplan-Bilder in IndexedDB abgelegt (bewusst kein PDF-Support, nur JPEG/PNG). -->
+      <details class="det" id="tnAccNotfallkontakte">
+        <summary>📇 Notfall-Kontakte TN &amp; MA</summary>
+        <div class="body">
+          <div class="wp-images" id="nkImages"></div>
+          <button type="button" class="tn-add-btn" onclick="document.getElementById('nkImageInput').click()">📷 Bild hinzufügen</button>
+          <input type="file" id="nkImageInput" accept="image/*" style="display:none" onchange="nkHandleImageFile(event)">
+        </div>
+      </details>
     </div>
 
     <button type="button" id="tnFloatingClose" class="tn-floating-close" onclick="tnCloseOpenAccordion()" aria-label="Akkordeon schließen" style="display:none">⌃</button>
@@ -1145,7 +1155,7 @@ const LS_OLD_PREFIX = 'sf2026_';
 const DATA_KEY = LS_PREFIX + 'data';
 // spec/37 §4d: kleine Absicherung fürs Ausrollen — Marco kann im Team ohne Rätselraten prüfen, wer
 // die aktuelle Version geladen hat ("steht bei dir unten 37?"). Bei jeder künftigen Spec-Stufe mitziehen.
-const APP_VERSION = '37';
+const APP_VERSION = '38';
 
 function uid(){ return 'id_' + Date.now().toString(36) + Math.random().toString(36).slice(2,8); }
 
@@ -1184,6 +1194,7 @@ function defaultData(){
             notionLinks:{}, // Feintuning 23.07.2026: frei betitelbare öffentliche Notion-Links (key → {url,title}), Teil des Exports
             roleBlockOverrides:{}, // spec/21 Punkt 4: Text-/Lösch-Overrides für ROLES.core-Items, key = roleId → { itemIdx: {text?, deleted?} }
             notfallKontakte:[], // spec/25: frei editierbare Notfall-Ansprechpersonen { id, name, telefon }, Standard bewusst leer
+            notfallKontakteFotos:[], // spec/38: Fotos/Screenshots von Notfall-Kontaktlisten TN & MA (IndexedDB-Bild-IDs wie Wochenplan)
             appTitel:"Freizeit App", appIcon:"☀️", // spec/25: Haupttitel + Icon editierbar, Default = bisheriger Fest-Text
             headerColor:"sonne", headerImage:null, // spec/25: Dashboard-Header individualisierbar (Farb-Preset + optionales eigenes Bild)
             dashIconMode:"bunt", dashIconColor:"sonne" }, // spec/26: Dashboard-Kachel-Farbmodus (bunt/verlaufA/verlaufB/einheitlich) + Preset-Farbe bei "einheitlich"
@@ -1261,6 +1272,8 @@ function normalizeData(raw){
   // Migration (spec/25): Notfall-Kontakte frei editierbar statt Fest-Text — fehlt/kein Array → [] (kein
   // automatisches Vorbefüllen, Marco trägt seine eigenen Kontakte ein).
   if(!Array.isArray(merged.meta.notfallKontakte)) merged.meta.notfallKontakte = [];
+  // Migration (spec/38): Fotos/Screenshots von Notfall-Kontaktlisten TN & MA — fehlt/kein Array → [].
+  if(!Array.isArray(merged.meta.notfallKontakteFotos)) merged.meta.notfallKontakteFotos = [];
   // Migration (spec/25): App-Titel/-Icon editierbar — fehlender Wert → bisheriger Fest-Text als Default.
   if(typeof merged.meta.appTitel !== 'string' || !merged.meta.appTitel) merged.meta.appTitel = "Freizeit App";
   if(typeof merged.meta.appIcon !== 'string' || !merged.meta.appIcon) merged.meta.appIcon = "☀️";
@@ -1508,6 +1521,8 @@ async function collectWochenplanImages(){
   Object.values(d.meta.etagenPlan || {}).forEach(id=>{ if(id) ids.add(id); });
   // spec/25: eigenes Header-Bild ebenfalls mitexportieren, sonst fehlt es nach Import auf anderen Geräten.
   if(d.meta.headerImage) ids.add(d.meta.headerImage);
+  // spec/38: Notfall-Kontakte-Fotos (TN & MA) ebenfalls in den Export-Snapshot aufnehmen.
+  (d.meta.notfallKontakteFotos || []).forEach(id=>ids.add(id));
   const images = {};
   for(const id of ids){
     const dataUrl = await imgGet(id);
@@ -4004,6 +4019,7 @@ function renderTnView(){
   gruppenShowZimmer = false; // spec/35: Gruppen-Mitglieder starten kompakt (nur Name + Alter)
   renderGruppen();
   renderGruppenZimmerToggleBtn();
+  renderNkImages(); // spec/38: Notfall-Kontakte-Fotos (TN & MA)
   setupTnAccordions();
   // Deep-Link aus Erste Hilfe (tnPendingFilter → tnFilter): Besonderheiten-Akkordeon automatisch
   // öffnen, damit die gefilterte Liste/der Medi-Plan direkt sichtbar ist (spec/14 §5).
@@ -6588,6 +6604,103 @@ function deleteWpImageConfirm(id){
   closeWpImageFull();
   renderDashGrid();
   renderWpImages();
+}
+
+/* -- Notfall-Kontakte TN & MA: Bilder (spec/38) — dasselbe Muster wie Wochenplan-Bilder oben,
+   aber auf meta.notfallKontakteFotos statt wochenplan[tag].imgIds, eigenes Overlay-Element,
+   damit beide Bild-Overlays (Wochenplan + Notfall-Kontakte) unabhängig voneinander funktionieren. -- */
+function nkHandleImageFile(ev){
+  const file = ev.target.files && ev.target.files[0];
+  ev.target.value = '';
+  if(!file) return;
+  compressAndStoreImage(file).then(id=>{
+    const d = getData();
+    if(!Array.isArray(d.meta.notfallKontakteFotos)) d.meta.notfallKontakteFotos = [];
+    d.meta.notfallKontakteFotos.push(id);
+    saveData(d);
+    renderNkImages();
+  }).catch(()=>{
+    alert('Bild konnte nicht verarbeitet werden.');
+  });
+}
+function renderNkImages(){
+  const d = getData();
+  const ids = d.meta.notfallKontakteFotos || [];
+  const container = document.getElementById('nkImages');
+  if(!container) return;
+  if(!ids.length){ container.innerHTML = ''; return; }
+  container.innerHTML = ids.map(id=>`<div class="wp-thumb" data-id="${id}">
+    <img alt="Notfall-Kontakte-Bild">
+    <button type="button" class="wp-thumb-del" data-id="${id}" aria-label="Bild löschen">🗑️</button>
+  </div>`).join('');
+  ids.forEach(id=>{
+    imgGet(id).then(url=>{
+      if(!url) return;
+      const el = container.querySelector(`.wp-thumb[data-id="${id}"] img`);
+      if(el) el.src = url;
+    });
+  });
+  container.querySelectorAll('.wp-thumb-del').forEach(btn=>{
+    btn.addEventListener('click', ev=>{
+      ev.stopPropagation();
+      deleteNkImage(btn.dataset.id);
+    });
+  });
+  container.querySelectorAll('.wp-thumb').forEach(el=>{
+    const id = el.dataset.id;
+    let pressTimer = null, longPress = false;
+    const start = ()=>{ longPress=false; pressTimer=setTimeout(()=>{ longPress=true; deleteNkImage(id); }, 550); };
+    const cancel = ()=>{ if(pressTimer){ clearTimeout(pressTimer); pressTimer=null; } };
+    el.addEventListener('touchstart', start, {passive:true});
+    el.addEventListener('touchend', cancel);
+    el.addEventListener('touchmove', cancel);
+    el.addEventListener('mousedown', start);
+    el.addEventListener('mouseup', cancel);
+    el.addEventListener('mouseleave', cancel);
+    el.addEventListener('click', ()=>{ if(longPress){ longPress=false; return; } openNkImageFull(id); });
+  });
+}
+function nkImgOverlay(){
+  let ov = document.getElementById('nkImgOverlay');
+  if(!ov){
+    ov = document.createElement('div');
+    ov.id = 'nkImgOverlay';
+    ov.className = 'wp-img-overlay';
+    ov.innerHTML = `<button type="button" class="wp-img-del" id="nkImgDelBtn">🗑️ Löschen</button>
+      <button type="button" class="wp-img-close" onclick="closeNkImageFull()" aria-label="Schließen">✕</button>
+      <div class="wp-zoom-wrap"><img id="nkImgFull" alt="Notfall-Kontakte-Bild"></div>`;
+    document.body.appendChild(ov);
+  }
+  return ov;
+}
+function openNkImageFull(id){
+  const ov = nkImgOverlay();
+  imgGet(id).then(url=>{
+    if(url) document.getElementById('nkImgFull').src = url;
+  });
+  document.getElementById('nkImgDelBtn').onclick = ()=>deleteNkImage(id);
+  ov.classList.add('active');
+}
+function closeNkImageFull(){
+  const ov = document.getElementById('nkImgOverlay');
+  if(ov) ov.classList.remove('active');
+}
+function deleteNkImage(id){
+  openSheet('Bild löschen', `<div class="confirm-box">
+    <p>Dieses Bild wirklich löschen?</p>
+    <div class="confirm-actions">
+      <button type="button" class="staff-cancel" onclick="closeSheet()">Abbrechen</button>
+      <button type="button" class="staff-danger" onclick="deleteNkImageConfirm('${id}')">Löschen</button>
+    </div></div>`);
+}
+function deleteNkImageConfirm(id){
+  const d = getData();
+  d.meta.notfallKontakteFotos = (d.meta.notfallKontakteFotos||[]).filter(x=>x!==id);
+  saveData(d);
+  imgDelete(id);
+  closeSheet();
+  closeNkImageFull();
+  renderNkImages();
 }
 
 /* ---- Einstellungen ---- */
