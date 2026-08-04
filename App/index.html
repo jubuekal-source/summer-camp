@@ -1155,7 +1155,7 @@ const LS_OLD_PREFIX = 'sf2026_';
 const DATA_KEY = LS_PREFIX + 'data';
 // spec/37 §4d: kleine Absicherung fürs Ausrollen — Marco kann im Team ohne Rätselraten prüfen, wer
 // die aktuelle Version geladen hat ("steht bei dir unten 37?"). Bei jeder künftigen Spec-Stufe mitziehen.
-const APP_VERSION = '38';
+const APP_VERSION = '39';
 
 function uid(){ return 'id_' + Date.now().toString(36) + Math.random().toString(36).slice(2,8); }
 
@@ -1530,8 +1530,13 @@ async function collectWochenplanImages(){
   }
   return images;
 }
-/* Bild komprimieren (spec/06: max. 1400px, JPEG ~0.8) und in IndexedDB ablegen. */
-function compressAndStoreImage(file){
+/* Bild komprimieren (spec/06: max. 1400px, JPEG ~0.8) und in IndexedDB ablegen.
+   spec/39: optionale {maxDim, quality} — Default unverändert (Fotos: Wochenplan/Header/Etagenplan),
+   höhere Werte für textlastige Screenshots (Notfall-Kontakte-Listen) über den Aufrufer steuerbar,
+   ohne die bestehenden Foto-Aufrufer zu beeinflussen. */
+function compressAndStoreImage(file, opts){
+  const maxDim = (opts && opts.maxDim) || 1400;
+  const quality = (opts && opts.quality) || 0.8;
   return new Promise((resolve, reject)=>{
     const reader = new FileReader();
     reader.onerror = ()=>reject(reader.error);
@@ -1539,7 +1544,6 @@ function compressAndStoreImage(file){
       const img = new Image();
       img.onerror = ()=>reject(new Error('Bild konnte nicht gelesen werden'));
       img.onload = ()=>{
-        const maxDim = 1400;
         let w = img.naturalWidth, h = img.naturalHeight;
         if(w > maxDim || h > maxDim){
           if(w >= h){ h = Math.round(h * (maxDim/w)); w = maxDim; }
@@ -1548,7 +1552,7 @@ function compressAndStoreImage(file){
         const canvas = document.createElement('canvas');
         canvas.width = w; canvas.height = h;
         canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+        const dataUrl = canvas.toDataURL('image/jpeg', quality);
         const id = uid();
         imgPut(id, dataUrl).then(()=>resolve(id)).catch(reject);
       };
@@ -6613,7 +6617,9 @@ function nkHandleImageFile(ev){
   const file = ev.target.files && ev.target.files[0];
   ev.target.value = '';
   if(!file) return;
-  compressAndStoreImage(file).then(id=>{
+  // spec/39: höhere Auflösung/Qualität als beim Wochenplan-Default (1400px/0.8) — diese Fotos sind
+  // oft Screenshots von Excel-Kontaktlisten mit viel Text, der bei 1400px unleserlich wird.
+  compressAndStoreImage(file, {maxDim:2400, quality:0.92}).then(id=>{
     const d = getData();
     if(!Array.isArray(d.meta.notfallKontakteFotos)) d.meta.notfallKontakteFotos = [];
     d.meta.notfallKontakteFotos.push(id);
