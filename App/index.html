@@ -581,6 +581,15 @@
   .ci-filter:active{transform:scale(.97)}
   .ci-fn{font-size:.74rem;opacity:.85;background:var(--card);border:1px solid var(--line);border-radius:8px;padding:0 6px;font-weight:800}
   .ci-fehlt{font-size:.82rem;color:#ff8a6a;font-weight:700;margin:0 0 10px;text-align:center}
+  /* spec/41: lokaler Geräte-Zähler-Kasten in der Check-In-View */
+  .ci-lokal-box{margin:10px 0 14px}
+  .ci-lokal-head{font-size:.82rem;font-weight:700;color:var(--muted)}
+  .ci-lokal-count{font-size:1.3rem;font-weight:800;margin-top:2px}
+  .ci-lokal-tickets{font-size:.85rem;color:var(--muted);margin-top:6px}
+  .ci-lokal-empty{font-size:.85rem;color:var(--muted);text-align:center}
+  /* spec/43 §1a: Sicherheitshinweis im Teilen-Sheet — kräftig, aber nicht schreiend (Muster wie .ww/.ci-warn). */
+  .share-warn{background:var(--card2);border:1px solid var(--red);border-left:4px solid var(--red);
+    border-radius:12px;padding:10px 13px;margin-bottom:14px;font-size:.82rem;text-align:left;color:var(--text)}
 
   .form-field{margin-top:14px}
   .form-field label{font-size:.82rem;color:var(--muted);font-weight:700;display:block;margin-bottom:6px}
@@ -849,6 +858,8 @@
       <p>Ankunft abhaken — Anwesenheit, Dokumente, Fahrkarte</p>
     </header>
     <div class="searchbar" style="margin:10px 0"><input id="ciSearch" type="search" placeholder="🔍 TN suchen …" autocomplete="off" oninput="renderCheckinList(this.value)"></div>
+    <!-- spec/41: rein lokaler Geräte-Zähler, über der Filterleiste — das ist die Zahl, die unter Zeitdruck am Anreisetag gebraucht wird. -->
+    <div id="ciLokalBox"></div>
     <div class="ci-filterbar" id="ciFilterBar"></div>
     <div class="ci-fehlt" id="ciFehlt"></div>
     <div id="ciList"></div>
@@ -859,7 +870,13 @@
          desselben Vorgangs und gehören nebeneinander. -->
     <div class="settings-block" style="margin-top:16px">
       <div>
-        <label>🔀 TN-Daten zusammenführen</label>
+        <label>🔀 TN-Daten zusammenführen <button type="button" class="staff-cancel" style="padding:2px 9px;font-size:.72rem" onclick="location.hash='spielregeln:knoepfe'">ⓘ</button></label>
+        <!-- spec/44 §2a: Untertitel macht sichtbar, dass der Merge in beide Richtungen funktioniert
+             (nicht nur Check-In → Zentraldatei), z.B. auch für Zimmer-Tausch unterwegs. -->
+        <div class="settings-hint" style="text-align:left;margin:4px 0 0;font-style:italic">
+          Funktioniert in beide Richtungen — auch um Zimmer-Änderungen oder nachgereichte Infos an
+          alle zu verteilen, ohne dass jemand seinen Check-In-Stand verliert.
+        </div>
         <div class="settings-hint" style="text-align:left;margin:6px 0 0">
           Überträgt Check-In-Status <b>und</b> Teilnehmerdaten (Notizen, Medikamente, Besonderheiten,
           Fahrkarte) aus der Datei eines anderen Teamers mit deiner Liste zusammen – <b>deine eigenen
@@ -869,9 +886,23 @@
           immer diesen Weg nehmen, nicht den normalen „📥 Import"</b> (der ersetzt alles). Während der
           Check-In-Phase bitte nichts löschen (Löschungen wandern nicht mit).
         </div>
-        <button type="button" class="form-save" style="width:100%;margin-top:10px" onclick="document.getElementById('ciMergeFileInput').click()">📄 Check-In-Datei wählen</button>
+        <!-- spec/44 §2a: Beschriftung von "Check-In-Datei" auf "Datei" — der Inhalt ist ein normaler
+             Export, die alte Beschriftung hat Teamer davon abgehalten, Marcos Zentraldatei einzulesen. -->
+        <button type="button" class="form-save" style="width:100%;margin-top:10px" onclick="document.getElementById('ciMergeFileInput').click()">📄 Datei wählen</button>
         <input type="file" id="ciMergeFileInput" accept="*/*,.json,.fzx" style="display:none" onchange="handleCheckinMergeFile(event)">
         <button type="button" class="staff-cancel" style="width:100%;margin-top:8px" onclick="openCheckinMergePasteSheet()">Inhalt einfügen</button>
+        <!-- spec/44 §2b: aufklappbarer Ablauf-Hinweis für den häufigsten Zwei-Richtungs-Fall (Zimmer-Tausch). -->
+        <details class="det" style="margin-top:10px">
+          <summary>ℹ️ Wie das mit dem Zimmer-Tausch geht</summary>
+          <div class="body">
+            <p><b>Zimmer werden unterwegs getauscht — was tun?</b></p>
+            <p>1. Einer trägt die Änderungen ein (nur einer, sonst gewinnt zufällig der Letzte).<br>
+            2. Diese Person exportiert und schickt die Datei ins Team.<br>
+            3. Alle anderen lesen sie hier über 🔀 Zusammenführen ein — <b>nicht</b> über 📥 Import.</p>
+            <p>Jeder behält dabei seinen eigenen Check-In-Stand. Es zählt immer die <b>zuletzt geänderte</b>
+            Angabe je Feld, nicht das zuletzt eingelesene Gerät.</p>
+          </div>
+        </details>
       </div>
     </div>
   </div><!-- /view-einchecken -->
@@ -935,6 +966,8 @@
     </div>
 
     <div class="daychips" id="wpDayChips" style="margin-top:16px"></div>
+    <!-- spec/43 §2b: "Ganze Woche teilen" oben in der View, unter den Tages-Chips. -->
+    <button type="button" class="tn-add-btn" style="margin-top:10px" onclick="shareWochenplanWoche()">📤 Ganze Woche teilen</button>
 
     <div class="hint" style="margin-top:10px">
       <span>💡</span>
@@ -952,7 +985,11 @@
     </div>
 
     <div class="wp-images" id="wpImages"></div>
-    <button type="button" class="tn-add-btn" onclick="document.getElementById('wpImageInput').click()">📷 Bild hinzufügen</button>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <button type="button" class="tn-add-btn" style="flex:1;margin-top:0" onclick="document.getElementById('wpImageInput').click()">📷 Bild hinzufügen</button>
+      <!-- spec/43 §2b: "Tag teilen" neben dem bestehenden Bild-Upload-Button. -->
+      <button type="button" class="tn-add-btn" style="flex:1;margin-top:0" onclick="shareWochenplanTag()">📤 Tag teilen</button>
+    </div>
     <input type="file" id="wpImageInput" accept="image/*" style="display:none" onchange="wpHandleImageFile(event)">
 
     <div class="notes" style="margin-top:20px">
@@ -969,7 +1006,9 @@
       <h1>📝 Notizen</h1>
       <p>Privat, nur auf diesem Gerät gespeichert</p>
     </header>
-    <div class="notes">
+    <!-- spec/43 §4: "Alle Notizen teilen" oben in der View, unter der Überschrift. -->
+    <button type="button" class="tn-add-btn" onclick="shareNotizenAlle()">📤 Alle Notizen teilen</button>
+    <div class="notes" style="margin-top:16px">
       <label>📌 Allgemein <span class="saved" id="notizenSaved">gespeichert ✓</span></label>
       <textarea id="notizen_allgemein" placeholder="Allgemeine Notizen, nur auf diesem Gerät, offline &amp; privat …"></textarea>
     </div>
@@ -1061,7 +1100,7 @@
     </div>
     <div class="settings-block">
       <div>
-        <label>🛏️ Zimmer verwalten</label>
+        <label>🛏️ Zimmer verwalten <button type="button" class="staff-cancel" style="padding:2px 9px;font-size:.72rem" onclick="location.hash='spielregeln:vorher'">ⓘ</button></label>
         <div class="settings-hint" style="text-align:left;margin:6px 0 10px">
           Räume, die im TN-Formular auswählbar sind und in Zuständigkeiten (🛏️ Zimmerzuständigkeit)
           mit Teamern belegt werden können.
@@ -1082,13 +1121,28 @@
     </div>
     <div class="settings-block">
       <div>
-        <label>📥 Import</label>
+        <label>📥 Import <button type="button" class="staff-cancel" style="padding:2px 9px;font-size:.72rem" onclick="location.hash='spielregeln:knoepfe'">ⓘ</button></label>
         <div class="settings-hint" style="text-align:left;margin:6px 0 0">
           Ersetzt den kompletten aktuellen Datenbestand durch die importierte Datei.
         </div>
         <button type="button" class="form-save" style="width:100%;margin-top:10px" onclick="document.getElementById('importFileInput').click()">📄 Datei wählen</button>
         <input type="file" id="importFileInput" accept="*/*,.json,.fzx" style="display:none" onchange="handleImportFile(event)">
         <button type="button" class="staff-cancel" style="width:100%;margin-top:8px" onclick="openImportPasteSheet()">Inhalt einfügen</button>
+      </div>
+    </div>
+    <!-- spec/42: Grundgerüst-Export/Import — jahresunabhängige Struktur ohne Personen, darf im
+         Gegensatz zum Voll-Export dauerhaft aufgehoben werden. -->
+    <div class="settings-block">
+      <div>
+        <label>🧰 Grundgerüst (ohne Personen)</label>
+        <div class="settings-hint" style="text-align:left;margin:6px 0 0">
+          Team-Werte, Zuständigkeits-Texte, Zimmer- und Etagenstruktur, App-Aussehen. Enthält keine
+          Namen, keine Gesundheitsdaten — darf dauerhaft aufgehoben werden. Lagepläne und Header-Bild
+          sind nicht dabei — die liegen als Bilder separat auf dem Gerät.
+        </div>
+        <button type="button" class="form-save" style="width:100%;margin-top:10px" onclick="doGrundgeruestExport()">📤 Grundgerüst exportieren</button>
+        <button type="button" class="staff-cancel" style="width:100%;margin-top:8px" onclick="document.getElementById('grundgeruestFileInput').click()">📥 Grundgerüst importieren</button>
+        <input type="file" id="grundgeruestFileInput" accept="*/*,.json" style="display:none" onchange="handleGrundgeruestFile(event)">
       </div>
     </div>
     <!-- spec/37 §5b: nur sichtbar, wenn ein Undo-Slot existiert (siehe renderUndoBlock) -->
@@ -1120,7 +1174,7 @@
     </div>
     <div class="settings-block">
       <div>
-        <label>⚠️ Alle Daten</label>
+        <label>⚠️ Alle Daten <button type="button" class="staff-cancel" style="padding:2px 9px;font-size:.72rem" onclick="location.hash='spielregeln:nachher'">ⓘ</button></label>
         <button type="button" class="staff-danger" style="width:100%;margin-top:6px" onclick="confirmResetAll()">🗑️ Gesamten App-Inhalt zurücksetzen</button>
       </div>
     </div>
@@ -1146,6 +1200,92 @@
     <footer>Gemeinsam machen wir die Freizeit stark. 💪</footer>
   </div><!-- /view-team -->
 
+  <!-- VIEW: SPIELREGELN (spec/45) — hart im Code, überlebt "Alles zurücksetzen" bewusst.
+       Vier Akkordeons, alle standardmäßig zu (Übersicht statt Textwand). -->
+  <div class="view" id="view-spielregeln">
+    <div class="backbar"><button class="back" onclick="location.hash=''">‹ Dashboard</button></div>
+    <header class="ph-head" style="background:linear-gradient(135deg,#64748B,#475569)">
+      <h1>📖 So läuft's</h1>
+      <p>Regeln, Ablauf, Datenschutz</p>
+    </header>
+
+    <details class="det" id="srAccVorher">
+      <summary>🛠️ Vor der Freizeit — Ersteinrichtung</summary>
+      <div class="body">
+        <ol style="margin:0;padding-left:18px;display:flex;flex-direction:column;gap:10px;font-size:.9rem;color:var(--text)">
+          <li><b>Alle Geräte auf dieselbe App-Version bringen.</b> Sonst gehen beim Zusammenführen später Änderungen still verloren (alte Versionen schreiben keine Zeitstempel).</li>
+          <li><b>Zimmer und Etagen vollständig anlegen</b> — vor allem anderen. Werden Zimmer später umbenannt oder gelöscht, zeigen bereits vergebene Zuordnungen ins Leere.</li>
+          <li><b>Teilnehmende anlegen — nur mit Vornamen.</b> Bei Doppelnamen den ersten Buchstaben des Nachnamens anhängen („Max K."). Grund: Diese Namen erscheinen in geteilten Gruppen- und Zimmerlisten, die über WhatsApp weitergegeben werden.</li>
+          <li><b>Ein Gerät ist die Quelle.</b> Dort alles eintragen, exportieren, und <b>alle anderen</b> lesen diese eine Datei per 📥 Import ein. Ab hier benutzt niemand mehr den Import.</li>
+          <li><b>Grundgerüst exportieren</b> (🧰) und im Projektordner ablegen — das ist euer Startpunkt fürs nächste Jahr.</li>
+        </ol>
+      </div>
+    </details>
+
+    <details class="det" id="srAccKnoepfe">
+      <summary>🔀 Die drei Knöpfe — der wichtigste Abschnitt</summary>
+      <div class="body">
+        <p style="font-weight:800;font-size:.92rem">Die exportierte Datei ist immer dieselbe und enthält alles. Was davon beim Empfänger ankommt, entscheidet allein der Knopf, mit dem er sie einliest.</p>
+        <div style="display:flex;flex-direction:column;gap:10px;margin-top:10px">
+          <div class="settings-block" style="margin:0">
+            <div><label>📥 Import</label>
+              <div class="settings-hint" style="text-align:left;margin:6px 0 0">
+                Wo: Einstellungen · Nimmt: die volle Exportdatei · Macht: ersetzt <b>alles</b> · Fasst nicht an: nichts · Wann: <b>nur einmal ganz am Anfang</b>
+              </div>
+            </div>
+          </div>
+          <div class="settings-block" style="margin:0">
+            <div><label>🔀 Zusammenführen</label>
+              <div class="settings-hint" style="text-align:left;margin:6px 0 0">
+                Wo: Check-In-Liste · Nimmt: <b>dieselbe</b> volle Exportdatei · Macht: gleicht <b>nur Teilnehmerfelder</b> ab, Feld für Feld, neuerer Zeitstempel gewinnt · Fasst nicht an: Wochenplan, Zimmerliste, Etagen, Gruppen, Team-Seite, Einstellungen, Mitarbeitenden-Daten, private Notizen · Wann: immer danach
+              </div>
+            </div>
+          </div>
+          <div class="settings-block" style="margin:0">
+            <div><label>📤 Teilen (Text)</label>
+              <div class="settings-hint" style="text-align:left;margin:6px 0 0">
+                Wo: Gruppen · Zimmer · Wochenplan · Notizen · Nimmt: — · Macht: erzeugt nur Text zum Lesen · Fasst nicht an: alles · Wann: jederzeit
+              </div>
+            </div>
+          </div>
+        </div>
+        <p style="margin-top:12px">Warum das auch für Zimmer gilt: Wer in welchem Zimmer schläft, ist ein <b>Feld am Teilnehmer</b> — genau wie Name, Alter oder Fahrkarte. Zimmer ändern heißt also Teilnehmerdaten ändern, und deshalb transportiert 🔀 Zusammenführen die neue Zimmereinteilung mit. Getrennt davon gibt es die <b>Zimmerliste</b> (welche Zimmer und Etagen es überhaupt gibt) — die steht in den Einstellungen, wandert beim Zusammenführen <b>nicht</b> mit und wird während der Freizeit auch nicht mehr geändert.</p>
+        <p style="font-weight:800;margin-top:10px">Import nur einmal ganz am Anfang. Danach immer Zusammenführen.</p>
+      </div>
+    </details>
+
+    <details class="det" id="srAccReise">
+      <summary>🚌 An- und Abreisetag</summary>
+      <div class="body">
+        <ul style="margin:0;padding-left:18px;display:flex;flex-direction:column;gap:10px;font-size:.9rem;color:var(--text)">
+          <li><b>Nur die beiden Check-In-Handys ändern Teilnehmerdaten.</b> Alle anderen schauen nur. Wer parallel eine Notiz auf einem dritten Gerät ergänzt, riskiert, dass beim Zusammenführen eine der beiden Fassungen verschwindet — es gewinnt immer die zuletzt gespeicherte, es wird nichts aneinandergehängt.</li>
+          <li><b>Ergänzungen am Kind selbst sind unproblematisch:</b> Der vorhandene Text steht schon im Feld, man schreibt dahinter. Kritisch ist nur <i>gleichzeitiges</i> Bearbeiten auf zwei Geräten.</li>
+          <li><b>Fahrkarten zählen:</b> Jedes Check-In-Handy zeigt oben „Von diesem Gerät eingecheckt" mit eigener Fahrkarten-Zahl. Die beiden Zahlen addieren — <b>kein</b> Zusammenführen nötig.</li>
+          <li><b>Zimmereinteilung führt genau eine Person.</b> Wer unterwegs tauscht, meldet es dieser Person. Nicht mehrere parallel eintragen, sonst gewinnt zufällig der Letzte.</li>
+          <li><b>Zusammengeführt wird einmal, am Abend.</b> Alle exportieren, eine Person liest alle Dateien per 🔀 ein, exportiert den Gesamtstand zurück, alle lesen ihn per 🔀 ein. Tagsüber muss niemand etwas austauschen.</li>
+        </ul>
+      </div>
+    </details>
+
+    <details class="det" id="srAccNachher">
+      <summary>🔒 Nach der Freizeit — Pflicht, kein Komfort</summary>
+      <div class="body">
+        <ul style="margin:0;padding-left:18px;display:flex;flex-direction:column;gap:10px;font-size:.9rem;color:var(--text)">
+          <li><b>🧰 Grundgerüst exportieren</b>, falls seit dem letzten Mal etwas an Team-Werten, Zuständigkeits-Texten oder der Zimmerstruktur geändert wurde.</li>
+          <li><b>Auf jedem Gerät „Alles zurücksetzen"</b> (Einstellungen). Die App enthält Gesundheitsdaten von Kindern — die dürfen nicht auf privaten Handys liegen bleiben.</li>
+          <li><b>Exportdateien löschen</b>: im Download-Ordner jedes Geräts, in WhatsApp/Mail-Verläufen, in der Cloud.</li>
+          <li><b>Geteilte Textnachrichten löschen</b> (Gruppen- und Zimmerlisten in WhatsApp).</li>
+          <li>Das Team einmal aktiv daran erinnern — von allein macht es niemand.</li>
+        </ul>
+      </div>
+    </details>
+
+    <!-- spec/45 §4, nachgetragen mit spec/43: eigener Sheet-Aufbau OHNE .share-warn (Ausnahme laut
+         Spec — enthält keine Personendaten), daher nicht über das generische openShareSheet(). -->
+    <button type="button" class="tn-add-btn" style="margin-top:16px" onclick="shareSpielregeln()">📤 Spielregeln teilen</button>
+    <div class="aside" style="margin-top:16px">🔒 Diese Seite bleibt auch nach „Alles zurücksetzen" erhalten — sie ist fest im Code hinterlegt.</div>
+  </div><!-- /view-spielregeln -->
+
 </div>
 
 <script>
@@ -1155,7 +1295,7 @@ const LS_OLD_PREFIX = 'sf2026_';
 const DATA_KEY = LS_PREFIX + 'data';
 // spec/37 §4d: kleine Absicherung fürs Ausrollen — Marco kann im Team ohne Rätselraten prüfen, wer
 // die aktuelle Version geladen hat ("steht bei dir unten 37?"). Bei jeder künftigen Spec-Stufe mitziehen.
-const APP_VERSION = '39';
+const APP_VERSION = '42';
 
 function uid(){ return 'id_' + Date.now().toString(36) + Math.random().toString(36).slice(2,8); }
 
@@ -1239,6 +1379,19 @@ const TN_MERGE_FIELD_LABELS = {
 // beim Speichern immer neue IDs für ALLE Medi-Einträge eines TN — ein ID-Vergleich würde beim
 // Merge Duplikate erzeugen statt echte Änderungen zu erkennen).
 function mediKey(m){ return [m.zeit, (m.zeitTags||[]).join('|'), m.zeitCustom, m.medikament, m.notiz].join('§'); }
+
+// spec/42: jahresunabhängige Struktur ohne Personen — Whitelist für den kleinen, unverschlüsselten
+// Grundgerüst-Export (Team-Werte + diese meta-Schlüssel). Bewusst NICHT enthalten: tn/staff/medis/
+// gruppen (Personen), zust/ansprech (Personen-IDs), roomNotes/notfallKontakte* (können Namen
+// enthalten), wochenplan/zeitraum (jahresspezifisch), etagenPlan/headerImage (Bild-IDs zeigen auf
+// die lokale IndexedDB, wären auf einem anderen Gerät tote Verweise).
+const GRUNDGERUEST_META_KEYS = [
+  'raeume','betten','etagen','etagenOrder','etagenColors',
+  'roleBlockOverrides',
+  'notionLinks',
+  'appTitel','appIcon','headerColor','dashIconMode','dashIconColor',
+  'theme','handyregelTeam'
+];
 
 // Fehlende Felder auffüllen + Migrationen anwenden (Datenmodell kann sich zwischen Stufen erweitern).
 // Wird sowohl von getData() (localStorage) als auch vom Import (Stufe 5) verwendet, damit beide
@@ -1729,21 +1882,24 @@ const ROLES = [
   {
     id:"ausflug", icon:"🚌", title:"Ausflugs- & Reise-Team", who:"noch offen", color:"#A78BFA",
     /* spec/20 (Inhalts-Rework): Vorbereiten → Unterwegs-Sicherheit → Kasse & Belege. Details
-       eingefaltet. Titel gekürzt (Notiz Marco: „…verantwortliche“ lief über den Button-Rand). */
+       eingefaltet. Titel gekürzt (Notiz Marco: „…verantwortliche“ lief über den Button-Rand).
+       spec/40: Reihenfolge auf Vorbereiten → Gruppeneinteilung → Unterwegs: Sicherheit → Kasse & Belege
+       geändert (Gruppeneinteilung liegt zeitlich vor der Fahrt); „Beim Check-In“-Punkt um Tickets-Kauf
+       ergänzt. */
     core:[
       {h:"🧭 Vorbereiten", items:[
-        "**Beim Check-In:** sobald alle da sind, vom Check-In-Team melden lassen, wie viele VVS-Gruppenkarten noch zu kaufen sind.",
+        "**Beim Check-In:** sobald alle da sind, vom Check-In-Team melden lassen, wie viele VVS-Gruppenkarten noch zu kaufen sind, und die **Tickets kaufen**.",
         "**Reiseverbindungen checken** (An- & Abreise sowie Ausflug: Bus / Bahn / Fußweg).",
         "**Fahrkarten** vorab organisieren, falls nötig.",
         "Bei größeren Gruppen die **Buslinien vorab informieren**."
-      ]},
-      {h:"🎒 Unterwegs: Sicherheit", items:[
-        "Bei Ausflügen sicherstellen: jemand hat den **TN-Ordner** (Versicherungskarten, Impfpässe …) UND das **Erste-Hilfe-Set** dabei."
       ]},
       {h:"👥 Gruppeneinteilung für unterwegs", items:[
         "Bei Reisen und Ausflügen ist das Team auch für die **Einteilung der Kinder in Reisegruppen** zuständig. Diese Gruppen könnt ihr direkt in der App unter **👥 Gruppen** anlegen (z. B. eine altersgemäße Aufteilung für die Zugfahrt).",
         "Pro Gruppe werden **ein bis zwei Teamer** einer bestimmten Altersgruppe zugeordnet (z. B. zwei Teamer für die 10–11-Jährigen), die während der Fahrt für „ihre“ Kinder verantwortlich sind.",
         "[👥 Zu den Gruppen](#gruppen)"
+      ]},
+      {h:"🎒 Unterwegs: Sicherheit", items:[
+        "Bei Ausflügen sicherstellen: jemand hat den **TN-Ordner** (Versicherungskarten, Impfpässe …) UND das **Erste-Hilfe-Set** dabei."
       ]},
       {h:"💶 Kasse & Belege", items:[
         "**Ausflugskasse verwalten** & Eintritte / Zugfahrten bezahlen.",
@@ -1836,28 +1992,41 @@ const ROLES = [
     ]
   },
   {
-    id:"checkin", icon:"📥", title:"Check-In-Team", who:"noch offen · 6 Personen", color:"#FACC15",
-    intro:"Aufteilung: Check-In (2) · Check-In Medis (2) · Koffer verladen (2).",
-    /* spec/20 (Inhalts-Rework): den langen Check-In-Block in Phasen gegliedert (Erfassen →
-       Weiterleiten → Zugfahrt) + eigene Section für die weiteren Rollen. Details eingefaltet. */
+    id:"checkin", icon:"📥", title:"Check-In-Team", who:"noch offen · 8 Personen", color:"#FACC15",
+    intro:"Aufteilung: Check-In (2) · Unterlagen & Medis (2) · Koordination & Weiterleitung (1–2) · Gepäck (1–2).",
+    /* spec/20 (Inhalts-Rework): ursprünglich in Erfassen → Weiterleiten → Zugfahrt → Weitere Rollen
+       gegliedert. spec/40: komplett neu entlang des tatsächlichen Ablaufs an zwei parallelen Check-In-
+       Tischen strukturiert (Marcos genauer Ablauf-Input) — jetzt 5 eigenständige Teams/Akkordeons statt
+       vorher 4 (Team-Größe dadurch 6 → 8 Personen). Zugfahrt/Zimmereinteilung bewusst als letztes
+       Akkordeon (zeitlich nach dem Check-In). */
     core:[
-      {h:"📥 Check-In (2 Personen): Begrüßen & erfassen", items:[
-        "Kinder/Jugendliche herzlich begrüßen & auf der TN-Liste abhaken.",
+      {h:"📥 Check-In (2 Personen)", items:[
+        "**2 Personen** stehen jeweils an einem Check-In-Tisch — Kinder & Eltern stellen sich in **zwei Schlangen** an und checken parallel bei euch ein.",
+        "Achtung: sicherstellen, dass **niemand zweimal eincheckt**, weil am anderen Tisch vermeintlich noch etwas anderes abgegeben werden muss.",
+        "Kinder/Jugendliche herzlich begrüßen & einchecken.",
         "VVS-Fahrkarte da? Nein → Haken für Fahrkartenkauf setzen. Ja → daran erinnern, sie im Zug griffbereit zu haben.",
-        "Kopien (Impfpass, Versicherungskarte, Ausweis) einheften & in der TN-Liste abhaken.",
-        "Wichtige Eltern-Infos in der TN-Liste ergänzen (Medikamente, Krankheit …)."
+        "Kopien (Impfpass, Versicherungskarte, Ausweis) **sowie Medikamente & Einnahmepläne** entgegennehmen und ans **Team „Unterlagen & Medis“** in der Mitte weitergeben — die sortieren alles ein.",
+        "Wichtige Eltern-Infos ergänzen (Medikamente, Krankheit …).",
+        "Wenn alle eingecheckt sind: dem Ausflugsbeauftragten-Team melden, wie viele **VVS-Gruppenkarten** noch zu kaufen sind."
       ]},
-      {h:"🧳 Weiterleiten", items:[
-        "Kind zum Verlade-Team (beim Anhänger) schicken — Tagesrucksack behalten!",
-        "Wenn alle eingecheckt sind: den Ausflugsbeauftragten melden, wie viele VVS-Gruppenkarten noch zu kaufen sind."
+      {h:"🗂️ Unterlagen & Medis entgegennehmen (2 Personen)", items:[
+        "**2 Personen** stehen **in der Mitte, zwischen den beiden Check-In-Tischen** und nehmen die Unterlagen sowie Medikamente entgegen, die links und rechts abgegeben werden.",
+        "Alles in eine **Mappe** sammeln — **alphabetisch nach Vornamen sortiert** und mit Namen versehen.",
+        "👉🏽 **Wichtig:** Medikamente beschriftet in die **Medi-Kiste** einsortieren — inkl. **Einnahmeplan**!"
       ]},
-      {h:"🚆 Während der Zugfahrt", items:[
+      {h:"🧭 Koordination & Weiterleitung (1–2 Personen)", items:[
+        "Leiten die eingecheckten TN weiter zum **Gepäck-Team** (beim Anhänger/Transport-Fahrzeug) — Tagesrucksack behält das Kind!",
+        "Sorgen für einen **reibungslosen Ablauf**, z. B. dass Eltern erkennen, wo sie sich zum Check-In anstellen müssen.",
+        "Helfen aus, wo es gerade zu langsam läuft.",
+        "Leiten Eltern mit **besonderen Fragen** an die Gesamtleitung weiter."
+      ]},
+      {h:"🧳 Gepäck-Team (1–2 Personen)", items:[
+        "**Koffer/Taschen entgegennehmen** und im Transport-Fahrzeug oder Anhänger **sicher verstauen**."
+      ]},
+      {h:"🚆 Während der Zugfahrt – Zimmereinteilung", items:[
         "Die **Zimmereinteilung ist in der Regel schon vorab grob geplant** — im Zug gemeinsam durchgehen und prüfen, ob sie so passt.",
         "**Tausch- bzw. Änderungswünsche** aufnehmen und, wo sinnvoll, berücksichtigen — **final entscheidet das Team**.",
         "Anpassungen direkt **im Zimmerplan festhalten**."
-      ]},
-      {h:"👥 Weitere Rollen", items:[
-        "**Check-In Medis** (2 Personen) und **Koffer verladen** (2 Personen): die genauen Aufgaben klären wir kurz vor dem eigentlichen Check-In."
       ]}
     ]
   },
@@ -1896,7 +2065,7 @@ const MA_FLAGS = [
   {id:'foto_nein', icon:'🚫📸', label:'Foto'},
   {id:'mitfahr_nein', icon:'🚫🚗', label:'Mitfahrt'},
   {id:'klettern_nein', icon:'🚫🧗', label:'Klettern'},
-  {id:'ticket_nein', icon:'🎫', label:'Ticket fehlt'}
+  {id:'ticket_nein', icon:'🎫❌', label:'Ticket fehlt'}
 ];
 /* spec/23 §9: volle Counter-Liste (analog TN_COUNTERS-Logik), nur belegte Chips (n>0) werden
    gerendert (siehe renderMaCounters unten, unverändert aus Stufe 22). */
@@ -1923,7 +2092,7 @@ const MA_COUNTERS = [
     match:p=>(p.flags||[]).includes('mitfahr_nein')},
   {id:'klettern_nein', icon:'🚫🧗', label:'Klettern', desc:'Keine Erlaubnis für Klettergarten/Klettern.',
     match:p=>(p.flags||[]).includes('klettern_nein')},
-  {id:'ticket_nein', icon:'🎫', label:'Ticket fehlt', desc:'Kein VVS-Ticket vorhanden.',
+  {id:'ticket_nein', icon:'🎫❌', label:'Ticket fehlt', desc:'Kein VVS-Ticket vorhanden.',
     match:p=>(p.flags||[]).includes('ticket_nein')},
   {id:'abreise', icon:'🕙🚙', label:'Frühere Abreise', desc:'MA, die vor Ende der Freizeit abreisen.',
     match:p=>!!p.abreise_frueher},
@@ -2778,7 +2947,7 @@ const TN_COUNTERS = [
   // einem, damit "bestätigt da" von "noch nicht geprüft" unterscheidbar ist.
   {id:'ticket_da', icon:'🎫✅', label:'Fahrkarte da', desc:'VVS-Ticket beim Check-In bestätigt.',
     match:t=>t.ticket==='da'},
-  {id:'ticket_fehlt', icon:'🎫', label:'Fahrkarte fehlt', desc:'Kein VVS-Ticket vorhanden — wichtig fürs Ausflugs-Team.',
+  {id:'ticket_fehlt', icon:'🎫❌', label:'Fahrkarte fehlt', desc:'Kein VVS-Ticket vorhanden — wichtig fürs Ausflugs-Team.',
     match:t=>t.ticket==='fehlt'},
   /* spec/30: von zwei gegenseitig exklusiven Flags (handy_2200/handy_2300) auf ein Feld `t.handy`
      mit Tap-Cycle-Button im Formular umgestellt (Marcos Wunsch: eine Karte statt zwei) — inkl.
@@ -2825,7 +2994,7 @@ const TN_TICKET_STATES = ['', 'da', 'fehlt'];
 const TN_TICKET_META = {
   '': {icon:'🎫❔', label:'noch nicht geprüft'},
   da: {icon:'🎫✅', label:'Fahrkarte vorhanden'},
-  fehlt: {icon:'🎫', label:'Fahrkarte fehlt'}
+  fehlt: {icon:'🎫❌', label:'Fahrkarte fehlt'}
 };
 function tnTicketBtnLabel(val){
   const m = TN_TICKET_META[val || ''];
@@ -3688,7 +3857,10 @@ function openTnSheet(id){
   // will. TN-Anlegen ohne Zimmer bleibt jederzeit möglich (Select hat "– kein Zimmer –").
   const body = `
     <div class="form-field"><label>Name</label>
-      <input id="tfName" type="text" placeholder="Vorname Name" value="${t?esc(t.name):''}"></div>
+      <input id="tfName" type="text" placeholder="Vorname (aus Datenschutzgründen keinen Nachnamen)" value="${t?esc(t.name):''}"></div>
+    <!-- spec/45 §3: Hinweis statt ⓘ-Button — wer gerade tippt, klickt keinen Info-Button. Namen landen
+         in geteilten Gruppen-/Zimmerlisten (WhatsApp), deshalb nur Vorname (bei Doppelnamen "Max K."). -->
+    <div class="settings-hint" style="text-align:left;margin:-6px 0 14px">Diese Namen erscheinen in geteilten Gruppen- und Zimmerlisten. Bei Doppelnamen den ersten Buchstaben des Nachnamens anhängen, z. B. „Max K.".</div>
     <div class="form-field"><label>Alter (optional)</label>
       <input id="tfAlter" type="number" min="0" max="99" value="${t&&t.alter?esc(String(t.alter)):''}"></div>
     <div class="form-field"><label>Zimmer (optional)</label>
@@ -3885,6 +4057,22 @@ const CI_DOCS = [
 ];
 let ciFilter = 'alle';               // 'alle' | 'offen' | 'da' — Nachbesserung spec/27
 const ciExpanded = new Set();          // welche TN-Karten aktuell aufgeklappt sind (überlebt Neu-Render)
+
+/* ---- spec/41: rein lokaler Check-In-Zähler dieses Geräts ----
+   Bewusst AUSSERHALB von d/getData()/saveData(): landet dadurch automatisch nie in einem Export,
+   wird nie gemergt und vom TN-Merge nie überschrieben — überlebt aber Voll-Import und Merge, weil
+   der Key separat steht. Inhalt: Array von TN-IDs, die auf DIESEM Gerät auf "anwesend" gesetzt wurden. */
+const CI_LOKAL_KEY = LS_PREFIX + 'ci_lokal';
+function ciLokalGet(){
+  try{
+    const raw = JSON.parse(localStorage.getItem(CI_LOKAL_KEY) || '[]');
+    return Array.isArray(raw) ? raw : [];
+  }catch(e){ return []; } // kaputtes JSON → leere Liste statt Absturz
+}
+function ciLokalSet(arr){ localStorage.setItem(CI_LOKAL_KEY, JSON.stringify(arr)); }
+function ciLokalAdd(id){ const arr = ciLokalGet(); if(!arr.includes(id)){ arr.push(id); ciLokalSet(arr); } }
+function ciLokalRemove(id){ const arr = ciLokalGet(); const i = arr.indexOf(id); if(i>-1){ arr.splice(i,1); ciLokalSet(arr); } }
+
 function ciField(t){ return (t.checkin && typeof t.checkin==='object') ? t.checkin : (t.checkin = normalizeCheckin(null)); }
 function ciCurrentQuery(){ const i=document.getElementById('ciSearch'); return i?i.value:''; }
 function renderCheckinView(){
@@ -3909,6 +4097,69 @@ function renderCiChrome(d){
   const fehltN = d.tn.filter(t=>ciAnyFehlt(ciField(t))).length;
   const fe = document.getElementById('ciFehlt');
   if(fe) fe.textContent = fehltN ? ('⚠ '+fehltN+' TN mit fehlendem Dokument') : '';
+  renderCiLokalBox(d);
+}
+
+// spec/41: Kasten "Von diesem Gerät eingecheckt" — zählt ausschließlich TN, deren ID in der lokalen
+// Liste steht (Anker ist "anwesend", nicht das Antippen der Fahrkarte — siehe ciSetPresent).
+function renderCiLokalBox(d){
+  const box = document.getElementById('ciLokalBox'); if(!box) return;
+  const validIds = new Set(d.tn.map(t=>t.id));
+  let ids = ciLokalGet();
+  const cleaned = ids.filter(id=>validIds.has(id)); // gelöschte TN keine Karteileichen lassen
+  if(cleaned.length !== ids.length){ ciLokalSet(cleaned); ids = cleaned; }
+  const list = ids.map(id=>d.tn.find(t=>t.id===id)).filter(Boolean);
+  const resetBtn = `<button type="button" class="staff-cancel" style="width:100%;margin-top:10px" onclick="ciLokalResetConfirm()">Zähler zurücksetzen</button>`;
+
+  if(!list.length){
+    box.innerHTML = `<div class="settings-block ci-lokal-box">
+      <div class="ci-lokal-empty">Noch niemand auf diesem Gerät eingecheckt.</div>
+      ${resetBtn}
+    </div>`;
+    return;
+  }
+
+  const da = list.filter(t=>t.ticket==='da');
+  const fehlt = list.filter(t=>t.ticket==='fehlt');
+  const ungeprueft = list.filter(t=>t.ticket!=='da' && t.ticket!=='fehlt');
+  const namen = arr => arr.slice().sort((a,b)=>(a.name||'').localeCompare(b.name||'','de')).map(t=>esc(t.name||'')).join(', ');
+  const fehltDet = fehlt.length ? `<details class="det" style="margin-top:8px"><summary>▸ ${fehlt.length} ohne Fahrkarte anzeigen</summary><div class="body">${namen(fehlt)}</div></details>` : '';
+  const ungeprueftDet = ungeprueft.length ? `<details class="det" style="margin-top:8px"><summary>▸ ${ungeprueft.length} noch nicht geprüft anzeigen</summary><div class="body">${namen(ungeprueft)}</div></details>` : '';
+
+  // spec/41 §3a: Sicherheitsnetz — Fahrkarten-/Dokumenteintrag auf diesem Gerät, aber "anwesend" nie
+  // gesetzt (oder ein Fehlgriff wieder zurückgenommen). Weiche Prüfbitte, keine Fehlermeldung — nach
+  // einem Merge können solche Einträge auch vom anderen Gerät stammen.
+  const warnCount = d.tn.filter(t=>{
+    if(ids.includes(t.id)) return false;
+    const c = ciField(t);
+    if(c.anwesend) return false;
+    const hatEintrag = t.ticket !== '' || ['versicherung','kinderausweis','impfausweis','medikamente','unterlagen'].some(k=>c[k]!=='');
+    return hatEintrag;
+  }).length;
+  const warnRow = warnCount ? `<div class="ci-fehlt" style="margin-top:8px">⚠ ${warnCount} TN mit Fahrkarten-/Dokument-Eintrag, aber ohne „anwesend" — bitte prüfen</div>` : '';
+
+  box.innerHTML = `<div class="settings-block ci-lokal-box">
+    <div class="ci-lokal-head">📱 Von diesem Gerät eingecheckt</div>
+    <div class="ci-lokal-count">${list.length} Person${list.length===1?'':'en'}</div>
+    <div class="ci-lokal-tickets">🎫 Fahrkarte: ${da.length} da · ${fehlt.length} fehlt · ${ungeprueft.length} nicht geprüft</div>
+    ${fehltDet}${ungeprueftDet}
+    ${warnRow}
+    <div class="settings-hint" style="text-align:left;margin-top:10px">Gilt nur für dieses Gerät. Für die Gesamtzahl die Zahlen beider Check-In-Handys addieren — Zusammenführen ist dafür nicht nötig.</div>
+    ${resetBtn}
+  </div>`;
+}
+function ciLokalResetConfirm(){
+  openSheet('Zähler zurücksetzen', `<div class="confirm-box">
+    <p>Setzt nur die Zählung auf diesem Gerät zurück. Check-In-Status, Fahrkarten und alle TN-Daten bleiben unverändert.</p>
+    <div class="confirm-actions">
+      <button type="button" class="staff-cancel" onclick="closeSheet()">Abbrechen</button>
+      <button type="button" class="staff-danger" onclick="ciLokalResetDo()">Zurücksetzen</button>
+    </div></div>`);
+}
+function ciLokalResetDo(){
+  ciLokalSet([]);
+  closeSheet();
+  renderCiChrome(getData());
 }
 function ciSetFilter(f){ ciFilter = f; renderCheckinList(ciCurrentQuery()); }
 function renderCheckinList(q){
@@ -3997,6 +4248,9 @@ function ciSetPresent(id, on){
   const c = ciField(t);
   c.anwesend = !!on; c.ts.anwesend = Date.now();
   saveData(d);
+  // spec/41: lokaler Geräte-Zähler folgt ausschließlich "anwesend" — nicht ciSetField/ciSetTicket,
+  // sonst würde ein doppelt angetippter Fahrkarten-Button auf zwei Geräten doppelt zählen.
+  if(on) ciLokalAdd(id); else ciLokalRemove(id);
   ciRefreshCard(id);
 }
 function ciSetTicket(id, present){
@@ -4197,31 +4451,42 @@ function buildAlleGruppenShareText(){
   if(!d.gruppen.length) return '';
   return d.gruppen.map(buildGruppeShareText).join('\n');
 }
-let _gruppeShareState = { text:'', titel:'' };
-function openGruppeShareSheet(text, titel){
-  _gruppeShareState = { text, titel };
+// spec/43 §1: verallgemeinerter Teilen-Baustein (vorher nur für Gruppen) — jetzt von allen vier
+// Bereichen (Gruppen, Wochenplan, Zimmer, Notizen) genutzt. Reines Text-Teilen, kein Datei-Export.
+let _shareState = { text:'', titel:'' };
+function openShareSheet(text, titel, extraHintHTML){
+  _shareState = { text, titel };
   const shareBtn = (typeof navigator!=='undefined' && navigator.share)
-    ? `<button type="button" class="form-save" onclick="shareGruppeText()">📤 Teilen</button>` : '';
-  openSheet(titel, `<div class="form-field">
+    ? `<button type="button" class="form-save" onclick="shareSheetText()">📤 Teilen</button>` : '';
+  // spec/43 §1a: Sicherheitshinweis als ERSTES Element im Sheet-Body, über der Textarea — muss
+  // gelesen werden, bevor der Blick auf den Text fällt. Immer sichtbar, alle vier Bereiche, ohne
+  // Ausnahme (auch der Wochenplan enthält regelmäßig Teamer-Namen).
+  // spec/43 §3c: optionale graue Hinweiszeile UNTER der Textarea (z. B. der Zimmer-Merge-Hinweis) —
+  // bewusst getrennt vom eigentlichen `text`, landet also nie mit im kopierten/geteilten Inhalt.
+  openSheet(titel, `<div class="share-warn">⚠️ Enthält Namen — bitte nicht in private oder gemischte
+      WhatsApp-Gruppen posten. Nur an einzelne Teamer bzw. über dienstliche Kanäle weitergeben.
+      Nach der Freizeit löschen.</div>
+    <div class="form-field">
       <textarea readonly rows="10" style="min-height:180px">${esc(text)}</textarea>
     </div>
     <div class="form-actions">
-      <button type="button" class="staff-cancel" id="gruppeShareCopyBtn" onclick="copyGruppeShareText()">📋 Kopieren</button>
+      <button type="button" class="staff-cancel" id="shareCopyBtn" onclick="copyShareSheetText()">📋 Kopieren</button>
       ${shareBtn}
-    </div>`);
+    </div>
+    ${extraHintHTML ? `<div class="settings-hint" style="text-align:left;margin-top:12px">${extraHintHTML}</div>` : ''}`);
 }
-async function copyGruppeShareText(){
-  const btn = document.getElementById('gruppeShareCopyBtn');
+async function copyShareSheetText(){
+  const btn = document.getElementById('shareCopyBtn');
   try{
-    await navigator.clipboard.writeText(_gruppeShareState.text);
+    await navigator.clipboard.writeText(_shareState.text);
     if(btn){ const old = btn.textContent; btn.textContent = 'Kopiert ✓'; setTimeout(()=>{ btn.textContent = old; }, 1500); }
   }catch(e){
     alert('Kopieren nicht möglich: ' + e.message);
   }
 }
-async function shareGruppeText(){
+async function shareSheetText(){
   try{
-    await navigator.share({ text: _gruppeShareState.text, title: _gruppeShareState.titel });
+    await navigator.share({ text: _shareState.text, title: _shareState.titel });
   }catch(e){
     if(e && e.name === 'AbortError') return; // Nutzer hat den System-Dialog abgebrochen, kein Fehler
     alert('Teilen fehlgeschlagen: ' + e.message);
@@ -4230,12 +4495,12 @@ async function shareGruppeText(){
 function shareGruppe(gruppeId){
   const d = getData();
   const g = d.gruppen.find(x=>x.id===gruppeId); if(!g) return;
-  openGruppeShareSheet(buildGruppeShareText(g), g.titel);
+  openShareSheet(buildGruppeShareText(g), g.titel);
 }
 function shareAlleGruppen(){
   const d = getData();
   if(!d.gruppen.length){ alert('Noch keine Gruppen zum Teilen.'); return; }
-  openGruppeShareSheet(buildAlleGruppenShareText(), 'Alle Gruppen');
+  openShareSheet(buildAlleGruppenShareText(), 'Alle Gruppen');
 }
 /* ---- Teamer-Zuweisung (Mehrfachauswahl, Wiederverwendung von staffPicker() wie bei Zuständigkeiten) ---- */
 function openGruppeTeamerPicker(gruppeId){
@@ -5153,7 +5418,8 @@ const DASH_TILES = [
   {id:'tn', icon:'⚠️', title:'TN-Infos', color:'#FFB23E', hash:'tn', sub:'Gesundheit, Sicherheit & Gruppen'},
   {id:'ma', icon:'🧡', title:'MA-Infos', color:'#F97316', hash:'ma', sub:'Badeaufsicht & Handyregeln'},
   {id:'notizen', icon:'📝', title:'Notizen', color:'#34d399', hash:'notizen', sub:'Privat, nur dieses Gerät'},
-  {id:'team', icon:'🤝', title:'Team', color:'#6366F1', hash:'team', sub:'Unsere Werte'}
+  {id:'team', icon:'🤝', title:'Team', color:'#6366F1', hash:'team', sub:'Unsere Werte'},
+  {id:'spielregeln', icon:'📖', title:'So läuft\'s', color:'#64748B', hash:'spielregeln', sub:'Regeln, Ablauf, Datenschutz'}
 ];
 /* spec/26 Punkt 2: obige `color`-Werte sind das kuratierte "Bunt"-Set (Standard, dublettenfrei —
    vorher hatten Zimmer/Zuständigkeiten sowie Gruppen/TN-Infos/Team dieselbe Farbe). Für die
@@ -5935,6 +6201,8 @@ function raeumeZustRowsHTML(){
         <span class="etage-summary-label">🏠 ${esc(etage)}</span>
         <span class="etage-summary-count">${rooms.length} Zimmer · 🛏️ ${etageFrei} frei</span>
         <span class="etage-summary-actions">
+          <!-- spec/43 §3b: 📤 je Etagen-Akkordeon, preventDefault+stopPropagation wie beim Gruppen-Teilen (spec/34) — sonst klappt das Akkordeon zusätzlich auf/zu. -->
+          <button type="button" class="team-icon-btn sm" onclick="event.preventDefault();event.stopPropagation();shareEtage(${ordIdx})" aria-label="Etage teilen">📤</button>
           <button type="button" class="team-icon-btn sm" onclick="event.preventDefault();event.stopPropagation();etageColorPick(${ordIdx})" aria-label="Etage einfärben">🎨</button>
           <button type="button" class="team-icon-btn sm" onclick="event.preventDefault();event.stopPropagation();etageMove(${ordIdx},-1)" aria-label="Nach oben">↑</button>
           <button type="button" class="team-icon-btn sm" onclick="event.preventDefault();event.stopPropagation();etageMove(${ordIdx},1)" aria-label="Nach unten">↓</button>
@@ -5963,6 +6231,54 @@ function raeumeZustRowsHTML(){
   html += etagenDatalistHTML('etagenRoomDL');
   return html;
 }
+/* ---- spec/43 §3: Zimmerübersicht teilen — bewusst minimal, KEINE Besonderheiten/Flags,
+   Medikamente, Allergien, Essenswahl, Schwimm-/Badeangaben, Zimmer-Notizen, Alter oder Geschlecht. ---- */
+function buildEtageShareText(etage){
+  const d = getData();
+  const raeume = d.meta.raeume || [];
+  const rooms = etage===null
+    ? raeume.filter(r => !d.meta.etagen[r])
+    : raeume.filter(r => d.meta.etagen[r] === etage);
+  const head = `🏠 ${etage===null ? 'Ohne Etage' : etage}`;
+  if(!rooms.length) return head + '\n\n(keine Zimmer)';
+  const blocks = rooms.map(raum=>{
+    const betten = raumBetten(raum), belegt = raumBelegt(raum);
+    let b = `🛏️ ${raum} (${belegt}/${betten})`;
+    const teamerIds = d.zust[roomZustKey(raum)] || [];
+    const teamerNames = teamerIds.map(id=>d.staff.find(s=>s.id===id)).filter(Boolean).map(s=>s.name);
+    if(teamerNames.length) b += `\nTeamer: ${teamerNames.join(', ')}`;
+    const tnHier = d.tn.filter(t=>t.zimmer===raum).sort((a,b2)=>a.name.localeCompare(b2.name,'de'));
+    const maHier = d.staff.filter(s=>s.zimmer===raum).sort((a,b2)=>a.name.localeCompare(b2.name,'de'));
+    if(!tnHier.length && !maHier.length){
+      b += '\n  • (frei)';
+    } else {
+      b += tnHier.map(t=>`\n  • ${t.name}`).join('');
+      b += maHier.map(s=>`\n  • 🧑‍🏫 ${s.name}`).join('');
+    }
+    return b;
+  });
+  return head + '\n\n' + blocks.join('\n\n');
+}
+function buildAlleEtagenShareText(){
+  const d = getData();
+  const blocks = (d.meta.etagenOrder||[]).map(e=>buildEtageShareText(e));
+  const ohneHatZimmer = (d.meta.raeume||[]).some(r=>!d.meta.etagen[r]);
+  if(ohneHatZimmer) blocks.push(buildEtageShareText(null));
+  return blocks.join('\n\n');
+}
+// spec/43 §3c: kein Re-Import für Zimmer — stattdessen Verweis auf 🔀 Zusammenführen (spec/44).
+const ZIMMER_SHARE_HINWEIS = 'ℹ️ Dieser Text ist zum Lesen. Damit alle Geräte dieselbe Zimmereinteilung bekommen, trägt sie <b>eine</b> Person ein, exportiert, und die anderen lesen die Datei über <b>🔀 TN-Daten zusammenführen</b> ein — dabei bleibt der Check-In-Stand jedes Geräts erhalten.';
+function shareEtage(ordIdx){
+  const d = getData();
+  const etage = d.meta.etagenOrder[ordIdx]; if(etage===undefined) return;
+  openShareSheet(buildEtageShareText(etage), '🛏️ ' + etage, ZIMMER_SHARE_HINWEIS);
+}
+function shareAlleEtagen(){
+  const d = getData();
+  if(!(d.meta.raeume||[]).length){ alert('Noch keine Zimmer zum Teilen.'); return; }
+  openShareSheet(buildAlleEtagenShareText(), 'Alle Etagen', ZIMMER_SHARE_HINWEIS);
+}
+
 function renderRaeumeZustList(){
   const el = document.getElementById('raeumeZustList');
   if(!el) return;
@@ -6252,7 +6568,11 @@ function openRole(id){
     </details>`;
     h+=`<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-top:18px">
       <div class="sec-h" style="margin:0">Zimmer-Übersicht</div>
-      <button type="button" class="ma-quali-toggle active" id="zimmerStatiToggleBtn" onclick="toggleZimmerStati()">🚫 Stati ausblenden</button>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <!-- spec/43 §3b: neben dem bestehenden Stati-Toggle. -->
+        <button type="button" class="ma-quali-toggle" onclick="shareAlleEtagen()">📤 Alle Etagen teilen</button>
+        <button type="button" class="ma-quali-toggle active" id="zimmerStatiToggleBtn" onclick="toggleZimmerStati()">🚫 Stati ausblenden</button>
+      </div>
     </div>`;
     h+=`<div class="searchbar" style="margin:10px 0"><input id="zimmerPersonSearch" type="search" placeholder="🔍 Person in allen Zimmern suchen …" autocomplete="off" oninput="onZimmerPersonSearch(this.value)"></div>`;
     h+=`<div id="raeumeZustList">${raeumeZustRowsHTML()}</div>`;
@@ -6358,7 +6678,10 @@ function renderNotizenDays(){
   const container = document.getElementById('notizenDays');
   container.innerHTML = DAYS.map(d=>`
     <details class="det">
-      <summary>${d.label}</summary>
+      <summary>${d.label}
+        <!-- spec/43 §4: 📤 je Tag, gleiches preventDefault/stopPropagation-Muster wie beim Gruppen-/Etagen-Teilen. -->
+        <button type="button" class="team-icon-btn sm" style="margin-left:auto" onclick="event.preventDefault();event.stopPropagation();shareNotizTag('${d.key}')" aria-label="Notiz teilen">📤</button>
+      </summary>
       <div class="body">
         <div class="notes" style="margin-top:0">
           <textarea data-day="${d.key}" class="notizenDayArea" placeholder="Notizen für ${d.label} …">${esc(data[d.key]||"")}</textarea>
@@ -6372,6 +6695,27 @@ function renderNotizenDays(){
       saveNotizenData(cur);
     });
   });
+}
+/* ---- spec/43 §4: Notizen teilen ---- */
+function buildNotizTagShareText(dayKey){
+  const data = getNotizenData();
+  if(dayKey === 'allgemein') return `📌 Allgemein\n${data.allgemein||''}`;
+  const day = DAYS.find(x=>x.key===dayKey);
+  return `${day?day.label:dayKey}\n${data[dayKey]||''}`;
+}
+function buildNotizenShareText(){
+  const data = getNotizenData();
+  const blocks = [];
+  if((data.allgemein||'').trim()) blocks.push(`📌 Allgemein\n${data.allgemein}`);
+  DAYS.forEach(day=>{ if((data[day.key]||'').trim()) blocks.push(`${day.label}\n${data[day.key]}`); });
+  return '📝 Notizen\n\n' + blocks.join('\n\n');
+}
+function shareNotizenAlle(){
+  openShareSheet(buildNotizenShareText(), 'Notizen');
+}
+function shareNotizTag(dayKey){
+  const titel = dayKey==='allgemein' ? 'Notiz – Allgemein' : ('Notiz – ' + ((DAYS.find(x=>x.key===dayKey)||{}).label||dayKey));
+  openShareSheet(buildNotizTagShareText(dayKey), titel);
 }
 
 function loadNotizen(){
@@ -6480,6 +6824,63 @@ function bindWpDayNote(){
     saveNotizenData(cur);
     tag.classList.add('show'); clearTimeout(t); t = setTimeout(()=>tag.classList.remove('show'),1200);
   });
+}
+
+/* ---- spec/43 §2: Wochenplan teilen (reiner Text, siehe §1 des Specs für den generischen Baustein) ---- */
+function htmlToShareText(html){
+  if(!html) return '';
+  let h = html
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/div>/gi, '\n')
+    .replace(/<\/p>/gi, '\n')
+    .replace(/<\/li>/gi, '\n')
+    .replace(/<li(\s[^>]*)?>/gi, '• ')
+    .replace(/<(b|strong)(\s[^>]*)?>/gi, '*')
+    .replace(/<\/(b|strong)>/gi, '*')
+    .replace(/<[^>]+>/g, ''); // übrige Tags entfernen
+  // HTML-Entities dekodieren: temporäres, NICHT ins DOM gehängtes Element, nur textContent lesen
+  // (kein innerHTML auf Fremdinhalt in einem sichtbaren Knoten).
+  const tmp = document.createElement('div');
+  tmp.innerHTML = h;
+  h = tmp.textContent || '';
+  return h.replace(/\n{3,}/g, '\n\n').trim();
+}
+function buildWochenplanTagShareText(tagKey){
+  const d = getData();
+  const day = DAYS.find(x=>x.key===tagKey);
+  const data = d.wochenplan[tagKey] || {};
+  let head = `📅 ${day?day.label:tagKey}`;
+  if(data.datum) head += ` · ${data.datum}`;
+  const body = htmlToShareText(data.html||'') || '(noch kein Plan hinterlegt)';
+  let out = head + '\n' + body;
+  const n = (data.imgIds||[]).length;
+  if(n>0) out += `\n\n(+ ${n} Foto${n===1?'':'s'} — nicht im Text enthalten)`;
+  return out;
+}
+function buildWochenplanWocheShareText(){
+  const d = getData();
+  const blocks = [];
+  const kopf = [d.meta.appTitel, d.meta.zeitraum].filter(Boolean).join(' · ');
+  if(kopf) blocks.push(kopf);
+  DAYS.forEach(day=>{
+    const data = d.wochenplan[day.key] || {};
+    const body = htmlToShareText(data.html||'');
+    if(!body) return; // Tage ohne Inhalt werden übersprungen, nicht als Leerblock ausgegeben
+    let head = `📅 ${day.label}`;
+    if(data.datum) head += ` · ${data.datum}`;
+    let block = head + '\n' + body;
+    const n = (data.imgIds||[]).length;
+    if(n>0) block += `\n\n(+ ${n} Foto${n===1?'':'s'} — nicht im Text enthalten)`;
+    blocks.push(block);
+  });
+  return blocks.join('\n\n');
+}
+function shareWochenplanTag(){
+  const day = DAYS.find(x=>x.key===wpCurrentDay);
+  openShareSheet(buildWochenplanTagShareText(wpCurrentDay), 'Wochenplan ' + (day?day.label:wpCurrentDay));
+}
+function shareWochenplanWoche(){
+  openShareSheet(buildWochenplanWocheShareText(), 'Wochenplan – ganze Woche');
 }
 
 function renderWpDayChips(){
@@ -7035,6 +7436,9 @@ function handleImportFile(ev){
 function processImportText(text){
   let env;
   try{ env = JSON.parse(text); }catch(e){ alert('Ungültige Datei: kein gültiges JSON.'); return; }
+  // spec/42: eigener Marker der Grundgerüst-Datei — klare Meldung statt der generischen, damit man
+  // nicht rätseln muss, welche der beiden Dateien man gerade in der falschen Maske eingelesen hat.
+  if(env && env.fzappGrundgeruest === true){ alert('Das ist eine Grundgerüst-Datei. Bitte über 🧰 Grundgerüst importieren einlesen.'); return; }
   if(!env || env.fzappExport !== true){ alert('Das ist keine gültige Freizeit-App-Exportdatei.'); return; }
   if(env.encrypted){
     _pendingImportEnv = env;
@@ -7078,6 +7482,9 @@ function showImportPreview(dataObj){
     <p>⚠️ Ersetzt <b>alles</b>, auch deinen Wochenplan, deine Zimmer-Notizen und Einstellungen. Willst
     du nur Teilnehmerdaten vom Check-In übernehmen? Dann nimm <b>🔀 TN-Daten zusammenführen</b>
     (Check-In-Liste).</p>
+    <!-- spec/44 §2c: klarere Warnung direkt vor der Bestätigung, nicht nur weiter oben im Fließtext. -->
+    <p>⚠️ <b>Import ersetzt alles.</b> Wenn du nur TN-Daten oder Zimmer von jemand anderem übernehmen
+    willst, nutze stattdessen <b>🔀 TN-Daten zusammenführen</b> in der Check-In-Liste.</p>
     <div class="confirm-actions">
       <button type="button" class="staff-cancel" onclick="closeSheet()">Abbrechen</button>
       <button type="button" class="staff-danger" id="impGoBtn" onclick="doImportConfirm()">Import bestätigen</button>
@@ -7099,6 +7506,90 @@ async function doImportConfirm(){
   _pendingImportData = null;
   _pendingImportEnv = null;
   _pendingImportImages = null;
+  closeSheet();
+  location.reload();
+}
+
+/* ============ Grundgerüst-Export/Import (spec/42) ============
+   Kleiner, unverschlüsselter Export der jahresunabhängigen Struktur (Team-Werte + GRUNDGERUEST_META_KEYS),
+   null personenbezogene Daten — darf im Gegensatz zum Voll-Export dauerhaft aufgehoben werden. Eigener
+   Marker fzappGrundgeruest statt fzappExport, damit beide Import-Wege den jeweils anderen mit einer
+   spezifischen statt der generischen Fehlermeldung ablehnen. Schreibt whitelist-weise (ersetzt, mergt
+   nicht) — sonst entsteht ein schwer erklärbarer Mischzustand aus altem und neuem Grundgerüst. */
+let _pendingGrundgeruest = null;
+
+function buildGrundgeruest(){
+  const d = getData();
+  const meta = {};
+  GRUNDGERUEST_META_KEYS.forEach(k=>{ meta[k] = d.meta[k]; });
+  return { team: JSON.parse(JSON.stringify(d.team)), meta: JSON.parse(JSON.stringify(meta)) };
+}
+function doGrundgeruestExport(){
+  const env = { fzappGrundgeruest:true, version:1, exportiert: new Date().toISOString(), data: buildGrundgeruest() };
+  downloadFile('freizeit-app-grundgeruest.json', JSON.stringify(env), 'application/json');
+}
+function handleGrundgeruestFile(ev){
+  const file = ev.target.files && ev.target.files[0];
+  ev.target.value = '';
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = ()=> processGrundgeruestText(String(reader.result));
+  reader.onerror = ()=> alert('Datei konnte nicht gelesen werden.');
+  reader.readAsText(file);
+}
+function processGrundgeruestText(text){
+  let env;
+  try{ env = JSON.parse(text); }catch(e){ alert('Ungültige Datei: kein gültiges JSON.'); return; }
+  if(env && env.fzappExport === true){ alert('Das ist ein kompletter Datenexport. Bitte über 📥 Import einlesen.'); return; }
+  if(!env || env.fzappGrundgeruest !== true || !env.data){ alert('Das ist keine gültige Grundgerüst-Datei.'); return; }
+  previewGrundgeruestImport(env.data);
+}
+// spec/42 §4a: Vorschau vor dem Import, keine blinde Übernahme — zeigt was ankommt und was ersetzt wird.
+function previewGrundgeruestImport(inc){
+  _pendingGrundgeruest = inc;
+  const d = getData();
+  const teamCount = Array.isArray(inc.team) ? inc.team.length : 0;
+  const incMeta = inc.meta || {};
+  const zimmerCount = Array.isArray(incMeta.raeume) ? incMeta.raeume.length : 0;
+  const etagenCount = Array.isArray(incMeta.etagenOrder) ? incMeta.etagenOrder.length : 0;
+  let zustCount = 0;
+  if(incMeta.roleBlockOverrides && typeof incMeta.roleBlockOverrides === 'object'){
+    Object.values(incMeta.roleBlockOverrides).forEach(ov=>{ zustCount += Object.keys(ov||{}).length; });
+  }
+  const tnCount = d.tn.length;
+  const zimmerWarnung = tnCount > 0 ? `
+    <p class="settings-hint" style="text-align:left">⚠️ Es sind bereits ${tnCount} Teilnehmende angelegt.
+    Ändert sich die Zimmerliste, können deren Zimmer-Zuordnungen ins Leere zeigen. Grundgerüst am
+    besten <b>vor</b> dem TN-Import einlesen.</p>` : '';
+  openSheet('Grundgerüst importieren', `<div class="confirm-box">
+    <p><b>Enthalten:</b><br>
+    ${teamCount} Team-Blöcke (ersetzt eure aktuellen ${d.team.length})<br>
+    ${zimmerCount} Zimmer auf ${etagenCount} Etagen (ersetzt eure aktuellen ${(d.meta.raeume||[]).length} auf ${(d.meta.etagenOrder||[]).length})<br>
+    ${zustCount} angepasste Zuständigkeits-Texte<br>
+    App-Aussehen (Titel, Icon, Farben)</p>
+    <p>Nicht betroffen: alle Teilnehmenden, Mitarbeitenden, Medikamente, Gruppen, Wochenplan,
+    Notfall-Kontakte, private Notizen.</p>
+    ${zimmerWarnung}
+    <div class="confirm-actions">
+      <button type="button" class="staff-cancel" onclick="closeSheet()">Abbrechen</button>
+      <button type="button" class="staff-danger" onclick="doGrundgeruestImport()">Grundgerüst übernehmen</button>
+    </div></div>`);
+}
+// spec/42 §4b: whitelist-weise ersetzen, nicht mergen. Fehlt ein Schlüssel in der Datei (ältere
+// Version), bleibt der lokale Wert stehen — nie mit undefined überschreiben.
+function doGrundgeruestImport(){
+  if(!_pendingGrundgeruest) return;
+  const d = getData();
+  saveUndoSlot('grundgeruest'); // spec/42: derselbe Ein-Slot-Undo wie beim Voll-Import/Merge (spec/37 §5).
+  const inc = _pendingGrundgeruest;
+  if(Array.isArray(inc.team) && inc.team.length){
+    d.team = JSON.parse(JSON.stringify(inc.team));
+  }
+  GRUNDGERUEST_META_KEYS.forEach(k=>{
+    if(inc.meta && inc.meta[k] !== undefined) d.meta[k] = JSON.parse(JSON.stringify(inc.meta[k]));
+  });
+  saveData(d);
+  _pendingGrundgeruest = null;
   closeSheet();
   location.reload();
 }
@@ -7253,6 +7744,12 @@ function previewCheckinMerge(dataObj){
     <p>Überträgt Check-In-Status <b>und</b> Teilnehmerdaten (Notizen, Medikamente, Besonderheiten,
     Fahrkarte). Wochenplan, Zimmer, Gruppen, Einstellungen und MA-Daten bleiben unangetastet.
     Während der Check-In-Phase bitte nichts löschen (Löschungen wandern nicht mit).</p>
+    <!-- spec/44 §3: ehrliche Ansage — Notiz und Besonderheiten werden bei einem Konflikt ersetzt,
+         nicht zusammengeführt. Steht bisher nirgends, obwohl es die einzige Stelle ist, an der der
+         Merge fremde Arbeit ersetzen statt ergänzen kann. -->
+    <p class="settings-hint" style="text-align:left">⚠️ Notiz und Besonderheiten werden <b>ersetzt,
+    nicht ergänzt</b> — es gilt der zuletzt geänderte Stand. Wenn zwei Geräte beim selben Kind
+    unterschiedliche Notizen geschrieben haben, bleibt nur eine übrig.</p>
     <div class="confirm-actions">
       <button type="button" class="staff-cancel" onclick="closeSheet()">Abbrechen</button>
       <button type="button" class="form-save" onclick="doCheckinMerge()">Zusammenführen</button>
@@ -7279,6 +7776,9 @@ function confirmResetAll(){
   openSheet('Gesamten App-Inhalt zurücksetzen', `<div class="confirm-box">
     <p>Wirklich <b>alle Daten</b> löschen (Mitarbeitende, TN-Infos, Medikamenten-Plan, Zuständigkeiten, Wochenplan,
     Team-Notizen)? Tipp: vorher exportieren! Diese Aktion kann nicht rückgängig gemacht werden.</p>
+    <p class="settings-hint" style="text-align:left">💡 Tipp: Vorher <b>🧰 Grundgerüst exportieren</b> —
+    dann sind Team-Werte, Zuständigkeits-Texte und die Zimmerstruktur nach dem Zurücksetzen in
+    10 Sekunden wieder da.</p>
     <div class="confirm-actions">
       <button type="button" class="staff-cancel" onclick="closeSheet()">Abbrechen</button>
       <button type="button" class="staff-danger" onclick="confirmResetAllStep2()">Weiter</button>
@@ -7297,6 +7797,8 @@ async function confirmResetAllDo(){
   // spec/37 §5c: Undo-Slot mit zurücksetzen — sonst ließe sich ein bewusst gelöschter Bestand
   // über "Import rückgängig machen" wiederherstellen.
   localStorage.removeItem(UNDO_KEY);
+  // spec/41: lokaler Check-In-Zähler mit zurücksetzen — sonst zeigt eine frisch zurückgesetzte App Geisterzahlen.
+  localStorage.removeItem(CI_LOKAL_KEY);
   try{ await imgClearAll(); }catch(e){ /* IndexedDB-Fehler beim Reset ignorieren, Datenreset hat trotzdem geklappt */ }
   closeSheet();
   location.reload();
@@ -7308,7 +7810,7 @@ async function confirmResetAllDo(){
    Passwort nötig (nichts verlässt das Gerät). Bilder liegen in IndexedDB und werden NICHT
    mitgesichert (§5d) — der Hinweistext benennt das ehrlich. */
 const UNDO_KEY = LS_PREFIX + 'undo';
-function saveUndoSlot(grund){ // grund: 'import' | 'merge'
+function saveUndoSlot(grund){ // grund: 'import' | 'merge' | 'grundgeruest' (spec/42)
   try{
     localStorage.setItem(UNDO_KEY, JSON.stringify({ ts: Date.now(), grund, data: getData() }));
   }catch(e){ /* Quota o. ä. — Import/Merge trotzdem zulassen, Undo ist Komfort, keine Bedingung */ }
@@ -7320,7 +7822,7 @@ function renderUndoBlock(){
   if(!raw){ el.innerHTML = ''; return; }
   let slot; try{ slot = JSON.parse(raw); }catch(e){ el.innerHTML = ''; return; }
   const datum = new Date(slot.ts).toLocaleString('de-DE', {day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
-  const anlass = slot.grund==='merge' ? 'vor dem Zusammenführen' : 'vor dem Import';
+  const anlass = slot.grund==='merge' ? 'vor dem Zusammenführen' : slot.grund==='grundgeruest' ? 'vor dem Grundgerüst-Import' : 'vor dem Import';
   el.innerHTML = `<div class="settings-block">
     <div>
       <label>↩️ Letztes Zusammenführen/Import rückgängig machen</label>
@@ -7416,6 +7918,51 @@ function updateGlobalBack(){
   btn.style.display = show ? 'flex' : 'none';
 }
 
+// spec/45: alle vier Akkordeons starten zu (Übersicht statt Textwand); ein optionaler Anker öffnet
+// gezielt genau eines, wenn man über einen ⓘ-Button aus einer anderen Ansicht hierher springt.
+const SR_ANCHOR_IDS = { vorher:'srAccVorher', knoepfe:'srAccKnoepfe', reise:'srAccReise', nachher:'srAccNachher' };
+// spec/45 §4 (nachgetragen mit spec/43): Abschnitt 2b + 2c als reiner Text.
+function buildSpielregelnShareText(){
+  return [
+`🔀 Die drei Knöpfe
+
+Die exportierte Datei ist immer dieselbe und enthält alles. Was davon beim Empfänger ankommt, entscheidet allein der Knopf, mit dem er sie einliest.
+
+📥 Import — Wo: Einstellungen · Nimmt: die volle Exportdatei · Macht: ersetzt alles · Wann: nur einmal ganz am Anfang
+🔀 Zusammenführen — Wo: Check-In-Liste · Nimmt: dieselbe volle Exportdatei · Macht: gleicht nur Teilnehmerfelder ab, Feld für Feld, neuerer Zeitstempel gewinnt · Fasst nicht an: Wochenplan, Zimmerliste, Etagen, Gruppen, Team-Seite, Einstellungen, Mitarbeitenden-Daten, private Notizen · Wann: immer danach
+📤 Teilen (Text) — Wo: Gruppen · Zimmer · Wochenplan · Notizen · Macht: erzeugt nur Text zum Lesen · Wann: jederzeit
+
+Warum das auch für Zimmer gilt: Wer in welchem Zimmer schläft, ist ein Feld am Teilnehmer — genau wie Name, Alter oder Fahrkarte. Zimmer ändern heißt also Teilnehmerdaten ändern, und deshalb transportiert 🔀 Zusammenführen die neue Zimmereinteilung mit. Getrennt davon gibt es die Zimmerliste (welche Zimmer und Etagen es überhaupt gibt) — die steht in den Einstellungen, wandert beim Zusammenführen nicht mit und wird während der Freizeit auch nicht mehr geändert.
+
+Import nur einmal ganz am Anfang. Danach immer Zusammenführen.`,
+`🚌 An- und Abreisetag
+
+Nur die beiden Check-In-Handys ändern Teilnehmerdaten. Alle anderen schauen nur. Wer parallel eine Notiz auf einem dritten Gerät ergänzt, riskiert, dass beim Zusammenführen eine der beiden Fassungen verschwindet — es gewinnt immer die zuletzt gespeicherte, es wird nichts aneinandergehängt.
+Ergänzungen am Kind selbst sind unproblematisch: Der vorhandene Text steht schon im Feld, man schreibt dahinter. Kritisch ist nur gleichzeitiges Bearbeiten auf zwei Geräten.
+Fahrkarten zählen: Jedes Check-In-Handy zeigt oben „Von diesem Gerät eingecheckt" mit eigener Fahrkarten-Zahl. Die beiden Zahlen addieren — kein Zusammenführen nötig.
+Zimmereinteilung führt genau eine Person. Wer unterwegs tauscht, meldet es dieser Person. Nicht mehrere parallel eintragen, sonst gewinnt zufällig der Letzte.
+Zusammengeführt wird einmal, am Abend. Alle exportieren, eine Person liest alle Dateien per 🔀 ein, exportiert den Gesamtstand zurück, alle lesen ihn per 🔀 ein. Tagsüber muss niemand etwas austauschen.`
+  ].join('\n\n');
+}
+function shareSpielregeln(){
+  _shareState = { text: buildSpielregelnShareText(), titel: 'Spielregeln' };
+  const shareBtn = (typeof navigator!=='undefined' && navigator.share)
+    ? `<button type="button" class="form-save" onclick="shareSheetText()">📤 Teilen</button>` : '';
+  // Bewusst OHNE .share-warn (Ausnahme laut spec/45 §4 — enthält keine Personendaten).
+  openSheet('Spielregeln', `<div class="settings-hint" style="text-align:left;margin-bottom:14px">Enthält keine Personendaten.</div>
+    <div class="form-field"><textarea readonly rows="10" style="min-height:180px">${esc(_shareState.text)}</textarea></div>
+    <div class="form-actions">
+      <button type="button" class="staff-cancel" id="shareCopyBtn" onclick="copyShareSheetText()">📋 Kopieren</button>
+      ${shareBtn}
+    </div>`);
+}
+
+function renderSpielregelnView(anchor){
+  Object.values(SR_ANCHOR_IDS).forEach(id=>{ const el=document.getElementById(id); if(el) el.open=false; });
+  const targetId = anchor && SR_ANCHOR_IDS[anchor];
+  if(targetId){ const el=document.getElementById(targetId); if(el){ el.open=true; el.scrollIntoView({block:'start'}); } }
+}
+
 function route(){
   wpFlushSave(); // beim Verlassen der Wochenplan-View ausstehende Textänderung sofort sichern
   const h=location.hash.replace('#','');
@@ -7431,6 +7978,9 @@ function route(){
   else if(h==='wochenplan'){ showView('wochenplan'); renderWochenplanView(); }
   else if(h==='notizen'){ showView('notizen'); loadNotizen(); }
   else if(h==='einstellungen'){ showView('einstellungen'); loadEinstellungen(); }
+  // spec/45: eigene Route + optionaler Anker ("spielregeln:knoepfe") für ⓘ-Deep-Links, die direkt
+  // das passende Akkordeon aufklappen sollen, statt die Seite von vorn lesen zu lassen.
+  else if(h==='spielregeln' || h.indexOf('spielregeln:')===0){ showView('spielregeln'); renderSpielregelnView(h.split(':')[1]||null); }
   else if(h==='zust'){ showView('zust'); goHome(); }
   else if(h==='zimmer'){ roleViaDashboard=true; roleBackHash=''; showView('zust'); openRole('zimmer'); } // spec/26 Punkt 1: Dashboard-Einstieg → Farb-Header + "Zurück" führt aufs Dashboard
   else if(ROLES.find(x=>x.id===h)){ showView('zust'); openRole(h); }
